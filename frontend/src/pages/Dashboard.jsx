@@ -7,12 +7,6 @@ import {
 
 const mesesLabel = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
-const chartDataDemo = mesesLabel.map((m, i) => ({
-  name: m,
-  receitas: [4200, 5500, 7000, 6000, 8000, 6500, 9000, 8500, 7800, 6800, 8800, 7850][i],
-  despesas: [3200, 4100, 4800, 4200, 5200, 4800, 5800, 5500, 5000, 4600, 5600, 4385][i],
-}))
-
 const mesesNomes = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
@@ -29,34 +23,16 @@ export default function Dashboard() {
     api.get('/resumo-mensal')
       .then(r => setData(r.data))
       .catch(() => setData({
-        receitas: 7850, despesas: 4385.40, saldo: 3464.60, meta_economia: 35,
-        categorias: [
-          { nome: 'Moradia', percentual: 32 },
-          { nome: 'Alimentação', percentual: 18 },
-          { nome: 'Transporte', percentual: 15 },
-          { nome: 'Lazer', percentual: 11 },
-          { nome: 'Saúde', percentual: 9 },
-        ],
-        contas_pagar: [
-          { descricao: 'Aluguel', valor: 1200 },
-          { descricao: 'Conta de Luz', valor: 250 },
-          { descricao: 'Internet', valor: 120 },
-          { descricao: 'Academia', valor: 89.90 },
-        ],
-        compras_cartao: [
-          { descricao: 'Supermercado', parcelas: '1x', valor: 350 },
-          { descricao: 'Notebook', parcelas: '10x', valor: 4500 },
-          { descricao: 'Viagem', parcelas: '12x', valor: 2200 },
-          { descricao: 'Celular', parcelas: '8x', valor: 3000 },
-        ],
-        metas: [
-          { titulo: 'Reserva de Emergência', progresso: 42 },
-          { titulo: 'Viagem Internacional', progresso: 39 },
-          { titulo: 'Entrada do Imóvel', progresso: 24 },
-        ],
+        receitas: 0, despesas: 0, saldo: 0, meta_economia: 0,
+        categorias: [],
+        contas_pagar: [],
+        compras_cartao: [],
+        metas: [],
       }))
       .finally(() => setLoading(false))
   }, [])
+
+  const chartData = (data?.historico || mesesLabel.map(m => ({ name: m, receitas: 0, despesas: 0 })))
 
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 
@@ -131,7 +107,7 @@ export default function Dashboard() {
           </div>
           <div className='h-80'>
             <ResponsiveContainer width='100%' height='100%'>
-              <BarChart data={chartDataDemo} barGap={4}>
+              <BarChart data={chartData} barGap={4}>
                 <CartesianGrid stroke='#1f2b42' vertical={false} />
                 <XAxis dataKey='name' stroke='#829ab1' />
                 <YAxis stroke='#829ab1' />
