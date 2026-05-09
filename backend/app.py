@@ -21,10 +21,8 @@ def get_db():
     if database_url:
         # Se houver DATABASE_URL, assume que é PostgreSQL
         import psycopg2
-        from psycopg2.extras import RealDictRow
-        conn = psycopg2.connect(database_url)
-        # Ajuste para PostgreSQL se comportar como SQLite Row
-        conn.cursor_factory = RealDictRow
+        from psycopg2.extras import RealDictCursor
+        conn = psycopg2.connect(database_url, cursor_factory=RealDictCursor)
         return conn
     else:
         # Caso contrário, usa SQLite local
