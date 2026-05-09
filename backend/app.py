@@ -68,6 +68,11 @@ def init_db():
     pk = "SERIAL PRIMARY KEY" if IS_POSTGRES else "INTEGER PRIMARY KEY AUTOINCREMENT"
     p = "%s" if IS_POSTGRES else "?"
 
+    # RESET TOTAL: Deletar tabelas antigas para criar a nova estrutura (Só rode isso uma vez se necessário)
+    # Para garantir que o banco do Render atualize, vamos dropar as tabelas principais
+    if IS_POSTGRES:
+        c.execute("DROP TABLE IF EXISTS planejamento, investimentos, metas, compras_cartao, cartoes, contas, receitas, categorias, users CASCADE")
+
     # Tabelas
     tables = [
         f"CREATE TABLE IF NOT EXISTS users (id {pk}, nome TEXT NOT NULL, email TEXT UNIQUE NOT NULL, senha TEXT NOT NULL, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
@@ -85,19 +90,15 @@ def init_db():
         c.execute(sql)
     conn.commit()
 
-    # Seed data (Usuário Demo)
+    # Seed data (Usuário Demo - opcional, vamos deixar apenas para teste se você quiser)
     c.execute("SELECT COUNT(*) FROM users")
     row = c.fetchone()
     count = row[0] if not IS_POSTGRES else list(row.values())[0]
     if count == 0:
         h = generate_password_hash('senha123')
-        c.execute(f"INSERT INTO users (id, nome, email, senha) VALUES (1, {p}, {p}, {p})", ('Usuário Demo', 'admin@financeiro.local', h))
-        
-        # Seed data inicial para o usuário 1
-        c.execute(f"INSERT INTO receitas (user_id, descricao, valor) VALUES (1, 'Salário', 7850)")
-        c.execute(f"INSERT INTO contas (user_id, descricao, valor, pago) VALUES (1, 'Aluguel', 1200, 1)")
+        c.execute(f"INSERT INTO users (nome, email, senha) VALUES ({p}, {p}, {p})", ('Usuário Demo', 'admin@financeiro.local', h))
 
-    # Seed data (Categorias) - Categorias podem ser globais
+    # Seed data (Categorias) - Mantemos as categorias para o usuário não ter que criar uma por uma
     c.execute("SELECT COUNT(*) FROM categorias")
     row = c.fetchone()
     count = row[0] if not IS_POSTGRES else list(row.values())[0]
