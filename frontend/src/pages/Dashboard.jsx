@@ -18,9 +18,13 @@ export default function Dashboard() {
   const now = new Date()
   const [mesSelecionado, setMesSelecionado] = useState(now.getMonth())
   const [anoSelecionado, setAnoSelecionado] = useState(now.getFullYear())
+  const [mesFim, setMesFim] = useState(now.getMonth())
+  const [anoFim, setAnoFim] = useState(now.getFullYear())
+  const [actionLoading, setActionLoading] = useState(null)
 
   useEffect(() => {
-    api.get('/resumo-mensal')
+    setLoading(true)
+    api.get(`/resumo-mensal?mes=${mesSelecionado + 1}&ano=${anoSelecionado}&mes_fim=${mesFim + 1}&ano_fim=${anoFim}`)
       .then(r => setData(r.data))
       .catch(() => setData({
         receitas: 0, despesas: 0, saldo: 0, meta_economia: 0,
@@ -30,17 +34,48 @@ export default function Dashboard() {
         metas: [],
       }))
       .finally(() => setLoading(false))
-  }, [])
+  }, [mesSelecionado, anoSelecionado, mesFim, anoFim])
 
   const chartData = (data?.historico || mesesLabel.map(m => ({ name: m, receitas: 0, despesas: 0 })))
 
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 
+  const marcarPaga = async (id) => {
+    setActionLoading(id)
+    try {
+      await api.patch(`/contas/${id}`)
+      // Recarrega dados
+      const res = await api.get(`/resumo-mensal?mes=${mesSelecionado + 1}&ano=${anoSelecionado}&mes_fim=${mesFim + 1}&ano_fim=${anoFim}`)
+      setData(res.data)
+    } catch (e) {
+      console.error(e)
+      alert('Erro ao marcar como paga.')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const excluirCompra = async (id) => {
+    if (!confirm('Excluir esta compra?')) return
+    setActionLoading(id)
+    try {
+      await api.delete(`/compras-cartao/${id}`)
+      // Recarrega dados
+      const res = await api.get(`/resumo-mensal?mes=${mesSelecionado + 1}&ano=${anoSelecionado}&mes_fim=${mesFim + 1}&ano_fim=${anoFim}`)
+      setData(res.data)
+    } catch (e) {
+      console.error(e)
+      alert('Erro ao excluir compra.')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const cards = data ? [
-    { titulo: 'Receitas no mês', valor: fmt(data.receitas), cor: 'bg-green-500' },
-    { titulo: 'Despesas no mês', valor: fmt(data.despesas), cor: 'bg-red-500' },
-    { titulo: 'Saldo do mês', valor: fmt(data.saldo), cor: 'bg-blue-500' },
-    { titulo: 'Meta de economia', valor: `${Math.round(data.meta_economia)}%`, cor: 'bg-purple-500' },
+    { titulo: 'Receitas no período', valor: fmt(data.receitas), cor: 'bg-green-500' },
+    { titulo: 'Despesas no período', valor: fmt(data.despesas), cor: 'bg-red-500' },
+    { titulo: 'Saldo acumulado', valor: fmt(data.saldo), cor: 'bg-blue-500' },
+    { titulo: 'Taxa de economia', valor: `${Math.round(data.meta_economia)}%`, cor: 'bg-purple-500' },
   ] : []
 
   if (loading) {
@@ -60,25 +95,49 @@ export default function Dashboard() {
           <h1 className='text-2xl md:text-4xl font-bold'>Dashboard</h1>
           <p className='text-gray-400 mt-1 text-sm md:text-base'>Visão geral da sua gestão financeira</p>
         </div>
-        <div className='flex gap-2'>
-          <select
-            value={mesSelecionado}
-            onChange={(e) => setMesSelecionado(Number(e.target.value))}
-            className='bg-[#111f34] border border-gray-700 px-3 py-2 md:px-4 md:py-3 rounded-xl hover:bg-[#182840] transition text-white cursor-pointer outline-none focus:border-green-500/50 text-sm'
-          >
-            {mesesNomes.map((m, i) => (
-              <option key={i} value={i}>{m}</option>
-            ))}
-          </select>
-          <select
-            value={anoSelecionado}
-            onChange={(e) => setAnoSelecionado(Number(e.target.value))}
-            className='bg-[#111f34] border border-gray-700 px-3 py-2 md:px-4 md:py-3 rounded-xl hover:bg-[#182840] transition text-white cursor-pointer outline-none focus:border-green-500/50 text-sm'
-          >
-            {[2024, 2025, 2026, 2027].map(a => (
-              <option key={a} value={a}>{a}</option>
-            ))}
-          </select>
+        <div className='flex flex-wrap gap-4 items-center'>
+          <div className='flex items-center gap-2'>
+            <span className='text-xs text-gray-500 uppercase'>De:</span>
+            <select
+              value={mesSelecionado}
+              onChange={(e) => setMesSelecionado(Number(e.target.value))}
+              className='bg-[#111f34] border border-gray-700 px-3 py-2 rounded-xl text-white cursor-pointer outline-none focus:border-green-500/50 text-xs md:text-sm'
+            >
+              {mesesNomes.map((m, i) => (
+                <option key={i} value={i}>{m}</option>
+              ))}
+            </select>
+            <select
+              value={anoSelecionado}
+              onChange={(e) => setAnoSelecionado(Number(e.target.value))}
+              className='bg-[#111f34] border border-gray-700 px-3 py-2 rounded-xl text-white cursor-pointer outline-none focus:border-green-500/50 text-xs md:text-sm'
+            >
+              {[2024, 2025, 2026, 2027].map(a => (
+                <option key={a} value={a}>{a}</option>
+              ))}
+            </select>
+          </div>
+          <div className='flex items-center gap-2'>
+            <span className='text-xs text-gray-500 uppercase'>Até:</span>
+            <select
+              value={mesFim}
+              onChange={(e) => setMesFim(Number(e.target.value))}
+              className='bg-[#111f34] border border-gray-700 px-3 py-2 rounded-xl text-white cursor-pointer outline-none focus:border-green-500/50 text-xs md:text-sm'
+            >
+              {mesesNomes.map((m, i) => (
+                <option key={i} value={i}>{m}</option>
+              ))}
+            </select>
+            <select
+              value={anoFim}
+              onChange={(e) => setAnoFim(Number(e.target.value))}
+              className='bg-[#111f34] border border-gray-700 px-3 py-2 rounded-xl text-white cursor-pointer outline-none focus:border-green-500/50 text-xs md:text-sm'
+            >
+              {[2024, 2025, 2026, 2027].map(a => (
+                <option key={a} value={a}>{a}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -151,8 +210,19 @@ export default function Dashboard() {
           <div className='space-y-4'>
             {(data?.contas_pagar || []).map((conta, i) => (
               <div key={i} className='flex justify-between items-center bg-[#132238] p-4 rounded-xl'>
-                <span>{conta.descricao}</span>
-                <span className='text-yellow-400 font-semibold'>{fmt(conta.valor)}</span>
+                <div className='flex-1'>
+                  <span className='block'>{conta.descricao}</span>
+                  <span className='text-yellow-400 font-semibold'>{fmt(conta.valor)}</span>
+                </div>
+                <div className='flex gap-2 ml-4'>
+                  <button
+                    onClick={() => marcarPaga(conta.id)}
+                    disabled={actionLoading === conta.id}
+                    className='text-green-400 hover:text-green-300 transition text-sm disabled:opacity-50'
+                  >
+                    {actionLoading === conta.id ? 'Pagando...' : 'Pagar'}
+                  </button>
+                </div>
               </div>
             ))}
             {(!data?.contas_pagar || data.contas_pagar.length === 0) && (
@@ -171,6 +241,7 @@ export default function Dashboard() {
                   <th className='pb-3'>Compra</th>
                   <th className='pb-3'>Parcelas</th>
                   <th className='pb-3'>Valor</th>
+                  <th className='pb-3'>Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -179,6 +250,15 @@ export default function Dashboard() {
                     <td className='py-4'>{c.descricao}</td>
                     <td>{c.parcelas}</td>
                     <td className='text-green-400'>{fmt(c.valor)}</td>
+                    <td className='py-4'>
+                      <button
+                        onClick={() => excluirCompra(c.id)}
+                        disabled={actionLoading === c.id}
+                        className='text-red-400 hover:text-red-300 transition text-sm disabled:opacity-50'
+                      >
+                        {actionLoading === c.id ? 'Excluindo...' : 'Excluir'}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

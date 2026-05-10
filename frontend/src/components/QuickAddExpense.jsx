@@ -29,12 +29,14 @@ export default function QuickAddExpense({ isOpen, onClose }) {
   ]
 
   const registrar = async () => {
-    if (!descricao || !valor) return
+    if (!descricao.trim() || !valor) return
+    const valorNumerico = Number(valor.replace(',', '.'))
+    if (!Number.isFinite(valorNumerico) || valorNumerico <= 0) return
     setLoading(true)
     try {
       await api.post('/contas', {
         descricao,
-        valor: Number(valor.replace(',', '.')),
+        valor: valorNumerico,
         categoria_id: categoriaId || null,
       })
       setSucesso(true)

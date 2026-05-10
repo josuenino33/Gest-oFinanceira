@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
@@ -10,12 +10,24 @@ app = Flask(__name__)
 CORS(app)
 
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'super-secret-key')
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)
 jwt = JWTManager(app)
 
 # Configurações de Banco de Dados
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'financeiro.db')
 DATABASE_URL = os.environ.get('DATABASE_URL')
 IS_POSTGRES = DATABASE_URL is not None
+
+DEFAULT_CATEGORIES = [
+    ('Moradia', '#ef4444'),
+    ('Alimentação', '#f97316'),
+    ('Transporte', '#eab308'),
+    ('Lazer', '#8b5cf6'),
+    ('Saúde', '#06b6d4'),
+    ('Educação', '#3b82f6'),
+    ('Salário', '#22c55e'),
+    ('Freelance', '#10b981'),
+]
 
 def get_db():
     if IS_POSTGRES:
@@ -61,17 +73,63 @@ def fetch_one(query, params=()):
     conn.close()
     return dict(row) if row else None
 
+def ensure_sqlite_schema(cursor):
+    migrations = {
+        'categorias': [
+            ('user_id', 'INTEGER'),
+            ('cor', "TEXT DEFAULT '#22c55e'"),
+        ],
+        'receitas': [
+            ('user_id', 'INTEGER'),
+            ('categoria_id', 'INTEGER'),
+        ],
+        'contas': [
+            ('user_id', 'INTEGER'),
+            ('categoria_id', 'INTEGER'),
+            ('pago', 'INTEGER DEFAULT 0'),
+        ],
+        'cartoes': [
+            ('user_id', 'INTEGER'),
+            ('limite', 'REAL DEFAULT 0'),
+        ],
+        'compras_cartao': [
+            ('user_id', 'INTEGER'),
+            ('pago', 'INTEGER DEFAULT 0'),
+            ('parcela_atual', 'INTEGER DEFAULT 1'),
+        ],
+        'metas': [
+            ('user_id', 'INTEGER'),
+            ('valor_alvo', 'REAL DEFAULT 0'),
+            ('valor_atual', 'REAL DEFAULT 0'),
+            ('progresso', 'INTEGER NOT NULL DEFAULT 0'),
+        ],
+        'investimentos': [
+            ('user_id', 'INTEGER'),
+            ('rentabilidade', 'REAL DEFAULT 0'),
+        ],
+        'planejamento': [
+            ('user_id', 'INTEGER'),
+        ],
+    }
+
+    for table, columns in migrations.items():
+        cursor.execute(f"PRAGMA table_info({table})")
+        existing_columns = {col[1] for col in cursor.fetchall()}
+        for column_name, definition in columns:
+            if column_name not in existing_columns:
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column_name} {definition}")
+
 def init_db():
     conn = get_db()
     c = conn.cursor()
-    
+
     pk = "SERIAL PRIMARY KEY" if IS_POSTGRES else "INTEGER PRIMARY KEY AUTOINCREMENT"
     p = "%s" if IS_POSTGRES else "?"
 
     # Tabelas
     tables = [
         f"CREATE TABLE IF NOT EXISTS users (id {pk}, nome TEXT NOT NULL, email TEXT UNIQUE NOT NULL, senha TEXT NOT NULL, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
-        f"CREATE TABLE IF NOT EXISTS categorias (id {pk}, nome TEXT NOT NULL, cor TEXT DEFAULT '#22c55e', criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS categorias (id {pk}, user_id INTEGER, nome TEXT NOT NULL, cor TEXT DEFAULT '#22c55e', criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS receitas (id {pk}, user_id INTEGER, descricao TEXT NOT NULL, valor REAL NOT NULL, categoria_id INTEGER, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id))",
         f"CREATE TABLE IF NOT EXISTS contas (id {pk}, user_id INTEGER, descricao TEXT NOT NULL, valor REAL NOT NULL, categoria_id INTEGER, pago INTEGER DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id))",
         f"CREATE TABLE IF NOT EXISTS cartoes (id {pk}, user_id INTEGER, nome TEXT NOT NULL, bandeira TEXT NOT NULL, limite REAL NOT NULL, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id))",
@@ -80,18 +138,19 @@ def init_db():
         f"CREATE TABLE IF NOT EXISTS investimentos (id {pk}, user_id INTEGER, titulo TEXT NOT NULL, tipo TEXT NOT NULL, valor_investido REAL NOT NULL, valor_atual REAL NOT NULL, rentabilidade REAL DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id))",
         f"CREATE TABLE IF NOT EXISTS planejamento (id {pk}, user_id INTEGER, categoria_id INTEGER, valor_planejado REAL NOT NULL, mes INTEGER NOT NULL, ano INTEGER NOT NULL, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id))"
     ]
-    
+
     for sql in tables:
         c.execute(sql)
     conn.commit()
 
-    # Seed data (Categorias) - Mantemos apenas as categorias base
-    c.execute("SELECT COUNT(*) FROM categorias")
-    row = c.fetchone()
-    count = row[0] if not IS_POSTGRES else list(row.values())[0]
-    if count == 0:
-        cats = [('Moradia', '#ef4444'), ('Alimentação', '#f97316'), ('Transporte', '#eab308'), ('Lazer', '#8b5cf6'), ('Saúde', '#06b6d4'), ('Educação', '#3b82f6'), ('Salário', '#22c55e'), ('Freelance', '#10b981')]
-        c.executemany(f"INSERT INTO categorias (nome, cor) VALUES ({p}, {p})", cats)
+    if not IS_POSTGRES:
+        ensure_sqlite_schema(c)
+
+    # Seed data (Categorias) - recria categorias base caso tenham sumido.
+    for nome, cor in DEFAULT_CATEGORIES:
+        c.execute(f"SELECT id FROM categorias WHERE user_id IS NULL AND nome = {p}", (nome,))
+        if c.fetchone() is None:
+            c.execute(f"INSERT INTO categorias (nome, cor) VALUES ({p}, {p})", (nome, cor))
 
     conn.commit()
     conn.close()
@@ -176,20 +235,30 @@ def acao_conta(id):
 @app.route('/categorias', methods=['GET', 'POST'])
 @jwt_required()
 def rota_categorias():
+    uid = get_jwt_identity()
     if request.method == 'POST':
         d = request.json
-        execute_query('INSERT INTO categorias (nome, cor) VALUES (?, ?)', (d.get('nome'), d.get('cor', '#22c55e')))
+        execute_query('INSERT INTO categorias (user_id, nome, cor) VALUES (?, ?, ?)', (uid, d.get('nome'), d.get('cor', '#22c55e')))
         return jsonify({'msg': 'OK'})
-    return jsonify(fetch_all('SELECT * FROM categorias ORDER BY nome'))
+    return jsonify(fetch_all('SELECT * FROM categorias WHERE user_id IS NULL OR user_id = ? ORDER BY nome', (uid,)))
 
 @app.route('/categorias/<int:id>', methods=['DELETE', 'PUT'])
 @jwt_required()
 def acao_categoria(id):
+    uid = get_jwt_identity()
+    categoria = fetch_one('SELECT * FROM categorias WHERE id = ?', (id,))
+    if not categoria:
+        return jsonify({'msg': 'Categoria não encontrada'}), 404
+    if categoria.get('user_id') is None:
+        return jsonify({'msg': 'Categorias padrão não podem ser alteradas ou excluídas'}), 403
+    if str(categoria.get('user_id')) != str(uid):
+        return jsonify({'msg': 'Sem permissão para alterar esta categoria'}), 403
+
     if request.method == 'DELETE':
-        execute_query('DELETE FROM categorias WHERE id = ?', (id,))
+        execute_query('DELETE FROM categorias WHERE id = ? AND user_id = ?', (id, uid))
     else:
         d = request.json
-        execute_query('UPDATE categorias SET nome=?, cor=? WHERE id=?', (d.get('nome'), d.get('cor'), id))
+        execute_query('UPDATE categorias SET nome=?, cor=? WHERE id=? AND user_id=?', (d.get('nome'), d.get('cor'), id, uid))
     return jsonify({'msg': 'OK'})
 
 @app.route('/cartoes', methods=['GET', 'POST'])
@@ -200,13 +269,17 @@ def rota_cartoes():
         d = request.json
         execute_query('INSERT INTO cartoes (user_id, nome, bandeira, limite) VALUES (?, ?, ?, ?)', (uid, d.get('nome'), d.get('bandeira'), d.get('limite')))
         return jsonify({'msg': 'OK'})
-    return jsonify(fetch_all('SELECT * FROM cartoes WHERE user_id = ? ORDER BY id DESC', (uid,)))
+    return jsonify(fetch_all('SELECT ca.*, COALESCE(SUM(cc.valor), 0) as total_gasto FROM cartoes ca LEFT JOIN compras_cartao cc ON cc.cartao_id = ca.id AND cc.user_id = ca.user_id WHERE ca.user_id = ? GROUP BY ca.id ORDER BY ca.id DESC', (uid,)))
 
-@app.route('/cartoes/<int:id>', methods=['DELETE'])
+@app.route('/cartoes/<int:id>', methods=['DELETE', 'PUT'])
 @jwt_required()
-def deletar_cartao(id):
+def acao_cartao(id):
     uid = get_jwt_identity()
-    execute_query('DELETE FROM cartoes WHERE id = ? AND user_id = ?', (id, uid))
+    if request.method == 'DELETE':
+        execute_query('DELETE FROM cartoes WHERE id = ? AND user_id = ?', (id, uid))
+    else: # PUT
+        d = request.json
+        execute_query('UPDATE cartoes SET nome=?, bandeira=?, limite=? WHERE id=? AND user_id=?', (d.get('nome'), d.get('bandeira'), d.get('limite'), id, uid))
     return jsonify({'msg': 'OK'})
 
 @app.route('/compras-cartao', methods=['GET', 'POST'])
@@ -217,13 +290,19 @@ def rota_compras():
         d = request.json
         execute_query('INSERT INTO compras_cartao (user_id, cartao_id, descricao, valor, parcelas, parcela_atual) VALUES (?, ?, ?, ?, ?, ?)', (uid, d.get('cartao_id'), d.get('descricao'), d.get('valor'), d.get('parcelas', 1), d.get('parcela_atual', 1)))
         return jsonify({'msg': 'OK'})
-    return jsonify(fetch_all('SELECT cc.*, ca.nome as cartao_nome, ca.bandeira FROM compras_cartao cc JOIN cartoes ca ON ca.id = cc.cartao_id WHERE cc.user_id = ? ORDER BY cc.id DESC', (uid,)))
+    return jsonify(fetch_all('SELECT cc.*, ca.nome as cartao_nome, ca.bandeira FROM compras_cartao cc JOIN cartoes ca ON ca.id = cc.cartao_id AND ca.user_id = cc.user_id WHERE cc.user_id = ? ORDER BY cc.id DESC', (uid,)))
 
-@app.route('/compras-cartao/<int:id>', methods=['DELETE'])
+@app.route('/compras-cartao/<int:id>', methods=['DELETE', 'PATCH', 'PUT'])
 @jwt_required()
 def deletar_compra(id):
     uid = get_jwt_identity()
-    execute_query('DELETE FROM compras_cartao WHERE id = ? AND user_id = ?', (id, uid))
+    if request.method == 'DELETE':
+        execute_query('DELETE FROM compras_cartao WHERE id = ? AND user_id = ?', (id, uid))
+    elif request.method == 'PATCH':
+        execute_query('UPDATE compras_cartao SET pago = 1 WHERE id = ? AND user_id = ?', (id, uid))
+    else: # PUT
+        d = request.json
+        execute_query('UPDATE compras_cartao SET cartao_id=?, descricao=?, valor=?, parcelas=?, pago=? WHERE id=? AND user_id=?', (d.get('cartao_id'), d.get('descricao'), d.get('valor'), d.get('parcelas', 1), d.get('pago', 0), id, uid))
     return jsonify({'msg': 'OK'})
 
 @app.route('/metas', methods=['GET', 'POST'])
@@ -261,11 +340,17 @@ def rota_investimentos():
         return jsonify({'msg': 'OK'})
     return jsonify(fetch_all('SELECT * FROM investimentos WHERE user_id = ? ORDER BY id DESC', (uid,)))
 
-@app.route('/investimentos/<int:id>', methods=['DELETE'])
+@app.route('/investimentos/<int:id>', methods=['DELETE', 'PUT'])
 @jwt_required()
-def deletar_investimento(id):
+def acao_investimento(id):
     uid = get_jwt_identity()
-    execute_query('DELETE FROM investimentos WHERE id = ? AND user_id = ?', (id, uid))
+    if request.method == 'DELETE':
+        execute_query('DELETE FROM investimentos WHERE id = ? AND user_id = ?', (id, uid))
+    else: # PUT
+        d = request.json
+        vi, va = float(d.get('valor_investido', 0)), float(d.get('valor_atual', 0))
+        rent = round((va - vi) / vi * 100, 1) if vi > 0 else 0
+        execute_query('UPDATE investimentos SET titulo=?, tipo=?, valor_investido=?, valor_atual=?, rentabilidade=? WHERE id=? AND user_id=?', (d.get('titulo'), d.get('tipo'), vi, va, rent, id, uid))
     return jsonify({'msg': 'OK'})
 
 @app.route('/planejamento', methods=['GET', 'POST'])
@@ -297,6 +382,75 @@ def relatorios():
     ta = fetch_one('SELECT COALESCE(SUM(valor_atual), 0) as t FROM investimentos WHERE user_id = ?', (uid,))['t']
     pc = fetch_all('SELECT c.nome, c.cor, COALESCE(SUM(co.valor), 0) as total FROM categorias c LEFT JOIN contas co ON co.categoria_id = c.id AND co.user_id = ? GROUP BY c.id HAVING total > 0 ORDER BY total DESC', (uid,))
     return jsonify({'receitas': r, 'despesas': d, 'total_receitas': float(tr), 'total_despesas': float(td), 'saldo': float(tr-td), 'total_investido': float(ti), 'total_atual_investimentos': float(ta), 'por_categoria': pc})
+
+@app.route('/resumo-mensal', methods=['GET'])
+@jwt_required()
+def resumo_mensal():
+    uid = get_jwt_identity()
+    mes = request.args.get('mes', datetime.now().month, type=int)
+    ano = request.args.get('ano', datetime.now().year, type=int)
+    mes_fim = request.args.get('mes_fim', mes, type=int)
+    ano_fim = request.args.get('ano_fim', ano, type=int)
+
+    # Filtro de data genérico para SQLite e Postgres
+    f_range = "criado_em >= ? AND criado_em < ?"
+    f_range_co = "co.criado_em >= ? AND co.criado_em < ?"
+
+    # Calcular datas de início e fim
+    start_date = f"{ano}-{mes:02d}-01 00:00:00"
+    # Fim do período: primeiro dia do mês subsequente ao mês final
+    if mes_fim == 12:
+        end_date = f"{ano_fim + 1}-01-01 00:00:00"
+    else:
+        end_date = f"{ano_fim}-{mes_fim + 1:02d}-01 00:00:00"
+
+    r = fetch_one(f'SELECT COALESCE(SUM(valor), 0) as t FROM receitas WHERE user_id = ? AND {f_range}', (uid, start_date, end_date))['t']
+    d = fetch_one(f'SELECT COALESCE(SUM(valor), 0) as t FROM contas WHERE user_id = ? AND {f_range}', (uid, start_date, end_date))['t']
+
+    # Categorias com percentual
+    total_despesas = float(d)
+    cats = fetch_all(f'SELECT c.nome, COALESCE(SUM(co.valor), 0) as total FROM categorias c LEFT JOIN contas co ON co.categoria_id = c.id AND co.user_id = ? AND {f_range_co} WHERE (c.user_id IS NULL OR c.user_id = ?) GROUP BY c.id HAVING total > 0 ORDER BY total DESC', (uid, start_date, end_date, uid))
+    for c in cats:
+        c['percentual'] = round((c['total'] / total_despesas * 100), 1) if total_despesas > 0 else 0
+
+    # Contas a pagar (não pagas e do período)
+    cp = fetch_all(f'SELECT * FROM contas WHERE user_id = ? AND pago = 0 AND {f_range} ORDER BY id DESC', (uid, start_date, end_date))
+
+    # Compras no cartão do período
+    cc = fetch_all(f'SELECT * FROM compras_cartao WHERE user_id = ? AND {f_range} ORDER BY id DESC', (uid, start_date, end_date))
+
+    # Metas
+    metas = fetch_all('SELECT * FROM metas WHERE user_id = ? ORDER BY id DESC', (uid,))
+
+    # Histórico (últimos 12 meses do ponto final)
+    historico = []
+    meses_label = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    for i in range(12):
+        m_idx = (mes_fim - 12 + i) % 12
+        a_idx = ano_fim + ((mes_fim - 12 + i) // 12)
+
+        h_start = f"{a_idx}-{m_idx + 1:02d}-01 00:00:00"
+        if m_idx + 1 == 12:
+            h_end = f"{a_idx + 1}-01-01 00:00:00"
+        else:
+            h_end = f"{a_idx}-{m_idx + 2:02d}-01 00:00:00"
+
+        hr = fetch_one(f'SELECT COALESCE(SUM(valor), 0) as t FROM receitas WHERE user_id = ? AND {f_range}', (uid, h_start, h_end))['t']
+        hd = fetch_one(f'SELECT COALESCE(SUM(valor), 0) as t FROM contas WHERE user_id = ? AND {f_range}', (uid, h_start, h_end))['t']
+        historico.append({'name': meses_label[m_idx], 'receitas': float(hr), 'despesas': float(hd)})
+
+    res = {
+        'receitas': float(r),
+        'despesas': float(d),
+        'saldo': float(r - d),
+        'meta_economia': round((float(r - d) / float(r) * 100), 1) if r > 0 else 0,
+        'categorias': cats,
+        'contas_pagar': cp,
+        'compras_cartao': cc,
+        'metas': metas,
+        'historico': historico
+    }
+    return jsonify(res)
 
 @app.route('/perfil', methods=['GET', 'PUT'])
 @jwt_required()

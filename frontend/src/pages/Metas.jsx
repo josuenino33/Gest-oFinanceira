@@ -11,6 +11,7 @@ export default function Metas() {
   const [valorAlvo, setValorAlvo] = useState('')
   const [valorAtual, setValorAtual] = useState('')
   const [loading, setLoading] = useState(false)
+  const [metaEditando, setMetaEditando] = useState(null)
 
   const carregar = () => {
     api.get('/metas').then(r => setMetas(r.data)).catch(console.error)
@@ -18,26 +19,52 @@ export default function Metas() {
 
   useEffect(() => { carregar() }, [])
 
-  const adicionar = async () => {
+  const salvar = async () => {
     if (!titulo || !valorAlvo) return
     setLoading(true)
     try {
-      await api.post('/metas', {
+      const payload = {
         titulo, descricao,
-        valor_alvo: Number(valorAlvo.replace(',', '.')),
-        valor_atual: Number((valorAtual || '0').replace(',', '.')),
-      })
-      setTitulo(''); setDescricao(''); setValorAlvo(''); setValorAtual('')
-      setModalOpen(false)
+        valor_alvo: Number(String(valorAlvo).replace(',', '.')),
+        valor_atual: Number(String(valorAtual || '0').replace(',', '.')),
+      }
+      if (metaEditando) {
+        await api.put(`/metas/${metaEditando.id}`, payload)
+      } else {
+        await api.post('/metas', payload)
+      }
+      fecharModal()
       carregar()
-    } catch (e) { console.error(e) }
+    } catch (e) { console.error(e); alert('Erro ao salvar meta') }
     finally { setLoading(false) }
   }
 
+  const fecharModal = () => {
+    setModalOpen(false)
+    setMetaEditando(null)
+    setTitulo('')
+    setDescricao('')
+    setValorAlvo('')
+    setValorAtual('')
+  }
+
+  const abrirModalParaEditar = (meta) => {
+    setMetaEditando(meta)
+    setTitulo(meta.titulo)
+    setDescricao(meta.descricao)
+    setValorAlvo(meta.valor_alvo)
+    setValorAtual(meta.valor_atual)
+    setModalOpen(true)
+  }
+
   const excluir = async (id) => {
-    if (!confirm('Excluir esta meta?')) return
-    await api.delete(`/metas/${id}`)
-    carregar()
+    try {
+      await api.delete(`/metas/${id}`)
+      carregar()
+    } catch (e) {
+      console.error(e)
+      alert('Erro ao excluir meta.')
+    }
   }
 
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
@@ -64,7 +91,10 @@ export default function Metas() {
               </div>
               <div className='flex items-center gap-3'>
                 <span className='text-green-400 font-bold text-2xl'>{meta.progresso}%</span>
-                <button onClick={() => excluir(meta.id)} className='text-red-400 hover:text-red-300 text-sm transition'>✕</button>
+                <div className='flex gap-2 flex-col sm:flex-row'>
+                  <button onClick={() => abrirModalParaEditar(meta)} className='text-blue-400 hover:text-blue-300 text-sm transition'>Editar</button>
+                  <button onClick={() => excluir(meta.id)} className='text-red-400 hover:text-red-300 text-sm transition'>Excluir</button>
+                </div>
               </div>
             </div>
 
@@ -89,19 +119,19 @@ export default function Metas() {
         </div>
       )}
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title='Nova Meta'>
+      <Modal isOpen={modalOpen} onClose={fecharModal} title={metaEditando ? 'Editar Meta' : 'Nova Meta'}>
         <div className='space-y-4'>
           <input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder='Título da meta'
             className='w-full bg-[#111f34] rounded-xl p-4 border border-gray-700 text-white outline-none focus:border-green-400' />
           <input value={descricao} onChange={e => setDescricao(e.target.value)} placeholder='Descrição (opcional)'
             className='w-full bg-[#111f34] rounded-xl p-4 border border-gray-700 text-white outline-none focus:border-green-400' />
-          <input value={valorAlvo} onChange={e => setValorAlvo(e.target.value)} placeholder='Valor alvo (ex: 10000.00)'
+          <input value={valorAlvo} onChange={e => setValorAlvo(e.target.value)} placeholder='Valor alvo (ex: 10000.00)' type='number' step='0.01'
             className='w-full bg-[#111f34] rounded-xl p-4 border border-gray-700 text-white outline-none focus:border-green-400' />
-          <input value={valorAtual} onChange={e => setValorAtual(e.target.value)} placeholder='Valor atual (ex: 2500.00)'
+          <input value={valorAtual} onChange={e => setValorAtual(e.target.value)} placeholder='Valor atual (ex: 2500.00)' type='number' step='0.01'
             className='w-full bg-[#111f34] rounded-xl p-4 border border-gray-700 text-white outline-none focus:border-green-400' />
-          <button onClick={adicionar} disabled={loading}
+          <button onClick={salvar} disabled={loading}
             className='w-full bg-green-500 rounded-xl px-6 py-4 font-semibold hover:bg-green-400 transition disabled:opacity-60'>
-            {loading ? 'Salvando...' : 'Criar Meta'}
+            {loading ? 'Salvando...' : 'Salvar Meta'}
           </button>
         </div>
       </Modal>

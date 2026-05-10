@@ -11,6 +11,7 @@ export default function Investimentos() {
   const [valorInvestido, setValorInvestido] = useState('')
   const [valorAtual, setValorAtual] = useState('')
   const [loading, setLoading] = useState(false)
+  const [investimentoEditando, setInvestimentoEditando] = useState(null)
 
   const carregar = () => {
     api.get('/investimentos').then(r => setLista(r.data)).catch(console.error)
@@ -18,26 +19,52 @@ export default function Investimentos() {
 
   useEffect(() => { carregar() }, [])
 
-  const adicionar = async () => {
+  const salvar = async () => {
     if (!titulo || !tipo || !valorInvestido || !valorAtual) return
     setLoading(true)
     try {
-      await api.post('/investimentos', {
+      const payload = {
         titulo, tipo,
-        valor_investido: Number(valorInvestido.replace(',', '.')),
-        valor_atual: Number(valorAtual.replace(',', '.')),
-      })
-      setTitulo(''); setTipo(''); setValorInvestido(''); setValorAtual('')
-      setModalOpen(false)
+        valor_investido: Number(String(valorInvestido).replace(',', '.')),
+        valor_atual: Number(String(valorAtual).replace(',', '.')),
+      }
+      if (investimentoEditando) {
+        await api.put(`/investimentos/${investimentoEditando.id}`, payload)
+      } else {
+        await api.post('/investimentos', payload)
+      }
+      fecharModal()
       carregar()
-    } catch (e) { console.error(e) }
+    } catch (e) { console.error(e); alert('Erro ao salvar investimento') }
     finally { setLoading(false) }
   }
 
+  const fecharModal = () => {
+    setModalOpen(false)
+    setInvestimentoEditando(null)
+    setTitulo('')
+    setTipo('')
+    setValorInvestido('')
+    setValorAtual('')
+  }
+
+  const abrirModalParaEditar = (inv) => {
+    setInvestimentoEditando(inv)
+    setTitulo(inv.titulo)
+    setTipo(inv.tipo)
+    setValorInvestido(inv.valor_investido)
+    setValorAtual(inv.valor_atual)
+    setModalOpen(true)
+  }
+
   const excluir = async (id) => {
-    if (!confirm('Excluir este investimento?')) return
-    await api.delete(`/investimentos/${id}`)
-    carregar()
+    try {
+      await api.delete(`/investimentos/${id}`)
+      carregar()
+    } catch (e) {
+      console.error(e)
+      alert('Erro ao excluir investimento.')
+    }
   }
 
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
@@ -80,7 +107,10 @@ export default function Investimentos() {
                 <h2 className='text-xl font-bold'>{inv.titulo}</h2>
                 <span className='bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-xs mt-2 inline-block'>{inv.tipo}</span>
               </div>
-              <button onClick={() => excluir(inv.id)} className='text-red-400 hover:text-red-300 text-sm transition'>✕</button>
+              <div className='flex gap-2'>
+                <button onClick={() => abrirModalParaEditar(inv)} className='text-blue-400 hover:text-blue-300 text-sm transition'>Editar</button>
+                <button onClick={() => excluir(inv.id)} className='text-red-400 hover:text-red-300 text-sm transition'>Excluir</button>
+              </div>
             </div>
 
             <div className='grid grid-cols-2 gap-4 mt-4'>
@@ -110,7 +140,7 @@ export default function Investimentos() {
         </div>
       )}
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title='Novo Investimento'>
+      <Modal isOpen={modalOpen} onClose={fecharModal} title={investimentoEditando ? 'Editar Investimento' : 'Novo Investimento'}>
         <div className='space-y-4'>
           <input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder='Nome do investimento'
             className='w-full bg-[#111f34] rounded-xl p-4 border border-gray-700 text-white outline-none focus:border-green-400' />
@@ -123,13 +153,13 @@ export default function Investimentos() {
             <option value='Cripto'>Criptomoedas</option>
             <option value='Tesouro'>Tesouro Direto</option>
           </select>
-          <input value={valorInvestido} onChange={e => setValorInvestido(e.target.value)} placeholder='Valor investido'
+          <input value={valorInvestido} onChange={e => setValorInvestido(e.target.value)} placeholder='Valor investido' type='number' step='0.01'
             className='w-full bg-[#111f34] rounded-xl p-4 border border-gray-700 text-white outline-none focus:border-green-400' />
-          <input value={valorAtual} onChange={e => setValorAtual(e.target.value)} placeholder='Valor atual'
+          <input value={valorAtual} onChange={e => setValorAtual(e.target.value)} placeholder='Valor atual' type='number' step='0.01'
             className='w-full bg-[#111f34] rounded-xl p-4 border border-gray-700 text-white outline-none focus:border-green-400' />
-          <button onClick={adicionar} disabled={loading}
+          <button onClick={salvar} disabled={loading}
             className='w-full bg-green-500 rounded-xl px-6 py-4 font-semibold hover:bg-green-400 transition disabled:opacity-60'>
-            {loading ? 'Salvando...' : 'Adicionar Investimento'}
+            {loading ? 'Salvando...' : 'Salvar Investimento'}
           </button>
         </div>
       </Modal>

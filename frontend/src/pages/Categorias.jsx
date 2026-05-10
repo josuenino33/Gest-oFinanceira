@@ -9,6 +9,7 @@ export default function Categorias() {
   const [nome, setNome] = useState('')
   const [cor, setCor] = useState('#22c55e')
   const [loading, setLoading] = useState(false)
+  const [categoriaEditando, setCategoriaEditando] = useState(null)
 
   const carregar = () => {
     api.get('/categorias').then(r => setCategorias(r.data)).catch(console.error)
@@ -16,22 +17,56 @@ export default function Categorias() {
 
   useEffect(() => { carregar() }, [])
 
-  const adicionar = async () => {
-    if (!nome) return
+  const salvar = async () => {
+    if (!nome.trim()) {
+      alert('Informe o nome da categoria.')
+      return
+    }
     setLoading(true)
     try {
-      await api.post('/categorias', { nome, cor })
-      setNome(''); setCor('#22c55e')
-      setModalOpen(false)
+      const payload = { nome, cor }
+      if (categoriaEditando) {
+        await api.put(`/categorias/${categoriaEditando.id}`, payload)
+      } else {
+        await api.post('/categorias', payload)
+      }
+      fecharModal()
       carregar()
-    } catch (e) { console.error(e) }
+    } catch (e) { console.error(e); alert('Erro ao salvar categoria.') }
     finally { setLoading(false) }
   }
 
+  const fecharModal = () => {
+    setModalOpen(false)
+    setCategoriaEditando(null)
+    setNome('')
+    setCor('#22c55e')
+  }
+
+  const abrirModalParaEditar = (cat) => {
+    setCategoriaEditando(cat)
+    if (cat.user_id === null || cat.user_id === undefined) {
+      alert('Categorias padrão ficam sempre disponíveis e não podem ser editadas.')
+      return
+    }
+    setNome(cat.nome)
+    setCor(cat.cor || '#22c55e')
+    setModalOpen(true)
+  }
+
   const excluir = async (id) => {
-    if (!confirm('Excluir esta categoria?')) return
-    await api.delete(`/categorias/${id}`)
-    carregar()
+    const categoria = categorias.find(cat => cat.id === id)
+    if (categoria?.user_id === null || categoria?.user_id === undefined) {
+      alert('Categorias padrão ficam sempre disponíveis e não podem ser excluídas.')
+      return
+    }
+    try {
+      await api.delete(`/categorias/${id}`)
+      carregar()
+    } catch (e) {
+      console.error(e)
+      alert('Erro ao excluir categoria.')
+    }
   }
 
   const cores = ['#22c55e', '#3b82f6', '#ef4444', '#f97316', '#8b5cf6', '#06b6d4', '#eab308', '#ec4899', '#14b8a6', '#f43f5e']
@@ -61,7 +96,14 @@ export default function Categorias() {
                   <p className='text-gray-400 text-sm'>{cat.cor}</p>
                 </div>
               </div>
-              <button onClick={() => excluir(cat.id)} className='text-red-400 hover:text-red-300 transition'>✕</button>
+              {cat.user_id ? (
+                <div className='flex gap-2 flex-col sm:flex-row'>
+                  <button onClick={() => abrirModalParaEditar(cat)} className='text-blue-400 hover:text-blue-300 transition text-sm'>Editar</button>
+                  <button onClick={() => excluir(cat.id)} className='text-red-400 hover:text-red-300 transition text-sm'>Excluir</button>
+                </div>
+              ) : (
+                <span className='text-xs text-gray-500'>Padrão</span>
+              )}
             </div>
           </div>
         ))}
@@ -73,7 +115,7 @@ export default function Categorias() {
         </div>
       )}
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title='Nova Categoria'>
+      <Modal isOpen={modalOpen} onClose={fecharModal} title={categoriaEditando ? 'Editar Categoria' : 'Nova Categoria'}>
         <div className='space-y-4'>
           <input value={nome} onChange={e => setNome(e.target.value)} placeholder='Nome da categoria'
             className='w-full bg-[#111f34] rounded-xl p-4 border border-gray-700 text-white outline-none focus:border-green-400' />
@@ -92,9 +134,9 @@ export default function Categorias() {
             <div className='w-8 h-8 rounded-lg' style={{ backgroundColor: cor }} />
             <span className='text-gray-300'>Preview: {nome || 'Categoria'}</span>
           </div>
-          <button onClick={adicionar} disabled={loading}
+          <button onClick={salvar} disabled={loading}
             className='w-full bg-green-500 rounded-xl px-6 py-4 font-semibold hover:bg-green-400 transition disabled:opacity-60'>
-            {loading ? 'Salvando...' : 'Criar Categoria'}
+            {loading ? 'Salvando...' : 'Salvar Categoria'}
           </button>
         </div>
       </Modal>

@@ -10,6 +10,7 @@ export default function Cartoes() {
   const [bandeira, setBandeira] = useState('')
   const [limite, setLimite] = useState('')
   const [loading, setLoading] = useState(false)
+  const [cartaoEditando, setCartaoEditando] = useState(null)
 
   const carregar = () => {
     api.get('/cartoes').then(r => setCartoes(r.data)).catch(console.error)
@@ -17,22 +18,54 @@ export default function Cartoes() {
 
   useEffect(() => { carregar() }, [])
 
-  const adicionar = async () => {
-    if (!nome || !bandeira || !limite) return
+  const salvar = async () => {
+    if (!nome.trim() || !bandeira || !limite) {
+      alert('Informe o nome, a bandeira e o limite do cartão.')
+      return
+    }
+    const limiteNumerico = Number(String(limite).replace(',', '.'))
+    if (!Number.isFinite(limiteNumerico) || limiteNumerico <= 0) {
+      alert('Informe um limite válido para o cartão.')
+      return
+    }
     setLoading(true)
     try {
-      await api.post('/cartoes', { nome, bandeira, limite: Number(limite.replace(',', '.')) })
-      setNome(''); setBandeira(''); setLimite('')
-      setModalOpen(false)
+      const payload = { nome, bandeira, limite: limiteNumerico }
+      if (cartaoEditando) {
+        await api.put(`/cartoes/${cartaoEditando.id}`, payload)
+      } else {
+        await api.post('/cartoes', payload)
+      }
+      fecharModal()
       carregar()
-    } catch (e) { console.error(e) }
+    } catch (e) { console.error(e); alert('Erro ao salvar cartão') }
     finally { setLoading(false) }
   }
 
+  const fecharModal = () => {
+    setModalOpen(false)
+    setCartaoEditando(null)
+    setNome('')
+    setBandeira('')
+    setLimite('')
+  }
+
+  const abrirModalParaEditar = (cartao) => {
+    setCartaoEditando(cartao)
+    setNome(cartao.nome)
+    setBandeira(cartao.bandeira)
+    setLimite(cartao.limite)
+    setModalOpen(true)
+  }
+
   const excluir = async (id) => {
-    if (!confirm('Excluir este cartão? Todas as compras vinculadas serão removidas.')) return
-    await api.delete(`/cartoes/${id}`)
-    carregar()
+    try {
+      await api.delete(`/cartoes/${id}`)
+      carregar()
+    } catch (e) {
+      console.error(e)
+      alert('Erro ao excluir cartão.')
+    }
   }
 
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
@@ -67,20 +100,25 @@ export default function Cartoes() {
                   <p className='text-gray-400 text-sm'>{cartao.bandeira}</p>
                 </div>
               </div>
-              <button onClick={() => excluir(cartao.id)} className='text-red-400 hover:text-red-300 text-sm transition'>Excluir</button>
+              <div className='flex gap-2'>
+                <button onClick={() => abrirModalParaEditar(cartao)} className='text-blue-400 hover:text-blue-300 text-sm transition'>Editar</button>
+                <button onClick={() => excluir(cartao.id)} className='text-red-400 hover:text-red-300 text-sm transition'>Excluir</button>
+              </div>
             </div>
 
             <div className='bg-[#0b1728] rounded-xl p-4'>
-              <p className='text-gray-400 text-sm'>Limite disponível</p>
-              <p className='text-2xl font-bold text-green-400 mt-1'>{fmt(cartao.limite)}</p>
+              <p className='text-gray-400 text-sm'>Disponível</p>
+              <p className='text-2xl font-bold text-green-400 mt-1'>{fmt(cartao.limite - (cartao.total_gasto || 0))}</p>
             </div>
 
             <div className='mt-4 flex gap-2'>
               <div className='flex-1 h-2 bg-green-500/30 rounded-full'>
-                <div className='h-full bg-green-500 rounded-full' style={{ width: '70%' }} />
+                <div className='h-full bg-green-500 rounded-full' style={{ width: `${Math.max(0, Math.min(100, ((cartao.limite - (cartao.total_gasto || 0)) / cartao.limite) * 100))}%` }} />
               </div>
             </div>
-            <p className='text-gray-500 text-xs mt-2'>70% do limite disponível</p>
+            <p className='text-gray-500 text-xs mt-2'>
+              {Math.round(((cartao.limite - (cartao.total_gasto || 0)) / cartao.limite) * 100)}% do limite disponível
+            </p>
           </div>
         ))}
       </div>
@@ -92,7 +130,7 @@ export default function Cartoes() {
         </div>
       )}
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title='Novo Cartão'>
+      <Modal isOpen={modalOpen} onClose={fecharModal} title={cartaoEditando ? 'Editar Cartão' : 'Novo Cartão'}>
         <div className='space-y-4'>
           <input value={nome} onChange={e => setNome(e.target.value)} placeholder='Nome do cartão'
             className='w-full bg-[#111f34] rounded-xl p-4 border border-gray-700 text-white outline-none focus:border-green-400' />
@@ -106,9 +144,9 @@ export default function Cartoes() {
           </select>
           <input value={limite} onChange={e => setLimite(e.target.value)} placeholder='Limite (ex: 5000.00)'
             className='w-full bg-[#111f34] rounded-xl p-4 border border-gray-700 text-white outline-none focus:border-green-400' />
-          <button onClick={adicionar} disabled={loading}
+          <button onClick={salvar} disabled={loading}
             className='w-full bg-green-500 rounded-xl px-6 py-4 font-semibold hover:bg-green-400 transition disabled:opacity-60'>
-            {loading ? 'Salvando...' : 'Cadastrar Cartão'}
+            {loading ? 'Salvando...' : 'Salvar Cartão'}
           </button>
         </div>
       </Modal>
