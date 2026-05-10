@@ -163,7 +163,7 @@ def ensure_postgres_schema(cursor):
             "SELECT column_name FROM information_schema.columns WHERE table_name = %s",
             (table,)
         )
-        existing_columns = {row[0] for row in cursor.fetchall()}
+        existing_columns = {row['column_name'] for row in cursor.fetchall()}
         for column_name, definition in columns:
             if column_name not in existing_columns:
                 try:
