@@ -477,22 +477,36 @@ def resumo_mensal():
     # Metas
     metas = fetch_all('SELECT * FROM metas WHERE user_id = ? ORDER BY id DESC', (uid,))
 
-    # Histórico (últimos 12 meses do ponto final)
+    # Histórico (últimos 12 meses do ponto final) - otimizado com 2 queries ao invés de 24
     historico = []
     meses_label = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+
+    # Calcular intervalo total do histórico (12 meses antes do mês final)
+    h_start_m = (mes_fim - 12) % 12
+    h_start_a = ano_fim + ((mes_fim - 12) // 12)
+    hist_start = f"{h_start_a}-{h_start_m + 1:02d}-01 00:00:00"
+    if mes_fim == 12:
+        hist_end = f"{ano_fim + 1}-01-01 00:00:00"
+    else:
+        hist_end = f"{ano_fim}-{mes_fim + 1:02d}-01 00:00:00"
+
+    # Buscar receitas e despesas agrupadas por mês em 2 queries
+    if IS_POSTGRES:
+        month_expr = "TO_CHAR(criado_em, 'YYYY-MM')"
+    else:
+        month_expr = "strftime('%Y-%m', criado_em)"
+
+    rec_hist = fetch_all(f"SELECT {month_expr} as mes, COALESCE(SUM(valor), 0) as total FROM receitas WHERE user_id = ? AND criado_em >= ? AND criado_em < ? GROUP BY {month_expr}", (uid, hist_start, hist_end))
+    desp_hist = fetch_all(f"SELECT {month_expr} as mes, COALESCE(SUM(valor), 0) as total FROM contas WHERE user_id = ? AND criado_em >= ? AND criado_em < ? GROUP BY {month_expr}", (uid, hist_start, hist_end))
+
+    rec_map = {r['mes']: float(r['total']) for r in rec_hist}
+    desp_map = {d['mes']: float(d['total']) for d in desp_hist}
+
     for i in range(12):
         m_idx = (mes_fim - 12 + i) % 12
         a_idx = ano_fim + ((mes_fim - 12 + i) // 12)
-
-        h_start = f"{a_idx}-{m_idx + 1:02d}-01 00:00:00"
-        if m_idx + 1 == 12:
-            h_end = f"{a_idx + 1}-01-01 00:00:00"
-        else:
-            h_end = f"{a_idx}-{m_idx + 2:02d}-01 00:00:00"
-
-        hr = fetch_one(f'SELECT COALESCE(SUM(valor), 0) as t FROM receitas WHERE user_id = ? AND {f_range}', (uid, h_start, h_end))['t']
-        hd = fetch_one(f'SELECT COALESCE(SUM(valor), 0) as t FROM contas WHERE user_id = ? AND {f_range}', (uid, h_start, h_end))['t']
-        historico.append({'name': meses_label[m_idx], 'receitas': float(hr), 'despesas': float(hd)})
+        key = f"{a_idx}-{m_idx + 1:02d}"
+        historico.append({'name': meses_label[m_idx], 'receitas': rec_map.get(key, 0.0), 'despesas': desp_map.get(key, 0.0)})
 
     res = {
         'receitas': float(r),

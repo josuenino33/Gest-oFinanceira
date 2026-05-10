@@ -57,7 +57,7 @@ export default function Dashboard() {
       }
     }
 
-    const interval = setInterval(refreshIfVisible, 3000)
+    const interval = setInterval(refreshIfVisible, 60000)
     window.addEventListener('focus', refreshIfVisible)
     window.addEventListener('pageshow', refreshIfVisible)
     document.addEventListener('visibilitychange', refreshIfVisible)
