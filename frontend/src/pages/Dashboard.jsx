@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import api from '../utils/api'
 import Layout from '../components/Layout'
 import {
@@ -21,20 +21,54 @@ export default function Dashboard() {
   const [mesFim, setMesFim] = useState(now.getMonth())
   const [anoFim, setAnoFim] = useState(now.getFullYear())
   const [actionLoading, setActionLoading] = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [lastUpdate, setLastUpdate] = useState(null)
 
-  useEffect(() => {
-    setLoading(true)
-    api.get(`/resumo-mensal?mes=${mesSelecionado + 1}&ano=${anoSelecionado}&mes_fim=${mesFim + 1}&ano_fim=${anoFim}`)
-      .then(r => setData(r.data))
-      .catch(() => setData({
+  const carregarDashboard = useCallback(async ({ showLoading = false } = {}) => {
+    if (showLoading) setLoading(true)
+    setRefreshing(true)
+    try {
+      const res = await api.get(`/resumo-mensal?mes=${mesSelecionado + 1}&ano=${anoSelecionado}&mes_fim=${mesFim + 1}&ano_fim=${anoFim}`)
+      setData(res.data)
+      setLastUpdate(new Date())
+    } catch (e) {
+      console.error(e)
+      setData({
         receitas: 0, despesas: 0, saldo: 0, meta_economia: 0,
         categorias: [],
         contas_pagar: [],
         compras_cartao: [],
         metas: [],
-      }))
-      .finally(() => setLoading(false))
+      })
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
   }, [mesSelecionado, anoSelecionado, mesFim, anoFim])
+
+  useEffect(() => {
+    carregarDashboard({ showLoading: true })
+  }, [carregarDashboard])
+
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') {
+        carregarDashboard()
+      }
+    }
+
+    const interval = setInterval(refreshIfVisible, 3000)
+    window.addEventListener('focus', refreshIfVisible)
+    window.addEventListener('pageshow', refreshIfVisible)
+    document.addEventListener('visibilitychange', refreshIfVisible)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('focus', refreshIfVisible)
+      window.removeEventListener('pageshow', refreshIfVisible)
+      document.removeEventListener('visibilitychange', refreshIfVisible)
+    }
+  }, [carregarDashboard])
 
   const chartData = (data?.historico || mesesLabel.map(m => ({ name: m, receitas: 0, despesas: 0 })))
 
@@ -44,9 +78,7 @@ export default function Dashboard() {
     setActionLoading(id)
     try {
       await api.patch(`/contas/${id}`)
-      // Recarrega dados
-      const res = await api.get(`/resumo-mensal?mes=${mesSelecionado + 1}&ano=${anoSelecionado}&mes_fim=${mesFim + 1}&ano_fim=${anoFim}`)
-      setData(res.data)
+      await carregarDashboard()
     } catch (e) {
       console.error(e)
       alert('Erro ao marcar como paga.')
@@ -60,9 +92,7 @@ export default function Dashboard() {
     setActionLoading(id)
     try {
       await api.delete(`/compras-cartao/${id}`)
-      // Recarrega dados
-      const res = await api.get(`/resumo-mensal?mes=${mesSelecionado + 1}&ano=${anoSelecionado}&mes_fim=${mesFim + 1}&ano_fim=${anoFim}`)
-      setData(res.data)
+      await carregarDashboard()
     } catch (e) {
       console.error(e)
       alert('Erro ao excluir compra.')
@@ -94,8 +124,18 @@ export default function Dashboard() {
         <div>
           <h1 className='text-2xl md:text-4xl font-bold'>Dashboard</h1>
           <p className='text-gray-400 mt-1 text-sm md:text-base'>Visão geral da sua gestão financeira</p>
+          <p className='text-gray-500 mt-1 text-xs'>
+            {lastUpdate ? `Atualizado às ${lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Atualizando dados...'}
+          </p>
         </div>
         <div className='flex flex-wrap gap-4 items-center'>
+          <button
+            onClick={() => carregarDashboard()}
+            disabled={refreshing}
+            className='bg-[#111f34] border border-gray-700 px-4 py-2 rounded-xl text-white hover:border-green-500/50 hover:text-green-400 transition disabled:opacity-60 text-xs md:text-sm'
+          >
+            {refreshing ? 'Atualizando...' : 'Atualizar'}
+          </button>
           <div className='flex items-center gap-2'>
             <span className='text-xs text-gray-500 uppercase'>De:</span>
             <select

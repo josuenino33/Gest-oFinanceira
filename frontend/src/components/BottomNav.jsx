@@ -40,7 +40,7 @@ export default function BottomNav({ onMenuOpen, onQuickAdd }) {
           <span className='text-[10px] text-green-400 mt-0.5'>Saída</span>
         </button>
 
-        {tabs.slice(2, 4).map((tab) => {
+        {tabs.slice(2, 3).map((tab) => {
           const isActive = location.pathname === tab.path
           return (
             <NavLink

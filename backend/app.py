@@ -182,7 +182,7 @@ def register():
 @app.route('/resumo', methods=['GET'])
 @jwt_required()
 def resumo():
-    uid = get_jwt_identity()
+    uid = int(get_jwt_identity())
     r = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM receitas WHERE user_id = ?', (uid,))['t']
     d = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM contas WHERE user_id = ?', (uid,))['t']
     m = fetch_one('SELECT COALESCE(AVG(progresso), 0) as p FROM metas WHERE user_id = ?', (uid,))['p']
@@ -191,7 +191,7 @@ def resumo():
 @app.route('/receitas', methods=['GET', 'POST'])
 @jwt_required()
 def rota_receitas():
-    uid = get_jwt_identity()
+    uid = int(get_jwt_identity())
     if request.method == 'POST':
         d = request.json
         execute_query('INSERT INTO receitas (user_id, descricao, valor, categoria_id) VALUES (?, ?, ?, ?)', (uid, d.get('descricao'), d.get('valor'), d.get('categoria_id')))
@@ -201,7 +201,7 @@ def rota_receitas():
 @app.route('/receitas/<int:id>', methods=['DELETE', 'PUT'])
 @jwt_required()
 def acao_receita(id):
-    uid = get_jwt_identity()
+    uid = int(get_jwt_identity())
     if request.method == 'DELETE':
         execute_query('DELETE FROM receitas WHERE id = ? AND user_id = ?', (id, uid))
     else:
@@ -212,7 +212,7 @@ def acao_receita(id):
 @app.route('/contas', methods=['GET', 'POST'])
 @jwt_required()
 def rota_contas():
-    uid = get_jwt_identity()
+    uid = int(get_jwt_identity())
     if request.method == 'POST':
         d = request.json
         execute_query('INSERT INTO contas (user_id, descricao, valor, categoria_id) VALUES (?, ?, ?, ?)', (uid, d.get('descricao'), d.get('valor'), d.get('categoria_id')))
@@ -222,7 +222,7 @@ def rota_contas():
 @app.route('/contas/<int:id>', methods=['DELETE', 'PUT', 'PATCH'])
 @jwt_required()
 def acao_conta(id):
-    uid = get_jwt_identity()
+    uid = int(get_jwt_identity())
     if request.method == 'DELETE':
         execute_query('DELETE FROM contas WHERE id = ? AND user_id = ?', (id, uid))
     elif request.method == 'PATCH':
@@ -235,7 +235,7 @@ def acao_conta(id):
 @app.route('/categorias', methods=['GET', 'POST'])
 @jwt_required()
 def rota_categorias():
-    uid = get_jwt_identity()
+    uid = int(get_jwt_identity())
     if request.method == 'POST':
         d = request.json
         execute_query('INSERT INTO categorias (user_id, nome, cor) VALUES (?, ?, ?)', (uid, d.get('nome'), d.get('cor', '#22c55e')))
@@ -245,7 +245,7 @@ def rota_categorias():
 @app.route('/categorias/<int:id>', methods=['DELETE', 'PUT'])
 @jwt_required()
 def acao_categoria(id):
-    uid = get_jwt_identity()
+    uid = int(get_jwt_identity())
     categoria = fetch_one('SELECT * FROM categorias WHERE id = ?', (id,))
     if not categoria:
         return jsonify({'msg': 'Categoria não encontrada'}), 404
@@ -264,7 +264,7 @@ def acao_categoria(id):
 @app.route('/cartoes', methods=['GET', 'POST'])
 @jwt_required()
 def rota_cartoes():
-    uid = get_jwt_identity()
+    uid = int(get_jwt_identity())
     if request.method == 'POST':
         d = request.json
         execute_query('INSERT INTO cartoes (user_id, nome, bandeira, limite) VALUES (?, ?, ?, ?)', (uid, d.get('nome'), d.get('bandeira'), d.get('limite')))
@@ -274,7 +274,7 @@ def rota_cartoes():
 @app.route('/cartoes/<int:id>', methods=['DELETE', 'PUT'])
 @jwt_required()
 def acao_cartao(id):
-    uid = get_jwt_identity()
+    uid = int(get_jwt_identity())
     if request.method == 'DELETE':
         execute_query('DELETE FROM cartoes WHERE id = ? AND user_id = ?', (id, uid))
     else: # PUT
@@ -285,7 +285,7 @@ def acao_cartao(id):
 @app.route('/compras-cartao', methods=['GET', 'POST'])
 @jwt_required()
 def rota_compras():
-    uid = get_jwt_identity()
+    uid = int(get_jwt_identity())
     if request.method == 'POST':
         d = request.json
         execute_query('INSERT INTO compras_cartao (user_id, cartao_id, descricao, valor, parcelas, parcela_atual) VALUES (?, ?, ?, ?, ?, ?)', (uid, d.get('cartao_id'), d.get('descricao'), d.get('valor'), d.get('parcelas', 1), d.get('parcela_atual', 1)))
@@ -295,7 +295,7 @@ def rota_compras():
 @app.route('/compras-cartao/<int:id>', methods=['DELETE', 'PATCH', 'PUT'])
 @jwt_required()
 def deletar_compra(id):
-    uid = get_jwt_identity()
+    uid = int(get_jwt_identity())
     if request.method == 'DELETE':
         execute_query('DELETE FROM compras_cartao WHERE id = ? AND user_id = ?', (id, uid))
     elif request.method == 'PATCH':
@@ -308,7 +308,7 @@ def deletar_compra(id):
 @app.route('/metas', methods=['GET', 'POST'])
 @jwt_required()
 def rota_metas():
-    uid = get_jwt_identity()
+    uid = int(get_jwt_identity())
     if request.method == 'POST':
         d = request.json
         prog = int(float(d['valor_atual']) / float(d['valor_alvo']) * 100) if float(d.get('valor_alvo', 0)) > 0 else 0
@@ -319,7 +319,7 @@ def rota_metas():
 @app.route('/metas/<int:id>', methods=['DELETE', 'PUT'])
 @jwt_required()
 def acao_meta(id):
-    uid = get_jwt_identity()
+    uid = int(get_jwt_identity())
     if request.method == 'DELETE':
         execute_query('DELETE FROM metas WHERE id = ? AND user_id = ?', (id, uid))
     else:
@@ -331,7 +331,7 @@ def acao_meta(id):
 @app.route('/investimentos', methods=['GET', 'POST'])
 @jwt_required()
 def rota_investimentos():
-    uid = get_jwt_identity()
+    uid = int(get_jwt_identity())
     if request.method == 'POST':
         d = request.json
         vi, va = float(d.get('valor_investido', 0)), float(d.get('valor_atual', 0))
@@ -343,7 +343,7 @@ def rota_investimentos():
 @app.route('/investimentos/<int:id>', methods=['DELETE', 'PUT'])
 @jwt_required()
 def acao_investimento(id):
-    uid = get_jwt_identity()
+    uid = int(get_jwt_identity())
     if request.method == 'DELETE':
         execute_query('DELETE FROM investimentos WHERE id = ? AND user_id = ?', (id, uid))
     else: # PUT
@@ -356,7 +356,7 @@ def acao_investimento(id):
 @app.route('/planejamento', methods=['GET', 'POST'])
 @jwt_required()
 def rota_planejamento():
-    uid = get_jwt_identity()
+    uid = int(get_jwt_identity())
     if request.method == 'POST':
         d = request.json
         execute_query('INSERT INTO planejamento (user_id, categoria_id, valor_planejado, mes, ano) VALUES (?, ?, ?, ?, ?)', (uid, d.get('categoria_id'), d.get('valor_planejado'), d.get('mes'), d.get('ano')))
@@ -366,27 +366,27 @@ def rota_planejamento():
 @app.route('/planejamento/<int:id>', methods=['DELETE'])
 @jwt_required()
 def deletar_planejamento(id):
-    uid = get_jwt_identity()
+    uid = int(get_jwt_identity())
     execute_query('DELETE FROM planejamento WHERE id = ? AND user_id = ?', (id, uid))
     return jsonify({'msg': 'OK'})
 
 @app.route('/relatorios', methods=['GET'])
 @jwt_required()
 def relatorios():
-    uid = get_jwt_identity()
+    uid = int(get_jwt_identity())
     r = fetch_all('SELECT descricao, valor, criado_em FROM receitas WHERE user_id = ? ORDER BY id DESC', (uid,))
     d = fetch_all('SELECT descricao, valor, criado_em, pago FROM contas WHERE user_id = ? ORDER BY id DESC', (uid,))
     tr = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM receitas WHERE user_id = ?', (uid,))['t']
     td = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM contas WHERE user_id = ?', (uid,))['t']
     ti = fetch_one('SELECT COALESCE(SUM(valor_investido), 0) as t FROM investimentos WHERE user_id = ?', (uid,))['t']
     ta = fetch_one('SELECT COALESCE(SUM(valor_atual), 0) as t FROM investimentos WHERE user_id = ?', (uid,))['t']
-    pc = fetch_all('SELECT c.nome, c.cor, COALESCE(SUM(co.valor), 0) as total FROM categorias c LEFT JOIN contas co ON co.categoria_id = c.id AND co.user_id = ? GROUP BY c.id HAVING total > 0 ORDER BY total DESC', (uid,))
+    pc = fetch_all('SELECT c.nome, c.cor, COALESCE(SUM(co.valor), 0) as total FROM categorias c LEFT JOIN contas co ON co.categoria_id = c.id AND co.user_id = ? GROUP BY c.id HAVING COALESCE(SUM(co.valor), 0) > 0 ORDER BY total DESC', (uid,))
     return jsonify({'receitas': r, 'despesas': d, 'total_receitas': float(tr), 'total_despesas': float(td), 'saldo': float(tr-td), 'total_investido': float(ti), 'total_atual_investimentos': float(ta), 'por_categoria': pc})
 
 @app.route('/resumo-mensal', methods=['GET'])
 @jwt_required()
 def resumo_mensal():
-    uid = get_jwt_identity()
+    uid = int(get_jwt_identity())
     mes = request.args.get('mes', datetime.now().month, type=int)
     ano = request.args.get('ano', datetime.now().year, type=int)
     mes_fim = request.args.get('mes_fim', mes, type=int)
@@ -409,7 +409,7 @@ def resumo_mensal():
 
     # Categorias com percentual
     total_despesas = float(d)
-    cats = fetch_all(f'SELECT c.nome, COALESCE(SUM(co.valor), 0) as total FROM categorias c LEFT JOIN contas co ON co.categoria_id = c.id AND co.user_id = ? AND {f_range_co} WHERE (c.user_id IS NULL OR c.user_id = ?) GROUP BY c.id HAVING total > 0 ORDER BY total DESC', (uid, start_date, end_date, uid))
+    cats = fetch_all(f'SELECT c.nome, COALESCE(SUM(co.valor), 0) as total FROM categorias c LEFT JOIN contas co ON co.categoria_id = c.id AND co.user_id = ? AND {f_range_co} WHERE (c.user_id IS NULL OR c.user_id = ?) GROUP BY c.id HAVING COALESCE(SUM(co.valor), 0) > 0 ORDER BY total DESC', (uid, start_date, end_date, uid))
     for c in cats:
         c['percentual'] = round((c['total'] / total_despesas * 100), 1) if total_despesas > 0 else 0
 
@@ -455,7 +455,7 @@ def resumo_mensal():
 @app.route('/perfil', methods=['GET', 'PUT'])
 @jwt_required()
 def rota_perfil():
-    uid = get_jwt_identity()
+    uid = int(get_jwt_identity())
     if request.method == 'PUT':
         d = request.json
         execute_query('UPDATE users SET nome=?, email=? WHERE id=?', (d.get('nome'), d.get('email'), uid))
