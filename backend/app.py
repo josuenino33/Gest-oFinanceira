@@ -119,6 +119,58 @@ def ensure_sqlite_schema(cursor):
             if column_name not in existing_columns:
                 cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column_name} {definition}")
 
+def ensure_postgres_schema(cursor):
+    migrations = {
+        'categorias': [
+            ('user_id', 'INTEGER'),
+            ('cor', "TEXT DEFAULT '#22c55e'"),
+        ],
+        'receitas': [
+            ('user_id', 'INTEGER'),
+            ('categoria_id', 'INTEGER'),
+        ],
+        'contas': [
+            ('user_id', 'INTEGER'),
+            ('categoria_id', 'INTEGER'),
+            ('pago', 'INTEGER DEFAULT 0'),
+        ],
+        'cartoes': [
+            ('user_id', 'INTEGER'),
+            ('limite', 'REAL DEFAULT 0'),
+        ],
+        'compras_cartao': [
+            ('user_id', 'INTEGER'),
+            ('pago', 'INTEGER DEFAULT 0'),
+            ('parcela_atual', 'INTEGER DEFAULT 1'),
+        ],
+        'metas': [
+            ('user_id', 'INTEGER'),
+            ('valor_alvo', 'REAL DEFAULT 0'),
+            ('valor_atual', 'REAL DEFAULT 0'),
+            ('progresso', 'INTEGER DEFAULT 0'),
+        ],
+        'investimentos': [
+            ('user_id', 'INTEGER'),
+            ('rentabilidade', 'REAL DEFAULT 0'),
+        ],
+        'planejamento': [
+            ('user_id', 'INTEGER'),
+        ],
+    }
+
+    for table, columns in migrations.items():
+        cursor.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = %s",
+            (table,)
+        )
+        existing_columns = {row[0] for row in cursor.fetchall()}
+        for column_name, definition in columns:
+            if column_name not in existing_columns:
+                try:
+                    cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column_name} {definition}")
+                except Exception:
+                    pass
+
 def init_db():
     conn = get_db()
     c = conn.cursor()
@@ -130,20 +182,23 @@ def init_db():
     tables = [
         f"CREATE TABLE IF NOT EXISTS users (id {pk}, nome TEXT NOT NULL, email TEXT UNIQUE NOT NULL, senha TEXT NOT NULL, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS categorias (id {pk}, user_id INTEGER, nome TEXT NOT NULL, cor TEXT DEFAULT '#22c55e', criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
-        f"CREATE TABLE IF NOT EXISTS receitas (id {pk}, user_id INTEGER, descricao TEXT NOT NULL, valor REAL NOT NULL, categoria_id INTEGER, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id))",
-        f"CREATE TABLE IF NOT EXISTS contas (id {pk}, user_id INTEGER, descricao TEXT NOT NULL, valor REAL NOT NULL, categoria_id INTEGER, pago INTEGER DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id))",
-        f"CREATE TABLE IF NOT EXISTS cartoes (id {pk}, user_id INTEGER, nome TEXT NOT NULL, bandeira TEXT NOT NULL, limite REAL NOT NULL, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id))",
-        f"CREATE TABLE IF NOT EXISTS compras_cartao (id {pk}, user_id INTEGER, cartao_id INTEGER NOT NULL, descricao TEXT NOT NULL, valor REAL NOT NULL, parcelas INTEGER DEFAULT 1, parcela_atual INTEGER DEFAULT 1, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id))",
-        f"CREATE TABLE IF NOT EXISTS metas (id {pk}, user_id INTEGER, titulo TEXT NOT NULL, descricao TEXT DEFAULT '', valor_alvo REAL DEFAULT 0, valor_atual REAL DEFAULT 0, progresso INTEGER NOT NULL DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id))",
-        f"CREATE TABLE IF NOT EXISTS investimentos (id {pk}, user_id INTEGER, titulo TEXT NOT NULL, tipo TEXT NOT NULL, valor_investido REAL NOT NULL, valor_atual REAL NOT NULL, rentabilidade REAL DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id))",
-        f"CREATE TABLE IF NOT EXISTS planejamento (id {pk}, user_id INTEGER, categoria_id INTEGER, valor_planejado REAL NOT NULL, mes INTEGER NOT NULL, ano INTEGER NOT NULL, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id))"
+        f"CREATE TABLE IF NOT EXISTS receitas (id {pk}, user_id INTEGER, descricao TEXT NOT NULL, valor REAL NOT NULL, categoria_id INTEGER, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS contas (id {pk}, user_id INTEGER, descricao TEXT NOT NULL, valor REAL NOT NULL, categoria_id INTEGER, pago INTEGER DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS cartoes (id {pk}, user_id INTEGER, nome TEXT NOT NULL, bandeira TEXT NOT NULL, limite REAL NOT NULL, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS compras_cartao (id {pk}, user_id INTEGER, cartao_id INTEGER NOT NULL, descricao TEXT NOT NULL, valor REAL NOT NULL, parcelas INTEGER DEFAULT 1, parcela_atual INTEGER DEFAULT 1, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS metas (id {pk}, user_id INTEGER, titulo TEXT NOT NULL, descricao TEXT DEFAULT '', valor_alvo REAL DEFAULT 0, valor_atual REAL DEFAULT 0, progresso INTEGER DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS investimentos (id {pk}, user_id INTEGER, titulo TEXT NOT NULL, tipo TEXT NOT NULL, valor_investido REAL NOT NULL, valor_atual REAL NOT NULL, rentabilidade REAL DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS planejamento (id {pk}, user_id INTEGER, categoria_id INTEGER, valor_planejado REAL NOT NULL, mes INTEGER NOT NULL, ano INTEGER NOT NULL, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
     ]
 
     for sql in tables:
         c.execute(sql)
     conn.commit()
 
-    if not IS_POSTGRES:
+    if IS_POSTGRES:
+        ensure_postgres_schema(c)
+        conn.commit()
+    else:
         ensure_sqlite_schema(c)
 
     # Seed data (Categorias) - recria categorias base caso tenham sumido.
