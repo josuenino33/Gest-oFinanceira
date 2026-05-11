@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import api from '../utils/api'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+  AreaChart, Area, PieChart, Pie, Cell
 } from 'recharts'
 
 const mesesLabel = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
@@ -10,6 +11,8 @@ const mesesNomes = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ]
+
+const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#a855f7', '#ec4899']
 
 export default function Dashboard() {
   const [data, setData] = useState(null)
@@ -25,6 +28,8 @@ export default function Dashboard() {
   const [categoriaFiltro, setCategoriaFiltro] = useState(null)
   const [patrimonioData, setPatrimonioData] = useState(null)
   const [insights, setInsights] = useState([])
+  const [activeTab, setActiveTab] = useState('resumo')
+  const [showFilters, setShowFilters] = useState(false)
 
   const carregarDashboard = useCallback(async ({ showLoading = false } = {}) => {
     if (showLoading) setLoading(true)
@@ -75,49 +80,17 @@ export default function Dashboard() {
   }, [carregarDashboard])
 
   const chartData = (data?.historico || mesesLabel.map(m => ({ name: m, receitas: 0, despesas: 0 })))
-
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-
-  const marcarPaga = async (id) => {
-    setActionLoading(id)
-    try {
-      await api.patch(`/contas/${id}`)
-      await carregarDashboard()
-    } catch (e) {
-      console.error(e)
-      alert('Erro ao marcar como paga.')
-    } finally {
-      setActionLoading(null)
-    }
-  }
-
-  const excluirCompra = async (id) => {
-    if (!confirm('Excluir esta compra?')) return
-    setActionLoading(id)
-    try {
-      await api.delete(`/compras-cartao/${id}`)
-      await carregarDashboard()
-    } catch (e) {
-      console.error(e)
-      alert('Erro ao excluir compra.')
-    } finally {
-      setActionLoading(null)
-    }
-  }
+  
+  const pieData = (data?.categorias || []).map(c => ({ name: c.nome, value: Number(c.valor) }))
+  const conquistas = patrimonioData?.conquistas || []
 
   const cards = data ? [
-    { titulo: 'Receitas no período', valor: fmt(data.receitas), cor: 'bg-green-500' },
-    { titulo: 'Despesas no período', valor: fmt(data.despesas), cor: 'bg-red-500' },
-    { titulo: 'Saldo acumulado', valor: fmt(data.saldo), cor: 'bg-blue-500' },
-    { titulo: 'Taxa de economia', valor: `${Math.round(data.meta_economia)}%`, cor: 'bg-purple-500' },
+    { titulo: 'Receitas no período', valor: fmt(data.receitas), cor: 'bg-green-500', icone: '💰' },
+    { titulo: 'Despesas no período', valor: fmt(data.despesas), cor: 'bg-red-500', icone: '💸' },
+    { titulo: 'Saldo acumulado', valor: fmt(data.saldo), cor: 'bg-blue-500', icone: '📊' },
+    { titulo: 'Taxa de economia', valor: `${Math.round(data.meta_economia)}%`, cor: 'bg-purple-500', icone: '🎯' },
   ] : []
-
-  const patrimonioCard = patrimonioData ? {
-    titulo: 'Patrimônio Líquido',
-    valor: fmt(patrimonioData.patrimonio),
-    ativos: fmt(patrimonioData.ativos),
-    passivos: fmt(patrimonioData.passivos)
-  } : null
 
   if (loading) {
     return (
@@ -128,333 +101,216 @@ export default function Dashboard() {
   }
 
   return (
-    <>
-      {/* Header com Título e Filtro unificados */}
-      <div className='flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-8'>
+    <div className='max-w-7xl mx-auto pb-20 px-4 md:px-0'>
+      {/* Header e Filtros Minimalistas */}
+      <div className='flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8'>
         <div>
-          <h1 className='text-3xl md:text-4xl font-black text-white tracking-tight'>Dashboard</h1>
-          <p className='text-gray-400 mt-1 text-sm md:text-base font-medium opacity-80'>Visão geral da sua saúde financeira</p>
-          <div className='flex items-center gap-2 mt-2'>
-            <span className='inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse'></span>
-            <span className='text-gray-500 text-[10px] uppercase font-bold tracking-widest'>
-              {lastUpdate ? `Sincronizado às ${lastUpdate.toLocaleTimeString('pt-BR')}` : 'Sincronizando...'}
-            </span>
-          </div>
+          <h1 className='text-3xl md:text-5xl font-black text-white tracking-tighter'>Dashboard</h1>
+          <p className='text-gray-500 font-medium text-sm md:text-base'>Sua saúde financeira em tempo real</p>
         </div>
 
-        {/* Novo Filtro - Totalmente Responsivo */}
-        <div className='flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-[#0d1a2d] border border-gray-800 p-2 rounded-2xl shadow-xl self-stretch xl:self-center'>
-          <div className='grid grid-cols-2 sm:flex items-center gap-2 flex-1'>
-            <div className='flex items-center gap-1 bg-[#111f34] border border-gray-700/30 rounded-xl px-2 py-2 justify-center sm:justify-start'>
-               <select 
-                 value={mesSelecionado} 
-                 onChange={e => setMesSelecionado(Number(e.target.value))}
-                 className='bg-transparent text-white text-[11px] md:text-xs outline-none cursor-pointer font-bold'
-               >
-                 {mesesNomes.map((m, i) => <option key={i} value={i} className='bg-[#111f34]'>{m.substring(0, 3)}</option>)}
-               </select>
-               <span className='text-gray-600 text-xs'>/</span>
-               <select 
-                 value={anoSelecionado} 
-                 onChange={e => setAnoSelecionado(Number(e.target.value))}
-                 className='bg-transparent text-white text-[11px] md:text-xs outline-none cursor-pointer font-bold'
-               >
-                 {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a} className='bg-[#111f34]'>{a}</option>)}
-               </select>
-            </div>
-
-            <div className='flex items-center gap-1 bg-[#111f34] border border-gray-700/30 rounded-xl px-2 py-2 justify-center sm:justify-start'>
-               <select 
-                 value={mesFim} 
-                 onChange={e => setMesFim(Number(e.target.value))}
-                 className='bg-transparent text-white text-[11px] md:text-xs outline-none cursor-pointer font-bold'
-               >
-                 {mesesNomes.map((m, i) => <option key={i} value={i} className='bg-[#111f34]'>{m.substring(0, 3)}</option>)}
-               </select>
-               <span className='text-gray-600 text-xs'>/</span>
-               <select 
-                 value={anoFim} 
-                 onChange={e => setAnoFim(Number(e.target.value))}
-                 className='bg-transparent text-white text-[11px] md:text-xs outline-none cursor-pointer font-bold'
-               >
-                 {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a} className='bg-[#111f34]'>{a}</option>)}
-               </select>
-            </div>
-          </div>
-
-          <button
-            onClick={() => carregarDashboard()}
-            disabled={refreshing}
-            className='h-10 sm:w-10 flex items-center justify-center bg-green-500 hover:bg-green-400 text-black rounded-xl transition-all shadow-lg shadow-green-500/20 font-bold text-xs'
+        <div className='relative'>
+          <button 
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center gap-2 px-6 py-3 rounded-2xl border transition-all font-bold text-sm ${
+              showFilters ? 'bg-green-500 text-black border-green-500 shadow-lg' : 'bg-[#0d1a2d] border-gray-800 text-gray-400 hover:border-gray-600'
+            }`}
           >
-            {refreshing ? '...' : <span className='sm:hidden'>Aplicar Filtro</span>}
-            <span className='hidden sm:inline'>🔍</span>
+            <span>{showFilters ? '✕ Fechar' : '🔍 Filtrar Período'}</span>
           </button>
+
+          {showFilters && (
+            <div className='absolute top-16 right-0 z-50 min-w-[320px] bg-[#0d1a2d] border border-gray-800 p-6 rounded-[2rem] shadow-2xl animate-in fade-in slide-in-from-top-4 duration-200'>
+              <div className='grid grid-cols-2 gap-4 mb-6'>
+                <div className='space-y-2'>
+                  <span className='text-[10px] text-gray-500 font-black uppercase tracking-widest ml-1'>Início</span>
+                  <div className='flex flex-col gap-2 bg-[#111f34] p-3 rounded-2xl border border-gray-700/30'>
+                    <select value={mesSelecionado} onChange={e => setMesSelecionado(Number(e.target.value))} className='bg-transparent text-white text-xs outline-none w-full font-bold'>
+                      {mesesNomes.map((m, i) => <option key={i} value={i} className='bg-[#111f34]'>{m}</option>)}
+                    </select>
+                    <select value={anoSelecionado} onChange={e => setAnoSelecionado(Number(e.target.value))} className='bg-transparent text-white text-xs outline-none font-bold'>
+                      {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a} className='bg-[#111f34]'>{a}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className='space-y-2'>
+                  <span className='text-[10px] text-gray-500 font-black uppercase tracking-widest ml-1'>Fim</span>
+                  <div className='flex flex-col gap-2 bg-[#111f34] p-3 rounded-2xl border border-gray-700/30'>
+                    <select value={mesFim} onChange={e => setMesFim(Number(e.target.value))} className='bg-transparent text-white text-xs outline-none w-full font-bold'>
+                      {mesesNomes.map((m, i) => <option key={i} value={i} className='bg-[#111f34]'>{m}</option>)}
+                    </select>
+                    <select value={anoFim} onChange={e => setAnoFim(Number(e.target.value))} className='bg-transparent text-white text-xs outline-none font-bold'>
+                      {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a} className='bg-[#111f34]'>{a}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <button 
+                onClick={() => { carregarDashboard(); setShowFilters(false); }}
+                className='w-full bg-green-500 text-black font-black py-4 rounded-xl hover:bg-green-400 transition shadow-lg shadow-green-500/20'
+              >
+                APLICAR FILTRO
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Patrimônio Líquido em Destaque (Full Width em Mobile) */}
-      {patrimonioData && (
-        <div className='mb-10'>
-          <div className='bg-gradient-to-br from-[#1e293b] to-[#080f1e] border border-gray-800 p-6 md:p-8 rounded-[2rem] shadow-2xl relative overflow-hidden group'>
-            <div className='absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity'>
-              <span className='text-8xl'>🏦</span>
-            </div>
-            
-            <div className='flex flex-col md:flex-row md:items-end justify-between gap-6'>
-              <div>
-                <span className='text-[10px] md:text-xs text-green-400/70 uppercase font-black tracking-[0.2em] mb-2 block'>Patrimônio Consolidado</span>
-                <div className='flex items-baseline gap-2'>
-                  <span className='text-2xl md:text-3xl text-gray-400 font-light'>R$</span>
-                  <h2 className={`text-4xl md:text-6xl font-black tracking-tighter ${patrimonioData.patrimonio >= 0 ? 'text-white' : 'text-red-400'}`}>
-                    {Number(patrimonioData.patrimonio).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </h2>
-                </div>
-              </div>
-
-              <div className='grid grid-cols-2 gap-4 md:gap-10 border-t md:border-t-0 md:border-l border-gray-800 pt-6 md:pt-0 md:pl-10'>
-                <div>
-                  <span className='text-[10px] text-gray-500 uppercase font-bold block mb-1'>Ativos Totais</span>
-                  <p className='text-lg md:text-xl text-white font-bold'>{fmt(patrimonioData.ativos)}</p>
-                </div>
-                <div>
-                  <span className='text-[10px] text-gray-500 uppercase font-bold block mb-1'>Dívidas / Passivos</span>
-                  <p className='text-lg md:text-xl text-red-400/80 font-bold'>{fmt(patrimonioData.passivos)}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Cards */}
-      <div className='grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6 mb-8'>
-        {cards.map((card, i) => (
-          <div key={i} className='bg-[#0d1a2d] rounded-2xl p-4 md:p-6 border border-gray-800 shadow-lg hover:border-gray-600 transition-all duration-300'>
-            <div className={`w-10 h-10 md:w-14 md:h-14 rounded-xl ${card.cor} mb-3 md:mb-5 flex items-center justify-center text-xl md:text-2xl`}>
-              {['💰', '💸', '📊', '🎯'][i]}
-            </div>
-            <p className='text-gray-400 text-xs md:text-base'>{card.titulo}</p>
-            <h2 className='text-xl md:text-3xl font-bold mt-1 md:mt-2'>{card.valor}</h2>
-          </div>
+      {/* Navegação por Abas Premium */}
+      <div className='flex gap-1 bg-[#0d1a2d] p-2 rounded-[2rem] border border-gray-800 mb-10 max-w-lg'>
+        {[
+          { id: 'resumo', label: 'Resumo', icon: '📊' },
+          { id: 'ia', label: 'IA & Análise', icon: '🤖' },
+          { id: 'conquistas', label: 'Troféus', icon: '🏆' }
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-wider transition-all ${
+              activeTab === tab.id ? 'bg-green-500 text-black shadow-lg shadow-green-500/10' : 'text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            <span className='hidden sm:inline'>{tab.icon}</span> {tab.label}
+          </button>
         ))}
       </div>
 
-      {/* Consultor de IA (Insights) */}
-      {insights.length > 0 && (
-        <div className='mb-10 bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/20 rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-2xl'>
-          <div className='absolute -top-10 -right-10 w-40 h-40 bg-green-500/10 rounded-full blur-3xl'></div>
-          <div className='flex items-center gap-3 mb-6'>
-            <div className='flex items-center justify-center w-10 h-10 bg-green-500 text-black rounded-xl text-xl font-black shadow-lg shadow-green-500/20'>
-              AI
+      {/* Conteúdo Dinâmico */}
+      {activeTab === 'resumo' && (
+        <div className='animate-in fade-in duration-500 space-y-10'>
+          {/* Patrimônio Líquido */}
+          {patrimonioData && (
+            <div className='bg-gradient-to-br from-[#1e293b] to-[#080f1e] border border-gray-800 p-8 rounded-[3rem] shadow-2xl relative overflow-hidden group'>
+              <div className='absolute top-0 right-0 p-10 opacity-5 group-hover:opacity-10 transition-opacity'>
+                <span className='text-9xl'>🏦</span>
+              </div>
+              <div className='flex flex-col md:flex-row md:items-end justify-between gap-10'>
+                <div>
+                  <span className='text-[10px] text-green-400 font-black tracking-[0.3em] uppercase mb-3 block'>Patrimônio Consolidado</span>
+                  <div className='flex items-baseline gap-3'>
+                    <span className='text-3xl text-gray-500 font-light'>R$</span>
+                    <h2 className={`text-5xl md:text-8xl font-black tracking-tighter ${patrimonioData.patrimonio >= 0 ? 'text-white' : 'text-red-400'}`}>
+                      {Number(patrimonioData.patrimonio).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </h2>
+                  </div>
+                </div>
+                <div className='grid grid-cols-2 gap-10 border-t md:border-t-0 md:border-l border-gray-800 pt-10 md:pt-0 md:pl-10'>
+                  <div><span className='text-[10px] text-gray-500 font-black uppercase tracking-widest'>Ativos</span><p className='text-2xl text-white font-black'>{fmt(patrimonioData.ativos)}</p></div>
+                  <div><span className='text-[10px] text-gray-500 font-black uppercase tracking-widest'>Dívidas</span><p className='text-2xl text-red-400/80 font-black'>{fmt(patrimonioData.passivos)}</p></div>
+                </div>
+              </div>
             </div>
-            <h2 className='text-xl font-bold'>Insights do Consultor</h2>
-          </div>
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-            {insights.map((insight, i) => (
-              <div key={i} className='flex gap-4 items-center bg-[#0d1a2d]/60 backdrop-blur-sm p-4 rounded-2xl border border-white/5 hover:border-white/10 transition group'>
-                <span className='text-3xl group-hover:scale-110 transition-transform'>{insight.icon}</span>
-                <p className='text-sm text-gray-300 leading-relaxed'>{insight.msg}</p>
+          )}
+
+          {/* Cards de Resumo */}
+          <div className='grid grid-cols-2 lg:grid-cols-4 gap-6'>
+            {cards.map((card, i) => (
+              <div key={i} className='bg-[#0d1a2d] rounded-[2.5rem] p-8 border border-gray-800 hover:border-gray-600 transition-all shadow-xl group'>
+                <div className={`w-16 h-16 rounded-[1.5rem] ${card.cor} mb-6 flex items-center justify-center text-3xl shadow-lg group-hover:scale-110 transition-transform`}>
+                   {card.icone}
+                </div>
+                <p className='text-gray-500 text-[10px] font-black uppercase tracking-[0.1em] mb-2'>{card.titulo}</p>
+                <h3 className='text-2xl md:text-3xl font-black text-white'>{card.valor}</h3>
               </div>
             ))}
+          </div>
+
+          {/* Seção de Gráficos */}
+          <div className='grid grid-cols-1 xl:grid-cols-3 gap-8'>
+             <div className='xl:col-span-2 bg-[#0d1a2d] rounded-[3rem] p-8 border border-gray-800 shadow-2xl'>
+                <h3 className='text-2xl font-black text-white mb-8'>Evolução Financeira</h3>
+                <div className='h-80 w-full'>
+                   <ResponsiveContainer width='100%' height='100%'>
+                    <AreaChart data={chartData}>
+                      <defs>
+                        <linearGradient id='colorRec' x1='0' y1='0' x2='0' y2='1'>
+                          <stop offset='5%' stopColor='#22c55e' stopOpacity={0.3}/>
+                          <stop offset='95%' stopColor='#22c55e' stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id='colorDes' x1='0' y1='0' x2='0' y2='1'>
+                          <stop offset='5%' stopColor='#ef4444' stopOpacity={0.3}/>
+                          <stop offset='95%' stopColor='#ef4444' stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey='mes' stroke='#4b5563' fontSize={12} tickLine={false} axisLine={false} />
+                      <Tooltip contentStyle={{ backgroundColor: '#0d1a2d', border: 'none', borderRadius: '20px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} />
+                      <Area type='monotone' dataKey='receitas' stroke='#22c55e' strokeWidth={4} fillOpacity={1} fill='url(#colorRec)' />
+                      <Area type='monotone' dataKey='despesas' stroke='#ef4444' strokeWidth={4} fillOpacity={1} fill='url(#colorDes)' />
+                    </AreaChart>
+                   </ResponsiveContainer>
+                </div>
+             </div>
+
+             <div className='bg-[#0d1a2d] rounded-[3rem] p-8 border border-gray-800 shadow-2xl'>
+                <h3 className='text-2xl font-black text-white mb-8'>Maiores Gastos</h3>
+                <div className='h-80 w-full'>
+                   <ResponsiveContainer width='100%' height='100%'>
+                      <PieChart>
+                        <Pie
+                          data={pieData}
+                          cx='50%'
+                          cy='50%'
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey='value'
+                        >
+                          {pieData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                   </ResponsiveContainer>
+                </div>
+             </div>
           </div>
         </div>
       )}
 
-      {/* Charts row */}
-      <div className='grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8'>
-        <div className='xl:col-span-2 bg-[#0d1a2d] rounded-2xl p-4 md:p-6 border border-gray-800'>
-          <div className='flex justify-between items-center mb-6'>
-            <h2 className='text-lg md:text-2xl font-bold'>Receitas x Despesas</h2>
-            <select className='bg-[#132238] border border-gray-700 rounded-lg px-3 py-1 md:px-4 md:py-2 text-white text-sm'>
-              <option>12 meses</option>
-              <option>6 meses</option>
-            </select>
-          </div>
-          <div className='h-80'>
-            <ResponsiveContainer width='100%' height='100%'>
-              <BarChart data={chartData} barGap={4}>
-                <CartesianGrid stroke='#1f2b42' vertical={false} />
-                <XAxis dataKey='name' stroke='#829ab1' />
-                <YAxis stroke='#829ab1' />
-                <Tooltip
-                  contentStyle={{ background: '#0b1728', border: '1px solid #334155', borderRadius: '12px' }}
-                  formatter={(value) => fmt(value)}
-                />
-                <Bar dataKey='receitas' fill='#22c55e' radius={[6, 6, 0, 0]} name='Receitas' />
-                <Bar dataKey='despesas' fill='#ef4444' radius={[6, 6, 0, 0]} name='Despesas' />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className='bg-[var(--bg-card)] rounded-2xl p-6 border border-[var(--border-color)]'>
-          <div className='flex justify-between items-center mb-6'>
-            <h2 className='text-2xl font-bold'>Despesas por Categoria</h2>
-            {categoriaFiltro && (
-              <button onClick={() => setCategoriaFiltro(null)} className='text-xs text-blue-400 hover:underline'>Limpar Filtro</button>
-            )}
-          </div>
-          <div className='space-y-5'>
-            {(data?.categorias || []).map((cat, i) => (
-              <div 
-                key={i} 
-                className={`cursor-pointer group ${categoriaFiltro && categoriaFiltro !== cat.nome ? 'opacity-40' : 'opacity-100'}`}
-                onClick={() => setCategoriaFiltro(categoriaFiltro === cat.nome ? null : cat.nome)}
-              >
-                <div className='flex justify-between mb-2'>
-                  <span className='group-hover:text-green-400 transition'>{cat.nome}</span>
-                  <span className='font-bold'>{cat.percentual}%</span>
-                </div>
-                <div className='w-full h-3 bg-[var(--bg-input)] rounded-full overflow-hidden'>
-                  <div
-                    className='h-full bg-gradient-to-r from-green-400 to-blue-500 transition-all duration-700'
-                    style={{ width: `${cat.percentual}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom row */}
-      <div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-8'>
-        {/* Contas a Pagar */}
-        <div className='bg-[var(--bg-card)] rounded-2xl p-6 border border-[var(--border-color)]'>
-          <h2 className='text-2xl font-bold mb-6'>Contas a Pagar {categoriaFiltro && <span className='text-sm font-normal text-blue-400'>({categoriaFiltro})</span>}</h2>
-          <div className='space-y-4'>
-            {(data?.contas_pagar || [])
-              .filter(c => !categoriaFiltro || c.categoria_nome === categoriaFiltro)
-              .map((conta, i) => (
-              <div key={i} className='flex justify-between items-center bg-[var(--bg-input)] p-4 rounded-xl border border-transparent hover:border-gray-700 transition'>
-                <div className='flex-1'>
-                  <span className='block font-medium'>{conta.descricao}</span>
-                  <div className='flex items-center gap-2'>
-                    <span className='text-yellow-400 font-bold'>{fmt(conta.valor)}</span>
-                    <span className='text-[10px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded'>{conta.categoria_nome}</span>
+      {activeTab === 'ia' && (
+        <div className='animate-in slide-in-from-right-10 fade-in duration-500 space-y-8'>
+          <div className='bg-gradient-to-r from-green-500/20 to-blue-500/20 border border-green-500/30 rounded-[3rem] p-10 relative overflow-hidden'>
+             <div className='flex items-center gap-4 mb-10'>
+                <div className='w-16 h-16 bg-green-500 rounded-2xl flex items-center justify-center text-black font-black text-2xl shadow-2xl shadow-green-500/20'>AI</div>
+                <h2 className='text-3xl font-black text-white'>Análise Estratégica Gemini</h2>
+             </div>
+             <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                {insights.map((insight, i) => (
+                  <div key={i} className='bg-[#0b1728]/80 backdrop-blur-xl p-8 rounded-[2rem] border border-white/5 hover:border-green-500/30 transition-all group'>
+                    <span className='text-5xl block mb-6 group-hover:scale-110 transition-transform'>{insight.icon}</span>
+                    <p className='text-lg text-gray-200 font-medium leading-relaxed'>{insight.msg}</p>
                   </div>
-                </div>
-                <div className='flex gap-2 ml-4'>
-                  <button
-                    onClick={() => marcarPaga(conta.id)}
-                    disabled={actionLoading === conta.id}
-                    className='bg-green-500/10 text-green-400 px-3 py-1.5 rounded-lg hover:bg-green-500/20 transition text-sm disabled:opacity-50'
-                  >
-                    {actionLoading === conta.id ? '...' : 'Pagar'}
-                  </button>
-                </div>
-              </div>
-            ))}
-            {(!data?.contas_pagar || data.contas_pagar.length === 0) && (
-              <p className='text-gray-500'>Nenhuma conta pendente</p>
-            )}
-          </div>
-        </div>
-
-        {/* Compras no Cartão */}
-        <div className='bg-[var(--bg-card)] rounded-2xl p-6 border border-[var(--border-color)]'>
-          <h2 className='text-2xl font-bold mb-6'>Compras no Cartão {categoriaFiltro && <span className='text-sm font-normal text-blue-400'>({categoriaFiltro})</span>}</h2>
-          <div className='overflow-auto'>
-            <table className='w-full text-left'>
-              <thead>
-                <tr className='text-[var(--text-muted)] border-b border-[var(--border-color)]'>
-                  <th className='pb-3 text-xs uppercase'>Compra</th>
-                  <th className='pb-3 text-xs uppercase'>Valor</th>
-                  <th className='pb-3 text-xs uppercase'>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(data?.compras_cartao || [])
-                  .map((c, i) => (
-                  <tr key={i} className='border-b border-[var(--border-color)] last:border-0'>
-                    <td className='py-4'>
-                      <span className='block font-medium'>{c.descricao}</span>
-                      <span className='text-[10px] text-gray-500'>{c.cartao_nome} - {c.parcela_atual}/{c.parcelas}x</span>
-                    </td>
-                    <td className='text-green-400 font-bold'>{fmt(c.valor)}</td>
-                    <td className='py-4'>
-                      <button
-                        onClick={() => excluirCompra(c.id)}
-                        disabled={actionLoading === c.id}
-                        className='text-red-400 hover:text-red-300 transition text-sm disabled:opacity-50'
-                      >
-                        🗑️
-                      </button>
-                    </td>
-                  </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Metas */}
-        <div className='bg-[#0d1a2d] rounded-2xl p-6 border border-gray-800'>
-          <h2 className='text-2xl font-bold mb-6'>Minhas Metas</h2>
-          <div className='space-y-6'>
-            {(data?.metas || []).map((meta, i) => (
-              <div key={i}>
-                <div className='flex justify-between mb-2'>
-                  <span>{meta.titulo}</span>
-                  <span className='text-green-400'>{meta.progresso}%</span>
-                </div>
-                <div className='w-full h-4 bg-[#15253d] rounded-full overflow-hidden'>
-                  <div
-                    className='h-full bg-green-500 transition-all duration-700'
-                    style={{ width: `${meta.progresso}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Gamificação - Conquistas */}
-      {patrimonioData?.conquistas && (
-        <div className='mt-10 mb-20 md:mb-10'>
-          <h2 className='text-xl font-bold mb-6 flex items-center gap-2'>
-            <span>🏆</span> Minhas Conquistas
-          </h2>
-          <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4'>
-            {patrimonioData.conquistas.map(c => (
-              <div 
-                key={c.id} 
-                className={`p-4 rounded-2xl border transition-all duration-500 hover:scale-[1.02] ${
-                  c.ganho 
-                    ? 'bg-green-500/5 border-green-500/20 opacity-100' 
-                    : 'bg-gray-800/10 border-gray-800/30 opacity-40 grayscale'
-                }`}
-              >
-                <div className='flex items-center gap-3'>
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-inner ${
-                    c.ganho ? 'bg-green-500/20' : 'bg-gray-700/30'
-                  }`}>
-                    {c.icon}
-                  </div>
-                  <div className='flex-1'>
-                    <h3 className={`font-bold text-sm ${c.ganho ? 'text-green-400' : 'text-gray-400'}`}>
-                      {c.titulo}
-                    </h3>
-                    <p className='text-[10px] text-gray-500 mt-0.5 leading-tight'>{c.desc}</p>
-                  </div>
-                </div>
-                {c.ganho && (
-                  <div className='mt-3 h-1 w-full bg-green-500/10 rounded-full overflow-hidden'>
-                    <div className='h-full bg-green-500 w-full animate-pulse'></div>
-                  </div>
-                )}
-              </div>
-            ))}
+             </div>
+             {insights.length === 0 && (
+               <div className='text-center py-20'>
+                  <p className='text-gray-400 italic'>Sua IA está analisando os dados... Tente filtrar um período com movimentações.</p>
+               </div>
+             )}
           </div>
         </div>
       )}
 
-      <footer className='mt-10 mb-24 md:mb-10 text-center text-gray-500 text-sm'>
-        Dashboard Financeiro Pessoal • Desenvolvido em React + TailwindCSS
-      </footer>
-    </>
+      {activeTab === 'conquistas' && (
+        <div className='animate-in slide-in-from-right-10 fade-in duration-500'>
+          <div className='bg-[#0d1a2d] border border-gray-800 rounded-[3rem] p-10'>
+             <div className='flex items-center gap-4 mb-12'>
+                <span className='text-5xl'>🏆</span>
+                <h2 className='text-3xl font-black text-white uppercase tracking-tighter'>Sala de Troféus</h2>
+             </div>
+             <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8'>
+                {conquistas.map((c, i) => (
+                  <div key={i} className={`p-8 rounded-[2.5rem] border transition-all duration-700 flex flex-col items-center text-center ${c.desbloqueado || c.ganho ? 'bg-green-500/5 border-green-500/30 shadow-2xl' : 'bg-gray-900/50 border-gray-800 opacity-30 grayscale'}`}>
+                     <span className='text-6xl mb-6 transform group-hover:scale-125 transition-transform'>{c.icone || c.icon}</span>
+                     <h4 className='font-black text-white text-sm mb-2 uppercase tracking-widest'>{c.titulo}</h4>
+                     <p className='text-xs text-gray-500 font-medium leading-tight'>{c.descricao || c.desc}</p>
+                  </div>
+                ))}
+             </div>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
-
