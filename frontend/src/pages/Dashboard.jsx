@@ -160,86 +160,97 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-        <div className='flex flex-wrap gap-4 items-center'>
+        <div className='flex flex-wrap items-center gap-3 bg-[#0d1a2d]/80 backdrop-blur-md p-2 rounded-2xl border border-gray-800 shadow-2xl'>
+          {/* Botão de Atalho: Mês Atual */}
+          <button
+            onClick={() => {
+              const d = new Date()
+              setMesSelecionado(d.getMonth())
+              setAnoSelecionado(d.getFullYear())
+              setMesFim(d.getMonth())
+              setAnoFim(d.getFullYear())
+            }}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              mesSelecionado === mesFim && anoSelecionado === anoFim && mesSelecionado === new Date().getMonth()
+                ? 'bg-green-500 text-black shadow-lg shadow-green-500/20'
+                : 'text-gray-400 hover:bg-white/5'
+            }`}
+          >
+            Este Mês
+          </button>
+
+          {/* Botão de Atalho: Últimos 3 Meses */}
+          <button
+            onClick={() => {
+              const d = new Date()
+              setMesFim(d.getMonth())
+              setAnoFim(d.getFullYear())
+              let mDe = d.getMonth() - 2
+              let aDe = d.getFullYear()
+              if (mDe < 0) { mDe += 12; aDe -= 1 }
+              setMesSelecionado(mDe)
+              setAnoSelecionado(aDe)
+            }}
+            className='px-4 py-2 rounded-xl text-xs font-bold text-gray-400 hover:bg-white/5 transition-all'
+          >
+            Últimos 3 Meses
+          </button>
+
+          <div className='h-6 w-px bg-gray-800 mx-1'></div>
+
+          {/* Seletores Customizados mais limpos */}
+          <div className='flex items-center gap-2 px-2'>
+            <div className='flex items-center gap-1 bg-[#111f34] border border-gray-700/50 rounded-xl px-2 py-1'>
+              <span className='text-[10px] text-gray-500 font-bold ml-1'>DE:</span>
+              <select 
+                value={mesSelecionado} 
+                onChange={e => setMesSelecionado(Number(e.target.value))}
+                className='bg-transparent text-white text-xs outline-none cursor-pointer py-1'
+              >
+                {mesesNomes.map((m, i) => <option key={i} value={i} className='bg-[#111f34]'>{m.substring(0, 3)}</option>)}
+              </select>
+              <select 
+                value={anoSelecionado} 
+                onChange={e => setAnoSelecionado(Number(e.target.value))}
+                className='bg-transparent text-white text-xs outline-none cursor-pointer py-1'
+              >
+                {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a} className='bg-[#111f34]'>{a}</option>)}
+              </select>
+            </div>
+
+            <div className='text-gray-600'>→</div>
+
+            <div className='flex items-center gap-1 bg-[#111f34] border border-gray-700/50 rounded-xl px-2 py-1'>
+              <span className='text-[10px] text-gray-500 font-bold ml-1'>ATÉ:</span>
+              <select 
+                value={mesFim} 
+                onChange={e => setMesFim(Number(e.target.value))}
+                className='bg-transparent text-white text-xs outline-none cursor-pointer py-1'
+              >
+                {mesesNomes.map((m, i) => <option key={i} value={i} className='bg-[#111f34]'>{m.substring(0, 3)}</option>)}
+              </select>
+              <select 
+                value={anoFim} 
+                onChange={e => setAnoFim(Number(e.target.value))}
+                className='bg-transparent text-white text-xs outline-none cursor-pointer py-1'
+              >
+                {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a} className='bg-[#111f34]'>{a}</option>)}
+              </select>
+            </div>
+          </div>
+
           <button
             onClick={() => carregarDashboard()}
             disabled={refreshing}
-            className='bg-[#111f34] border border-gray-700 px-4 py-2 rounded-xl text-white hover:border-green-500/50 hover:text-green-400 transition disabled:opacity-60 text-xs md:text-sm'
+            className='ml-2 p-2 bg-green-500 hover:bg-green-400 text-black rounded-xl transition-all shadow-lg shadow-green-500/20 disabled:opacity-50'
+            title='Aplicar Filtro'
           >
-            {refreshing ? 'Atualizando...' : 'Atualizar'}
+            {refreshing ? (
+              <div className='w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin'></div>
+            ) : (
+              '🔍'
+            )}
           </button>
-          <div className='flex items-center gap-2'>
-            <span className='text-xs text-gray-500 uppercase'>De:</span>
-            <select
-              value={mesSelecionado}
-              onChange={(e) => {
-                const novoMes = Number(e.target.value)
-                setMesSelecionado(novoMes)
-                // Se "De" ficou maior que "Para", ajustar "Para"
-                if (anoSelecionado > anoFim || (anoSelecionado === anoFim && novoMes > mesFim)) {
-                  setMesFim(novoMes)
-                  setAnoFim(anoSelecionado)
-                }
-              }}
-              className='bg-[#111f34] border border-gray-700 px-3 py-2 rounded-xl text-white cursor-pointer outline-none focus:border-green-500/50 text-xs md:text-sm'
-            >
-              {mesesNomes.map((m, i) => (
-                <option key={i} value={i}>{m}</option>
-              ))}
-            </select>
-            <select
-              value={anoSelecionado}
-              onChange={(e) => {
-                const novoAno = Number(e.target.value)
-                setAnoSelecionado(novoAno)
-                if (novoAno > anoFim || (novoAno === anoFim && mesSelecionado > mesFim)) {
-                  setMesFim(mesSelecionado)
-                  setAnoFim(novoAno)
-                }
-              }}
-              className='bg-[#111f34] border border-gray-700 px-3 py-2 rounded-xl text-white cursor-pointer outline-none focus:border-green-500/50 text-xs md:text-sm'
-            >
-              {[2024, 2025, 2026, 2027].map(a => (
-                <option key={a} value={a}>{a}</option>
-              ))}
-            </select>
-          </div>
-          <div className='flex items-center gap-2'>
-            <span className='text-xs text-gray-500 uppercase'>Até:</span>
-            <select
-              value={mesFim}
-              onChange={(e) => {
-                const novoMes = Number(e.target.value)
-                setMesFim(novoMes)
-                // Se "Para" ficou menor que "De", ajustar "De"
-                if (anoFim < anoSelecionado || (anoFim === anoSelecionado && novoMes < mesSelecionado)) {
-                  setMesSelecionado(novoMes)
-                  setAnoSelecionado(anoFim)
-                }
-              }}
-              className='bg-[#111f34] border border-gray-700 px-3 py-2 rounded-xl text-white cursor-pointer outline-none focus:border-green-500/50 text-xs md:text-sm'
-            >
-              {mesesNomes.map((m, i) => (
-                <option key={i} value={i}>{m}</option>
-              ))}
-            </select>
-            <select
-              value={anoFim}
-              onChange={(e) => {
-                const novoAno = Number(e.target.value)
-                setAnoFim(novoAno)
-                if (novoAno < anoSelecionado || (novoAno === anoSelecionado && mesFim < mesSelecionado)) {
-                  setMesSelecionado(mesFim)
-                  setAnoSelecionado(novoAno)
-                }
-              }}
-              className='bg-[#111f34] border border-gray-700 px-3 py-2 rounded-xl text-white cursor-pointer outline-none focus:border-green-500/50 text-xs md:text-sm'
-            >
-              {[2024, 2025, 2026, 2027].map(a => (
-                <option key={a} value={a}>{a}</option>
-              ))}
-            </select>
-          </div>
         </div>
       </div>
 
