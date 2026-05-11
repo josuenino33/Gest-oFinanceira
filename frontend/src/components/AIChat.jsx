@@ -26,6 +26,11 @@ export default function AIChat() {
     setLoading(true)
 
     try {
+      if (userMsg.toLowerCase() === '/debug') {
+        const res = await api.get('/test-ai')
+        setMessages(prev => [...prev, { role: 'ai', text: `DEBUG: Modelos: ${res.data.modelos_disponiveis?.join(', ') || 'Nenhum'}` }])
+        return
+      }
       const res = await api.post('/chat', { message: userMsg })
       setMessages(prev => [...prev, { role: 'ai', text: res.data.response }])
     } catch (err) {
