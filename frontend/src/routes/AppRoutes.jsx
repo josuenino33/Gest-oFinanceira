@@ -17,6 +17,7 @@ import Register from '../pages/Register'
 import ForgotPassword from '../pages/ForgotPassword'
 import ProtectedRoute from '../components/ProtectedRoute'
 import Layout from '../components/Layout'
+import Carteira from '../pages/Carteira'
 
 export default function AppRoutes() {
   return (
@@ -30,6 +31,7 @@ export default function AppRoutes() {
         <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route path='/' element={<Dashboard />} />
           <Route path='/resumo' element={<Resumo />} />
+          <Route path='/carteira' element={<Carteira />} />
           <Route path='/receitas' element={<Receitas />} />
           <Route path='/contas' element={<Contas />} />
           <Route path='/cartoes' element={<Cartoes />} />
