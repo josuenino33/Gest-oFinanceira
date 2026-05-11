@@ -61,9 +61,9 @@ export default function AIChat() {
         </div>
       )}
 
-      {/* Janela de Chat */}
+      {/* Janela de Chat Glassmorphism */}
       {isOpen && (
-        <div className='absolute bottom-20 right-0 w-[320px] md:w-[450px] h-[600px] bg-[#0b1728] border border-gray-800 rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300'>
+        <div className='absolute bottom-20 right-0 w-[320px] md:w-[450px] h-[650px] bg-[#0b1728]/80 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-500'>
           {/* Header */}
           <div className='bg-gradient-to-r from-green-500 to-emerald-600 p-6 flex justify-between items-center shadow-lg'>
             <div className='flex items-center gap-3'>

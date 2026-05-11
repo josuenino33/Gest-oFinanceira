@@ -94,8 +94,19 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className='flex items-center justify-center h-96'>
-        <div className='text-gray-400 text-xl animate-pulse'>Carregando dashboard...</div>
+      <div className='max-w-7xl mx-auto pb-20 px-4 md:px-0 animate-pulse'>
+        <div className='flex justify-between items-center mb-12'>
+          <div className='space-y-3'>
+            <div className='h-10 w-48 bg-gray-800 rounded-2xl'></div>
+            <div className='h-4 w-32 bg-gray-800 rounded-lg'></div>
+          </div>
+          <div className='h-12 w-32 bg-gray-800 rounded-2xl'></div>
+        </div>
+        <div className='h-64 w-full bg-gray-800 rounded-[3rem] mb-10'></div>
+        <div className='grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10'>
+          {[1,2,3,4].map(i => <div key={i} className='h-40 bg-gray-800 rounded-[2.5rem]'></div>)}
+        </div>
+        <div className='h-80 w-full bg-gray-800 rounded-[3rem]'></div>
       </div>
     )
   }
