@@ -822,6 +822,16 @@ def get_insights():
 
     return jsonify(insights)
 
+@app.route('/test-ai', methods=['GET'])
+def test_ai():
+    if not model:
+        return jsonify({'status': 'erro', 'msg': 'Modelo não carregado'})
+    try:
+        res = model.generate_content("Olá, diga apenas 'OK'")
+        return jsonify({'status': 'sucesso', 'msg': res.text})
+    except Exception as e:
+        return jsonify({'status': 'erro', 'msg': str(e)})
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)

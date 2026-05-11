@@ -29,7 +29,9 @@ export default function AIChat() {
       const res = await api.post('/chat', { message: userMsg })
       setMessages(prev => [...prev, { role: 'ai', text: res.data.response }])
     } catch (err) {
-      setMessages(prev => [...prev, { role: 'ai', text: 'Desculpe, tive um problema técnico. Pode repetir?' }])
+      console.error(err)
+      const errorMsg = err.response?.data?.response || 'Erro de conexão com o servidor. Verifique se o backend está rodando.'
+      setMessages(prev => [...prev, { role: 'ai', text: `ERRO: ${errorMsg}` }])
     } finally {
       setLoading(false)
     }
