@@ -625,6 +625,130 @@ def rota_perfil():
         return jsonify({'msg': 'OK'})
     return jsonify(fetch_one('SELECT id, nome, email, criado_em FROM users WHERE id = ?', (uid,)))
 
+@app.route('/patrimonio', methods=['GET'])
+@jwt_required()
+def get_patrimonio():
+    uid = int(get_jwt_identity())
+    
+    # Ativos
+    rec = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM receitas WHERE user_id = ?', (uid,))['t']
+    inv = fetch_one('SELECT COALESCE(SUM(valor_atual), 0) as t FROM investimentos WHERE user_id = ?', (uid,))['t']
+    ativos = float(rec) + float(inv)
+    
+    # Passivos
+    contas = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM contas WHERE user_id = ? AND pago = 0', (uid,))['t']
+    cartao = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM compras_cartao WHERE user_id = ? AND pago = 0', (uid,))['t']
+    passivos = float(contas) + float(cartao)
+    
+    patrimonio = ativos - passivos
+    
+    # Conquistas (Gamificação)
+    conquistas = []
+    
+    # 1. Primeiro Passo
+    if rec > 0:
+        conquistas.append({'id': 1, 'titulo': 'Primeiro Passo', 'desc': 'Registrou sua primeira receita', 'icon': '🌱', 'ganho': True})
+    else:
+        conquistas.append({'id': 1, 'titulo': 'Primeiro Passo', 'desc': 'Registre sua primeira receita', 'icon': '🌱', 'ganho': False})
+        
+    # 2. Investidor
+    if inv > 0:
+        conquistas.append({'id': 2, 'titulo': 'Investidor', 'desc': 'Começou a fazer o dinheiro trabalhar', 'icon': '💰', 'ganho': True})
+    else:
+        conquistas.append({'id': 2, 'titulo': 'Investidor', 'desc': 'Adicione seu primeiro investimento', 'icon': '💰', 'ganho': False})
+        
+    # 3. Mestre do Planejamento
+    plan = fetch_one('SELECT COUNT(*) as c FROM planejamento WHERE user_id = ?', (uid,))['c']
+    conquistas.append({
+        'id': 3, 
+        'titulo': 'Planejador', 
+        'desc': 'Criou 3 ou mais planejamentos mensais', 
+        'icon': '📅', 
+        'ganho': plan >= 3
+    })
+    
+    # 4. Ficha Limpa (Sem contas atrasadas no mês atual)
+    now = datetime.now()
+    mes_atual = f"{now.year}-{now.month:02d}-01"
+    atrasadas = fetch_one('SELECT COUNT(*) as c FROM contas WHERE user_id = ? AND pago = 0 AND criado_em < ?', (uid, mes_atual))['c']
+    conquistas.append({
+        'id': 4, 
+        'titulo': 'Ficha Limpa', 
+        'desc': 'Nenhuma conta pendente de meses anteriores', 
+        'icon': '🛡️', 
+        'ganho': atrasadas == 0 and rec > 0
+    })
+
+    return jsonify({
+        'ativos': ativos,
+        'passivos': passivos,
+        'patrimonio': patrimonio,
+        'conquistas': conquistas
+    })
+
+@app.route('/insights', methods=['GET'])
+@jwt_required()
+def get_insights():
+    uid = int(get_jwt_identity())
+    
+    # Coleta de dados para análise
+    res = fetch_one('SELECT COALESCE(SUM(valor), 0) as r FROM receitas WHERE user_id = ?', (uid,))['r']
+    con = fetch_one('SELECT COALESCE(SUM(valor), 0) as c FROM contas WHERE user_id = ?', (uid,))['c']
+    inv = fetch_one('SELECT COALESCE(SUM(valor_atual), 0) as i FROM investimentos WHERE user_id = ?', (uid,))['i']
+    
+    gastos_cat = fetch_all('''
+        SELECT c.nome, SUM(t.valor) as total 
+        FROM contas t 
+        JOIN categorias c ON c.id = t.categoria_id 
+        WHERE t.user_id = ? 
+        GROUP BY c.nome 
+        ORDER BY total DESC 
+        LIMIT 3
+    ''', (uid,))
+    
+    insights = []
+    
+    # Lógica de "IA" Heurística
+    if res > 0:
+        taxa_poupanca = (res - con) / res * 100
+        if taxa_poupanca > 20:
+            insights.append({
+                'tipo': 'positivo',
+                'msg': f'Excelente! Sua taxa de poupança está em {taxa_poupanca:.1f}%. Você está acima da média de 15% recomendada por especialistas.',
+                'icon': '🚀'
+            })
+        elif taxa_poupanca > 0:
+            insights.append({
+                'tipo': 'alerta',
+                'msg': f'Sua taxa de poupança é de {taxa_poupanca:.1f}%. Tente reduzir gastos variáveis para chegar aos 20%.',
+                'icon': '💡'
+            })
+        else:
+            insights.append({
+                'tipo': 'critico',
+                'msg': 'Atenção! Suas despesas superaram suas receitas este mês. Revise seus custos fixos imediatamente.',
+                'icon': '⚠️'
+            })
+
+    if gastos_cat:
+        top_cat = gastos_cat[0]
+        porc_top = (top_cat['total'] / con * 100) if con > 0 else 0
+        if porc_top > 40:
+            insights.append({
+                'tipo': 'analise',
+                'msg': f'Sua maior despesa é "{top_cat["nome"]}", representando {porc_top:.1f}% do seu orçamento. Existe margem para negociar ou reduzir aqui?',
+                'icon': '🔍'
+            })
+
+    if inv == 0 and res > con:
+        insights.append({
+            'tipo': 'oportunidade',
+            'msg': 'Você tem saldo positivo mas ainda não possui investimentos registrados. Que tal começar com uma Reserva de Emergência?',
+            'icon': '💎'
+        })
+
+    return jsonify(insights)
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)

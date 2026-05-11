@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import api from '../utils/api'
-import Layout from '../components/Layout'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
@@ -24,6 +23,8 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdate, setLastUpdate] = useState(null)
   const [categoriaFiltro, setCategoriaFiltro] = useState(null)
+  const [patrimonioData, setPatrimonioData] = useState(null)
+  const [insights, setInsights] = useState([])
 
   const carregarDashboard = useCallback(async ({ showLoading = false } = {}) => {
     if (showLoading) setLoading(true)
@@ -49,6 +50,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     carregarDashboard({ showLoading: true })
+    api.get('/patrimonio').then(r => setPatrimonioData(r.data)).catch(console.error)
+    api.get('/insights').then(r => setInsights(r.data)).catch(console.error)
   }, [carregarDashboard])
 
   useEffect(() => {
@@ -109,6 +112,13 @@ export default function Dashboard() {
     { titulo: 'Taxa de economia', valor: `${Math.round(data.meta_economia)}%`, cor: 'bg-purple-500' },
   ] : []
 
+  const patrimonioCard = patrimonioData ? {
+    titulo: 'Patrimônio Líquido',
+    valor: fmt(patrimonioData.patrimonio),
+    ativos: fmt(patrimonioData.ativos),
+    passivos: fmt(patrimonioData.passivos)
+  } : null
+
   if (loading) {
     return (
       <div className='flex items-center justify-center h-96'>
@@ -127,6 +137,29 @@ export default function Dashboard() {
             {lastUpdate ? `Atualizado às ${lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Atualizando dados...'}
           </p>
         </div>
+        
+        {/* Card de Patrimônio Líquido */}
+        {patrimonioCard && (
+          <div className='bg-gradient-to-br from-[#1e293b] to-[#0f172a] border border-gray-700/50 p-5 rounded-2xl flex flex-col md:flex-row items-center gap-6 shadow-xl'>
+            <div className='text-center md:text-left'>
+              <span className='text-[10px] text-gray-400 uppercase tracking-widest font-bold'>Total do Patrimônio</span>
+              <h2 className={`text-2xl font-black mt-1 ${patrimonioData.patrimonio >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {patrimonioCard.valor}
+              </h2>
+            </div>
+            <div className='h-px md:h-10 w-full md:w-px bg-gray-700'></div>
+            <div className='flex gap-8'>
+              <div className='text-center md:text-left'>
+                <span className='text-[10px] text-gray-500 uppercase font-bold'>Ativos</span>
+                <p className='text-sm text-white font-semibold'>{patrimonioCard.ativos}</p>
+              </div>
+              <div className='text-center md:text-left'>
+                <span className='text-[10px] text-gray-500 uppercase font-bold'>Passivos</span>
+                <p className='text-sm text-white font-semibold'>{patrimonioCard.passivos}</p>
+              </div>
+            </div>
+          </div>
+        )}
         <div className='flex flex-wrap gap-4 items-center'>
           <button
             onClick={() => carregarDashboard()}
@@ -222,6 +255,27 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {/* Consultor de IA (Insights) */}
+      {insights.length > 0 && (
+        <div className='mb-10 bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/20 rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-2xl'>
+          <div className='absolute -top-10 -right-10 w-40 h-40 bg-green-500/10 rounded-full blur-3xl'></div>
+          <div className='flex items-center gap-3 mb-6'>
+            <div className='flex items-center justify-center w-10 h-10 bg-green-500 text-black rounded-xl text-xl font-black shadow-lg shadow-green-500/20'>
+              AI
+            </div>
+            <h2 className='text-xl font-bold'>Insights do Consultor</h2>
+          </div>
+          <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+            {insights.map((insight, i) => (
+              <div key={i} className='flex gap-4 items-center bg-[#0d1a2d]/60 backdrop-blur-sm p-4 rounded-2xl border border-white/5 hover:border-white/10 transition group'>
+                <span className='text-3xl group-hover:scale-110 transition-transform'>{insight.icon}</span>
+                <p className='text-sm text-gray-300 leading-relaxed'>{insight.msg}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Charts row */}
       <div className='grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8'>
@@ -373,7 +427,47 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <footer className='mt-10 text-center text-gray-500 text-sm'>
+      {/* Gamificação - Conquistas */}
+      {patrimonioData?.conquistas && (
+        <div className='mt-10 mb-20 md:mb-10'>
+          <h2 className='text-xl font-bold mb-6 flex items-center gap-2'>
+            <span>🏆</span> Minhas Conquistas
+          </h2>
+          <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4'>
+            {patrimonioData.conquistas.map(c => (
+              <div 
+                key={c.id} 
+                className={`p-4 rounded-2xl border transition-all duration-500 hover:scale-[1.02] ${
+                  c.ganho 
+                    ? 'bg-green-500/5 border-green-500/20 opacity-100' 
+                    : 'bg-gray-800/10 border-gray-800/30 opacity-40 grayscale'
+                }`}
+              >
+                <div className='flex items-center gap-3'>
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-inner ${
+                    c.ganho ? 'bg-green-500/20' : 'bg-gray-700/30'
+                  }`}>
+                    {c.icon}
+                  </div>
+                  <div className='flex-1'>
+                    <h3 className={`font-bold text-sm ${c.ganho ? 'text-green-400' : 'text-gray-400'}`}>
+                      {c.titulo}
+                    </h3>
+                    <p className='text-[10px] text-gray-500 mt-0.5 leading-tight'>{c.desc}</p>
+                  </div>
+                </div>
+                {c.ganho && (
+                  <div className='mt-3 h-1 w-full bg-green-500/10 rounded-full overflow-hidden'>
+                    <div className='h-full bg-green-500 w-full animate-pulse'></div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <footer className='mt-10 mb-24 md:mb-10 text-center text-gray-500 text-sm'>
         Dashboard Financeiro Pessoal • Desenvolvido em React + TailwindCSS
       </footer>
     </>
