@@ -36,7 +36,7 @@ export default function AIChat() {
   }
 
   return (
-    <div className='fixed bottom-24 right-6 lg:bottom-10 lg:right-10 z-50'>
+    <div className='fixed bottom-24 right-20 lg:bottom-10 lg:right-28 z-50'>
       {/* Balão de Chat */}
       {isOpen && (
         <div className='absolute bottom-16 right-0 w-[320px] md:w-[400px] h-[500px] bg-[#0b1728] border border-gray-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300'>

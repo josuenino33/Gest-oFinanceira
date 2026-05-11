@@ -659,9 +659,13 @@ def chat_ia():
     
     try:
         response = model.generate_content(contexto)
-        return jsonify({'response': response.text})
+        if response and response.text:
+            return jsonify({'response': response.text})
+        else:
+            return jsonify({'response': 'A IA não conseguiu gerar uma resposta. Tente reformular a pergunta.'})
     except Exception as e:
-        return jsonify({'response': 'Desculpe, estou com dificuldades para pensar agora. Tente novamente em breve.'}), 500
+        print(f"ERRO GEMINI: {str(e)}")
+        return jsonify({'response': f'Erro na IA: {str(e)[:100]}...'}), 500
 
 @app.route('/auto-categorize', methods=['POST'])
 @jwt_required()
