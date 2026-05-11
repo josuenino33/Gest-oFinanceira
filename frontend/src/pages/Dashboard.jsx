@@ -142,62 +142,53 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Novo Filtro - Mais compacto e centrado */}
-        <div className='flex items-center gap-2 bg-[#0d1a2d] border border-gray-800 p-1.5 rounded-2xl shadow-xl self-start xl:self-center'>
-          <div className='flex items-center gap-1 bg-[#111f34] border border-gray-700/30 rounded-xl px-3 py-2'>
-             <button
-               onClick={() => {
-                 const d = new Date(); setMesSelecionado(d.getMonth()); setAnoSelecionado(d.getFullYear());
-                 setMesFim(d.getMonth()); setAnoFim(d.getFullYear());
-               }}
-               className='text-[10px] font-bold text-gray-400 hover:text-green-400 uppercase transition-colors mr-2'
-             >
-               Hoje
-             </button>
-             <div className='h-4 w-px bg-gray-700 mx-1'></div>
-             <select 
-               value={mesSelecionado} 
-               onChange={e => setMesSelecionado(Number(e.target.value))}
-               className='bg-transparent text-white text-xs outline-none cursor-pointer font-bold'
-             >
-               {mesesNomes.map((m, i) => <option key={i} value={i} className='bg-[#111f34]'>{m.substring(0, 3)}</option>)}
-             </select>
-             <span className='text-gray-600 text-xs mx-1'>/</span>
-             <select 
-               value={anoSelecionado} 
-               onChange={e => setAnoSelecionado(Number(e.target.value))}
-               className='bg-transparent text-white text-xs outline-none cursor-pointer font-bold'
-             >
-               {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a} className='bg-[#111f34]'>{a}</option>)}
-             </select>
-          </div>
+        {/* Novo Filtro - Totalmente Responsivo */}
+        <div className='flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-[#0d1a2d] border border-gray-800 p-2 rounded-2xl shadow-xl self-stretch xl:self-center'>
+          <div className='grid grid-cols-2 sm:flex items-center gap-2 flex-1'>
+            <div className='flex items-center gap-1 bg-[#111f34] border border-gray-700/30 rounded-xl px-2 py-2 justify-center sm:justify-start'>
+               <select 
+                 value={mesSelecionado} 
+                 onChange={e => setMesSelecionado(Number(e.target.value))}
+                 className='bg-transparent text-white text-[11px] md:text-xs outline-none cursor-pointer font-bold'
+               >
+                 {mesesNomes.map((m, i) => <option key={i} value={i} className='bg-[#111f34]'>{m.substring(0, 3)}</option>)}
+               </select>
+               <span className='text-gray-600 text-xs'>/</span>
+               <select 
+                 value={anoSelecionado} 
+                 onChange={e => setAnoSelecionado(Number(e.target.value))}
+                 className='bg-transparent text-white text-[11px] md:text-xs outline-none cursor-pointer font-bold'
+               >
+                 {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a} className='bg-[#111f34]'>{a}</option>)}
+               </select>
+            </div>
 
-          <span className='text-gray-600'>-</span>
-
-          <div className='flex items-center gap-1 bg-[#111f34] border border-gray-700/30 rounded-xl px-3 py-2'>
-             <select 
-               value={mesFim} 
-               onChange={e => setMesFim(Number(e.target.value))}
-               className='bg-transparent text-white text-xs outline-none cursor-pointer font-bold'
-             >
-               {mesesNomes.map((m, i) => <option key={i} value={i} className='bg-[#111f34]'>{m.substring(0, 3)}</option>)}
-             </select>
-             <span className='text-gray-600 text-xs mx-1'>/</span>
-             <select 
-               value={anoFim} 
-               onChange={e => setAnoFim(Number(e.target.value))}
-               className='bg-transparent text-white text-xs outline-none cursor-pointer font-bold'
-             >
-               {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a} className='bg-[#111f34]'>{a}</option>)}
-             </select>
+            <div className='flex items-center gap-1 bg-[#111f34] border border-gray-700/30 rounded-xl px-2 py-2 justify-center sm:justify-start'>
+               <select 
+                 value={mesFim} 
+                 onChange={e => setMesFim(Number(e.target.value))}
+                 className='bg-transparent text-white text-[11px] md:text-xs outline-none cursor-pointer font-bold'
+               >
+                 {mesesNomes.map((m, i) => <option key={i} value={i} className='bg-[#111f34]'>{m.substring(0, 3)}</option>)}
+               </select>
+               <span className='text-gray-600 text-xs'>/</span>
+               <select 
+                 value={anoFim} 
+                 onChange={e => setAnoFim(Number(e.target.value))}
+                 className='bg-transparent text-white text-[11px] md:text-xs outline-none cursor-pointer font-bold'
+               >
+                 {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a} className='bg-[#111f34]'>{a}</option>)}
+               </select>
+            </div>
           </div>
 
           <button
             onClick={() => carregarDashboard()}
             disabled={refreshing}
-            className='w-10 h-10 flex items-center justify-center bg-green-500 hover:bg-green-400 text-black rounded-xl transition-all shadow-lg shadow-green-500/20'
+            className='h-10 sm:w-10 flex items-center justify-center bg-green-500 hover:bg-green-400 text-black rounded-xl transition-all shadow-lg shadow-green-500/20 font-bold text-xs'
           >
-            {refreshing ? '...' : '🔍'}
+            {refreshing ? '...' : <span className='sm:hidden'>Aplicar Filtro</span>}
+            <span className='hidden sm:inline'>🔍</span>
           </button>
         </div>
       </div>
