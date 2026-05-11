@@ -234,6 +234,34 @@ def register():
     except Exception as e:
         return jsonify({'msg': str(e)}), 400
 
+@app.route('/forgot-password', methods=['POST'])
+def forgot_password():
+    d = request.json or {}
+    email = d.get('email')
+    user = fetch_one('SELECT * FROM users WHERE email = ?', (email,))
+    if user:
+        # Em produção, aqui enviaríamos um email com um token real.
+        # Para o demo, vamos apenas simular o envio.
+        return jsonify({'msg': 'Link de recuperação enviado para o seu email (Simulado)', 'token': 'demo-token-123'})
+    return jsonify({'msg': 'Email não encontrado'}), 404
+
+@app.route('/reset-password', methods=['POST'])
+def reset_password():
+    d = request.json or {}
+    email = d.get('email')
+    new_password = d.get('password')
+    token = d.get('token')
+    
+    if token != 'demo-token-123':
+        return jsonify({'msg': 'Token inválido ou expirado'}), 400
+        
+    try:
+        h = generate_password_hash(new_password)
+        execute_query('UPDATE users SET senha = ? WHERE email = ?', (h, email))
+        return jsonify({'msg': 'Senha atualizada com sucesso'})
+    except Exception as e:
+        return jsonify({'msg': str(e)}), 400
+
 @app.route('/resumo', methods=['GET'])
 @jwt_required()
 def resumo():

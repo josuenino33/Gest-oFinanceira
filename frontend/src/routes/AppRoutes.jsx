@@ -14,6 +14,7 @@ import Planejamento from '../pages/Planejamento'
 import Configuracoes from '../pages/Configuracoes'
 import Login from '../pages/Login'
 import Register from '../pages/Register'
+import ForgotPassword from '../pages/ForgotPassword'
 import ProtectedRoute from '../components/ProtectedRoute'
 import Layout from '../components/Layout'
 
@@ -23,6 +24,7 @@ export default function AppRoutes() {
       <Routes>
         <Route path='/login' element={<Login />} />
         <Route path='/register' element={<Register />} />
+        <Route path='/forgot-password' element={<ForgotPassword />} />
         
         {/* Rota Protegida com Layout Persistente */}
         <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
