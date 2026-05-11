@@ -18,7 +18,7 @@ jwt = JWTManager(app)
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', 'AIzaSyApIggH1cMf5J-18eqZaPTT99uoe6kGn0g')
 try:
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
     print("GOOGLE GEMINI: Inicializado com sucesso")
 except Exception as e:
     print(f"GOOGLE GEMINI: Erro na inicialização: {e}")
