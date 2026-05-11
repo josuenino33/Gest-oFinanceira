@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
-import Layout from '../components/Layout'
 import Modal from '../components/Modal'
 
 export default function Investimentos() {
@@ -73,7 +72,7 @@ export default function Investimentos() {
   const rentTotal = totalInvestido > 0 ? ((totalAtual - totalInvestido) / totalInvestido * 100).toFixed(1) : 0
 
   return (
-    <Layout>
+    <>
       <div className='flex justify-between items-center mb-8'>
         <div>
           <h1 className='text-4xl font-bold'>Investimentos</h1>
@@ -163,6 +162,6 @@ export default function Investimentos() {
           </button>
         </div>
       </Modal>
-    </Layout>
+    </>
   )
 }

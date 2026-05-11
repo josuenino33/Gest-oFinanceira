@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
-import Layout from '../components/Layout'
 import Modal from '../components/Modal'
 
 export default function Categorias() {
@@ -72,7 +71,7 @@ export default function Categorias() {
   const cores = ['#22c55e', '#3b82f6', '#ef4444', '#f97316', '#8b5cf6', '#06b6d4', '#eab308', '#ec4899', '#14b8a6', '#f43f5e']
 
   return (
-    <Layout>
+    <>
       <div className='flex justify-between items-center mb-8'>
         <div>
           <h1 className='text-4xl font-bold'>Categorias</h1>
@@ -140,6 +139,6 @@ export default function Categorias() {
           </button>
         </div>
       </Modal>
-    </Layout>
+    </>
   )
 }

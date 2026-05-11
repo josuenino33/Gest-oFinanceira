@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
-import Layout from '../components/Layout'
 import { useAuth } from '../context/AuthContext'
 
 export default function Configuracoes() {
@@ -31,7 +30,7 @@ export default function Configuracoes() {
   }
 
   return (
-    <Layout>
+    <>
       <div className='mb-8'>
         <h1 className='text-4xl font-bold'>Configurações</h1>
         <p className='text-gray-400 mt-2'>Gerencie seu perfil e preferências</p>
@@ -92,6 +91,6 @@ export default function Configuracoes() {
           </div>
         </div>
       </div>
-    </Layout>
+    </>
   )
 }

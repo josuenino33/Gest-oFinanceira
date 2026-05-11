@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
-import Layout from '../components/Layout'
 import Modal from '../components/Modal'
 
 export default function Planejamento() {
@@ -49,7 +48,7 @@ export default function Planejamento() {
   const totalGasto = planos.reduce((s, p) => s + Number(p.valor_gasto || 0), 0)
 
   return (
-    <Layout>
+    <>
       <div className='flex justify-between items-center mb-8'>
         <div>
           <h1 className='text-4xl font-bold'>Planejamento</h1>
@@ -131,6 +130,6 @@ export default function Planejamento() {
           </button>
         </div>
       </Modal>
-    </Layout>
+    </>
   )
 }
