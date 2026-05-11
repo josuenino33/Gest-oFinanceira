@@ -1,5 +1,31 @@
 @import "tailwindcss";
 
+:root {
+  --bg-main: #f8fafc;
+  --bg-sidebar: #ffffff;
+  --bg-card: #ffffff;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+  --bg-input: #f1f5f9;
+}
+
+.dark {
+  --bg-main: #07111f;
+  --bg-sidebar: #0b1728;
+  --bg-card: #0d1a2d;
+  --text-main: #ffffff;
+  --text-muted: #94a3b8;
+  --border-color: #1f2937;
+  --bg-input: #111f34;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
 /* ===== Esconder Scrollbars (Mantendo Funcionalidade) ===== */
 * {
   -ms-overflow-style: none;  /* IE and Edge */
@@ -47,8 +73,8 @@
 
 /* ===== Mobile: ajustar selects para ficarem escuros ===== */
 select option {
-  background: #0b1728;
-  color: #fff;
+  background: var(--bg-input);
+  color: var(--text-main);
 }
 
 /* ===== Mobile: touch feedback ===== */

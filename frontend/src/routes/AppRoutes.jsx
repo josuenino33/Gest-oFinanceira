@@ -15,10 +15,7 @@ import Configuracoes from '../pages/Configuracoes'
 import Login from '../pages/Login'
 import Register from '../pages/Register'
 import ProtectedRoute from '../components/ProtectedRoute'
-
-function Protected({ children }) {
-  return <ProtectedRoute>{children}</ProtectedRoute>
-}
+import Layout from '../components/Layout'
 
 export default function AppRoutes() {
   return (
@@ -26,18 +23,23 @@ export default function AppRoutes() {
       <Routes>
         <Route path='/login' element={<Login />} />
         <Route path='/register' element={<Register />} />
-        <Route path='/' element={<Protected><Dashboard /></Protected>} />
-        <Route path='/resumo' element={<Protected><Resumo /></Protected>} />
-        <Route path='/receitas' element={<Protected><Receitas /></Protected>} />
-        <Route path='/contas' element={<Protected><Contas /></Protected>} />
-        <Route path='/cartoes' element={<Protected><Cartoes /></Protected>} />
-        <Route path='/compras-cartao' element={<Protected><ComprasCartao /></Protected>} />
-        <Route path='/metas' element={<Protected><Metas /></Protected>} />
-        <Route path='/investimentos' element={<Protected><Investimentos /></Protected>} />
-        <Route path='/relatorios' element={<Protected><Relatorios /></Protected>} />
-        <Route path='/categorias' element={<Protected><Categorias /></Protected>} />
-        <Route path='/planejamento' element={<Protected><Planejamento /></Protected>} />
-        <Route path='/configuracoes' element={<Protected><Configuracoes /></Protected>} />
+        
+        {/* Rota Protegida com Layout Persistente */}
+        <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+          <Route path='/' element={<Dashboard />} />
+          <Route path='/resumo' element={<Resumo />} />
+          <Route path='/receitas' element={<Receitas />} />
+          <Route path='/contas' element={<Contas />} />
+          <Route path='/cartoes' element={<Cartoes />} />
+          <Route path='/compras-cartao' element={<ComprasCartao />} />
+          <Route path='/metas' element={<Metas />} />
+          <Route path='/investimentos' element={<Investimentos />} />
+          <Route path='/relatorios' element={<Relatorios />} />
+          <Route path='/categorias' element={<Categorias />} />
+          <Route path='/planejamento' element={<Planejamento />} />
+          <Route path='/configuracoes' element={<Configuracoes />} />
+        </Route>
+
         <Route path='*' element={<Navigate to='/' replace />} />
       </Routes>
     </BrowserRouter>

@@ -470,6 +470,35 @@ def relatorios():
     pc = fetch_all('SELECT c.nome, c.cor, COALESCE(SUM(co.valor), 0) as total FROM categorias c LEFT JOIN contas co ON co.categoria_id = c.id AND co.user_id = ? GROUP BY c.id HAVING COALESCE(SUM(co.valor), 0) > 0 ORDER BY total DESC', (uid,))
     return jsonify({'receitas': r, 'despesas': d, 'total_receitas': float(tr), 'total_despesas': float(td), 'saldo': float(tr-td), 'total_investido': float(ti), 'total_atual_investimentos': float(ta), 'por_categoria': pc})
 
+@app.route('/notificacoes', methods=['GET'])
+@jwt_required()
+def notificacoes():
+    uid = int(get_jwt_identity())
+    now = datetime.now()
+    amanha = now + timedelta(days=1)
+    depois = now + timedelta(days=2)
+    
+    # Buscar todas as contas não pagas
+    contas = fetch_all('SELECT * FROM contas WHERE user_id = ? AND pago = 0', (uid,))
+    
+    alertas = []
+    for c in contas:
+        try:
+            # Tentar converter a data de criação
+            dt = datetime.strptime(c['criado_em'], '%Y-%m-%d %H:%M:%S')
+            
+            # Se o dia e mês forem hoje ou próximos
+            if dt.date() == now.date():
+                alertas.append({'id': c['id'], 'msg': f"Vence HOJE: {c['descricao']}", 'tipo': 'urgente', 'valor': c['valor']})
+            elif dt.date() == amanha.date():
+                alertas.append({'id': c['id'], 'msg': f"Vence AMANHÃ: {c['descricao']}", 'tipo': 'alerta', 'valor': c['valor']})
+            elif dt.date() == depois.date():
+                alertas.append({'id': c['id'], 'msg': f"Vence em 2 dias: {c['descricao']}", 'tipo': 'info', 'valor': c['valor']})
+        except:
+            continue
+            
+    return jsonify(alertas)
+
 @app.route('/resumo-mensal', methods=['GET'])
 @jwt_required()
 def resumo_mensal():

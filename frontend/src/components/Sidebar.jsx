@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
 
@@ -20,20 +21,78 @@ const menu = [
 
 export default function Sidebar() {
   const { user, logout } = useAuth()
+  const { isDark, toggleTheme } = useTheme()
   const [saldo, setSaldo] = useState(null)
+  const [notificacoes, setNotificacoes] = useState([])
+  const [showNotif, setShowNotif] = useState(false)
 
-  useEffect(() => {
+  const carregarDados = () => {
     api.get('/resumo')
       .then(r => setSaldo(r.data.saldo))
       .catch(() => setSaldo(0))
+    
+    api.get('/notificacoes')
+      .then(r => setNotificacoes(r.data))
+      .catch(() => setNotificacoes([]))
+  }
+
+  useEffect(() => {
+    carregarDados()
+    const interval = setInterval(carregarDados, 300000) // 5 min
+    return () => clearInterval(interval)
   }, [])
 
   return (
-    <aside className='w-72 bg-[#0b1728] border-r border-gray-800 shrink-0 sticky top-0 h-screen flex flex-col'>
+    <aside className='w-72 bg-[var(--bg-sidebar)] border-r border-[var(--border-color)] shrink-0 sticky top-0 h-screen flex flex-col transition-colors duration-300'>
       {/* Header */}
       <div className='p-6 pb-4'>
-        <h1 className='text-2xl font-bold text-green-400'>Minha Finanças</h1>
-        <p className='text-gray-400 text-sm mt-1'>Controle total da sua vida financeira</p>
+        <div className='flex justify-between items-center mb-2'>
+          <h1 className='text-2xl font-bold text-green-400 leading-tight'>Minhas Finanças</h1>
+          <div className='flex gap-1'>
+            <button 
+              onClick={toggleTheme}
+              className='p-2 text-lg hover:bg-gray-500/10 rounded-lg transition'
+              title={isDark ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
+            >
+              {isDark ? '☀️' : '🌙'}
+            </button>
+            <div className='relative'>
+              <button 
+                onClick={() => setShowNotif(!showNotif)}
+                className='relative p-2 text-xl hover:bg-gray-500/10 rounded-lg transition'
+              >
+                🔔
+                {notificacoes.length > 0 && (
+                  <span className='absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-[10px] flex items-center justify-center rounded-full border-2 border-[var(--bg-sidebar)]'>
+                    {notificacoes.length}
+                  </span>
+                )}
+              </button>
+              
+              {showNotif && (
+                <div className='absolute left-0 mt-2 w-64 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl shadow-2xl z-50 p-3 max-h-80 overflow-y-auto'>
+                  <h3 className='text-xs font-bold text-gray-500 uppercase mb-3'>Alertas</h3>
+                  {notificacoes.length === 0 ? (
+                    <p className='text-[var(--text-muted)] text-sm'>Nenhuma pendência próxima.</p>
+                  ) : (
+                    <div className='space-y-3'>
+                      {notificacoes.map((n, i) => (
+                        <div key={i} className={`p-2 rounded-lg border-l-4 text-xs ${
+                          n.tipo === 'urgente' ? 'bg-red-500/10 border-red-500' : 
+                          n.tipo === 'alerta' ? 'bg-yellow-500/10 border-yellow-500' : 'bg-blue-500/10 border-blue-500'
+                        }`}>
+                          <p className='font-semibold text-[var(--text-main)]'>{n.msg}</p>
+                          <p className='text-[var(--text-muted)] mt-1'>R$ {n.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        <p className='text-[var(--text-muted)] text-xs mt-1'>Controle total da sua vida financeira</p>
       </div>
 
       {/* Menu - scrollável com scrollbar invisível */}
@@ -47,7 +106,7 @@ export default function Sidebar() {
               `w-full flex items-center gap-3 text-left px-4 py-2.5 rounded-xl transition-all duration-300 hover:bg-green-500/20 hover:text-green-400 text-sm ${
                 isActive
                   ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                  : 'text-gray-300'
+                  : 'text-[var(--text-main)] opacity-80 hover:opacity-100'
               }`
             }
           >
@@ -58,20 +117,20 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer - sempre visível */}
-      <div className='p-4 space-y-3 border-t border-gray-800/50'>
-        <div className='bg-[#111f34] rounded-2xl p-4 border border-gray-700'>
-          <p className='text-gray-400 text-xs'>Saldo disponível</p>
+      <div className='p-4 space-y-3 border-t border-[var(--border-color)]'>
+        <div className='bg-[var(--bg-input)] rounded-2xl p-4 border border-[var(--border-color)]'>
+          <p className='text-[var(--text-muted)] text-xs'>Saldo disponível</p>
           <h2 className='text-2xl font-bold text-green-400 mt-1'>
             {saldo !== null
               ? `R$ ${saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
               : '...'}
           </h2>
-          {user && <p className='text-gray-500 text-xs mt-2'>{user.nome}</p>}
+          {user && <p className='text-[var(--text-muted)] text-xs mt-2'>{user.nome}</p>}
         </div>
 
         <button
           onClick={logout}
-          className='w-full rounded-xl bg-[#111f34] px-4 py-2.5 text-left text-gray-300 text-sm transition hover:bg-red-500/20 hover:text-red-400 border border-gray-700'
+          className='w-full rounded-xl bg-[var(--bg-input)] px-4 py-2.5 text-left text-[var(--text-main)] text-sm transition hover:bg-red-500/20 hover:text-red-400 border border-[var(--border-color)]'
         >
           🚪 Sair
         </button>

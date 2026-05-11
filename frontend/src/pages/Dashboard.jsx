@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [actionLoading, setActionLoading] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdate, setLastUpdate] = useState(null)
+  const [categoriaFiltro, setCategoriaFiltro] = useState(null)
 
   const carregarDashboard = useCallback(async ({ showLoading = false } = {}) => {
     if (showLoading) setLoading(true)
@@ -110,16 +111,14 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <Layout>
-        <div className='flex items-center justify-center h-96'>
-          <div className='text-gray-400 text-xl animate-pulse'>Carregando dashboard...</div>
-        </div>
-      </Layout>
+      <div className='flex items-center justify-center h-96'>
+        <div className='text-gray-400 text-xl animate-pulse'>Carregando dashboard...</div>
+      </div>
     )
   }
 
   return (
-    <Layout>
+    <>
       <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8'>
         <div>
           <h1 className='text-2xl md:text-4xl font-bold'>Dashboard</h1>
@@ -251,16 +250,25 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className='bg-[#0d1a2d] rounded-2xl p-6 border border-gray-800'>
-          <h2 className='text-2xl font-bold mb-6'>Despesas por Categoria</h2>
+        <div className='bg-[var(--bg-card)] rounded-2xl p-6 border border-[var(--border-color)]'>
+          <div className='flex justify-between items-center mb-6'>
+            <h2 className='text-2xl font-bold'>Despesas por Categoria</h2>
+            {categoriaFiltro && (
+              <button onClick={() => setCategoriaFiltro(null)} className='text-xs text-blue-400 hover:underline'>Limpar Filtro</button>
+            )}
+          </div>
           <div className='space-y-5'>
             {(data?.categorias || []).map((cat, i) => (
-              <div key={i}>
+              <div 
+                key={i} 
+                className={`cursor-pointer group ${categoriaFiltro && categoriaFiltro !== cat.nome ? 'opacity-40' : 'opacity-100'}`}
+                onClick={() => setCategoriaFiltro(categoriaFiltro === cat.nome ? null : cat.nome)}
+              >
                 <div className='flex justify-between mb-2'>
-                  <span>{cat.nome}</span>
-                  <span>{cat.percentual}%</span>
+                  <span className='group-hover:text-green-400 transition'>{cat.nome}</span>
+                  <span className='font-bold'>{cat.percentual}%</span>
                 </div>
-                <div className='w-full h-3 bg-[#15253d] rounded-full overflow-hidden'>
+                <div className='w-full h-3 bg-[var(--bg-input)] rounded-full overflow-hidden'>
                   <div
                     className='h-full bg-gradient-to-r from-green-400 to-blue-500 transition-all duration-700'
                     style={{ width: `${cat.percentual}%` }}
@@ -275,22 +283,27 @@ export default function Dashboard() {
       {/* Bottom row */}
       <div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-8'>
         {/* Contas a Pagar */}
-        <div className='bg-[#0d1a2d] rounded-2xl p-6 border border-gray-800'>
-          <h2 className='text-2xl font-bold mb-6'>Contas a Pagar</h2>
+        <div className='bg-[var(--bg-card)] rounded-2xl p-6 border border-[var(--border-color)]'>
+          <h2 className='text-2xl font-bold mb-6'>Contas a Pagar {categoriaFiltro && <span className='text-sm font-normal text-blue-400'>({categoriaFiltro})</span>}</h2>
           <div className='space-y-4'>
-            {(data?.contas_pagar || []).map((conta, i) => (
-              <div key={i} className='flex justify-between items-center bg-[#132238] p-4 rounded-xl'>
+            {(data?.contas_pagar || [])
+              .filter(c => !categoriaFiltro || c.categoria_nome === categoriaFiltro)
+              .map((conta, i) => (
+              <div key={i} className='flex justify-between items-center bg-[var(--bg-input)] p-4 rounded-xl border border-transparent hover:border-gray-700 transition'>
                 <div className='flex-1'>
-                  <span className='block'>{conta.descricao}</span>
-                  <span className='text-yellow-400 font-semibold'>{fmt(conta.valor)}</span>
+                  <span className='block font-medium'>{conta.descricao}</span>
+                  <div className='flex items-center gap-2'>
+                    <span className='text-yellow-400 font-bold'>{fmt(conta.valor)}</span>
+                    <span className='text-[10px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded'>{conta.categoria_nome}</span>
+                  </div>
                 </div>
                 <div className='flex gap-2 ml-4'>
                   <button
                     onClick={() => marcarPaga(conta.id)}
                     disabled={actionLoading === conta.id}
-                    className='text-green-400 hover:text-green-300 transition text-sm disabled:opacity-50'
+                    className='bg-green-500/10 text-green-400 px-3 py-1.5 rounded-lg hover:bg-green-500/20 transition text-sm disabled:opacity-50'
                   >
-                    {actionLoading === conta.id ? 'Pagando...' : 'Pagar'}
+                    {actionLoading === conta.id ? '...' : 'Pagar'}
                   </button>
                 </div>
               </div>
@@ -302,31 +315,33 @@ export default function Dashboard() {
         </div>
 
         {/* Compras no Cartão */}
-        <div className='bg-[#0d1a2d] rounded-2xl p-6 border border-gray-800'>
-          <h2 className='text-2xl font-bold mb-6'>Compras no Cartão</h2>
+        <div className='bg-[var(--bg-card)] rounded-2xl p-6 border border-[var(--border-color)]'>
+          <h2 className='text-2xl font-bold mb-6'>Compras no Cartão {categoriaFiltro && <span className='text-sm font-normal text-blue-400'>({categoriaFiltro})</span>}</h2>
           <div className='overflow-auto'>
             <table className='w-full text-left'>
               <thead>
-                <tr className='text-gray-400 border-b border-gray-700'>
-                  <th className='pb-3'>Compra</th>
-                  <th className='pb-3'>Parcelas</th>
-                  <th className='pb-3'>Valor</th>
-                  <th className='pb-3'>Ações</th>
+                <tr className='text-[var(--text-muted)] border-b border-[var(--border-color)]'>
+                  <th className='pb-3 text-xs uppercase'>Compra</th>
+                  <th className='pb-3 text-xs uppercase'>Valor</th>
+                  <th className='pb-3 text-xs uppercase'>Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {(data?.compras_cartao || []).map((c, i) => (
-                  <tr key={i} className='border-b border-gray-800'>
-                    <td className='py-4'>{c.descricao}</td>
-                    <td>{c.parcelas}</td>
-                    <td className='text-green-400'>{fmt(c.valor)}</td>
+                {(data?.compras_cartao || [])
+                  .map((c, i) => (
+                  <tr key={i} className='border-b border-[var(--border-color)] last:border-0'>
+                    <td className='py-4'>
+                      <span className='block font-medium'>{c.descricao}</span>
+                      <span className='text-[10px] text-gray-500'>{c.cartao_nome} - {c.parcela_atual}/{c.parcelas}x</span>
+                    </td>
+                    <td className='text-green-400 font-bold'>{fmt(c.valor)}</td>
                     <td className='py-4'>
                       <button
                         onClick={() => excluirCompra(c.id)}
                         disabled={actionLoading === c.id}
                         className='text-red-400 hover:text-red-300 transition text-sm disabled:opacity-50'
                       >
-                        {actionLoading === c.id ? 'Excluindo...' : 'Excluir'}
+                        🗑️
                       </button>
                     </td>
                   </tr>
@@ -361,6 +376,7 @@ export default function Dashboard() {
       <footer className='mt-10 text-center text-gray-500 text-sm'>
         Dashboard Financeiro Pessoal • Desenvolvido em React + TailwindCSS
       </footer>
-    </Layout>
+    </>
   )
 }
+

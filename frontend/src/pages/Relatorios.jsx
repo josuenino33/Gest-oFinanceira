@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
-import Layout from '../components/Layout'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
+import jsPDF from 'jspdf'
+import 'jspdf-autotable'
 
 const COLORS = ['#22c55e', '#3b82f6', '#ef4444', '#f97316', '#8b5cf6', '#06b6d4', '#eab308', '#ec4899']
 
@@ -17,7 +18,7 @@ export default function Relatorios() {
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 
   if (!data) {
-    return <Layout><div className='flex items-center justify-center h-96'><p className='text-gray-400 animate-pulse'>Carregando relatórios...</p></div></Layout>
+    return <div className='flex items-center justify-center h-96'><p className='text-gray-400 animate-pulse'>Carregando relatórios...</p></div>
   }
 
   const pieData = (data.por_categoria || []).map(c => ({ name: c.nome, value: c.total }))
@@ -34,19 +35,85 @@ export default function Relatorios() {
     link.click()
   }
 
+  const exportarPDF = () => {
+    const doc = new jsPDF()
+    const now = new Date().toLocaleDateString('pt-BR')
+    
+    doc.setFontSize(20)
+    doc.setTextColor(34, 197, 94)
+    doc.text('Relatorio Financeiro Pessoal', 14, 22)
+    
+    doc.setFontSize(10)
+    doc.setTextColor(100)
+    doc.text(`Gerado em: ${now}`, 14, 30)
+
+    doc.setFontSize(14)
+    doc.setTextColor(0)
+    doc.text('Resumo Geral', 14, 45)
+    
+    const resumoData = [
+      ['Total de Receitas', fmt(data.total_receitas)],
+      ['Total de Despesas', fmt(data.total_despesas)],
+      ['Saldo Liquido', fmt(data.saldo)],
+      ['Total Investido', fmt(data.total_investido)]
+    ]
+    
+    doc.autoTable({
+      startY: 50,
+      head: [['Indicador', 'Valor']],
+      body: resumoData,
+      theme: 'grid',
+      headStyles: { fillColor: [34, 197, 94] }
+    })
+
+    doc.text('Despesas por Categoria', 14, doc.lastAutoTable.finalY + 15)
+    const catData = (data.por_categoria || []).map(c => [c.nome, fmt(c.total)])
+    doc.autoTable({
+      startY: doc.lastAutoTable.finalY + 20,
+      head: [['Categoria', 'Total Gasto']],
+      body: catData,
+      theme: 'striped'
+    })
+
+    doc.addPage()
+    doc.text('Detalhamento de Transacoes', 14, 22)
+    
+    const transData = [
+      ...data.receitas.map(r => ['Receita', r.descricao, fmt(r.valor), new Date(r.criado_em).toLocaleDateString('pt-BR')]),
+      ...data.despesas.map(d => ['Despesa', d.descricao, fmt(d.valor), new Date(d.criado_em).toLocaleDateString('pt-BR')])
+    ]
+
+    doc.autoTable({
+      startY: 30,
+      head: [['Tipo', 'Descricao', 'Valor', 'Data']],
+      body: transData,
+      theme: 'grid'
+    })
+
+    doc.save('relatorio_financeiro.pdf')
+  }
+
   return (
-    <Layout>
+    <>
       <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8'>
         <div>
-          <h1 className='text-2xl md:text-4xl font-bold'>Relatórios</h1>
-          <p className='text-gray-400 mt-1 text-sm md:text-base'>Análise detalhada das suas finanças</p>
+          <h1 className='text-2xl md:text-4xl font-bold'>Relatorios</h1>
+          <p className='text-gray-400 mt-1 text-sm md:text-base'>Analise detalhada das suas financas</p>
         </div>
-        <button 
-          onClick={exportarCSV}
-          className='w-full sm:w-auto bg-[#132238] border border-gray-700 px-6 py-3 rounded-xl font-semibold text-gray-300 hover:bg-gray-800 transition flex items-center justify-center gap-2'
-        >
-          📥 Exportar CSV
-        </button>
+        <div className='flex gap-3 w-full sm:w-auto'>
+          <button 
+            onClick={exportarCSV}
+            className='flex-1 sm:flex-none bg-[#132238] border border-gray-700 px-4 py-3 rounded-xl font-semibold text-gray-300 hover:bg-gray-800 transition flex items-center justify-center gap-2'
+          >
+            📊 CSV
+          </button>
+          <button 
+            onClick={exportarPDF}
+            className='flex-1 sm:flex-none bg-green-500 px-4 py-3 rounded-xl font-semibold text-white hover:bg-green-400 transition flex items-center justify-center gap-2'
+          >
+            📄 PDF
+          </button>
+        </div>
       </div>
 
       <div className='grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6 mb-8'>
@@ -127,6 +194,6 @@ export default function Relatorios() {
           </div>
         </div>
       </div>
-    </Layout>
+    </>
   )
 }

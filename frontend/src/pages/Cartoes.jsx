@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
-import Layout from '../components/Layout'
 import Modal from '../components/Modal'
 
 export default function Cartoes() {
@@ -78,7 +77,7 @@ export default function Cartoes() {
   }
 
   return (
-    <Layout>
+    <>
       <div className='flex justify-between items-center mb-8'>
         <div>
           <h1 className='text-4xl font-bold'>Cartões</h1>
@@ -150,6 +149,6 @@ export default function Cartoes() {
           </button>
         </div>
       </Modal>
-    </Layout>
+    </>
   )
 }

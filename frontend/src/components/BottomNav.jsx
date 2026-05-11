@@ -11,7 +11,7 @@ export default function BottomNav({ onMenuOpen, onQuickAdd }) {
   const location = useLocation()
 
   return (
-    <div className='fixed bottom-0 left-0 right-0 z-40 bg-[#0b1728]/95 backdrop-blur-xl border-t border-gray-800 lg:hidden'>
+    <div className='fixed bottom-0 left-0 right-0 z-40 bg-[var(--bg-sidebar)]/95 backdrop-blur-xl border-t border-[var(--border-color)] lg:hidden'>
       <div className='flex items-center justify-around px-2 py-1 safe-area-bottom'>
         {tabs.slice(0, 2).map((tab) => {
           const isActive = location.pathname === tab.path

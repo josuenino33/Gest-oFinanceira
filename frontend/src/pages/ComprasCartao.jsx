@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
-import Layout from '../components/Layout'
 import Modal from '../components/Modal'
 
 const mesesNomes = [
@@ -139,7 +138,7 @@ export default function ComprasCartao() {
   }
 
   return (
-    <Layout>
+    <>
       <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8'>
         <div>
           <h1 className='text-2xl md:text-4xl font-bold'>Compras no Cartão</h1>
@@ -284,6 +283,6 @@ export default function ComprasCartao() {
           </button>
         </div>
       </Modal>
-    </Layout>
+    </>
   )
 }

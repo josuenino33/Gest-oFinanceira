@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
-import Layout from '../components/Layout'
 import Modal from '../components/Modal'
 
 const mesesNomes = [
@@ -98,7 +97,7 @@ export default function Receitas() {
   const total = lista.reduce((s, r) => s + Number(r.valor), 0)
 
   return (
-    <Layout>
+    <>
       <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8'>
         <div>
           <h1 className='text-2xl md:text-4xl font-bold'>Receitas</h1>
@@ -186,6 +185,6 @@ export default function Receitas() {
           </button>
         </div>
       </Modal>
-    </Layout>
+    </>
   )
 }

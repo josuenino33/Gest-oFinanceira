@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
-import Layout from '../components/Layout'
 import Modal from '../components/Modal'
 
 const mesesNomes = [
@@ -110,7 +109,7 @@ export default function Contas() {
   const totalPago = contas.filter(c => c.pago).reduce((s, c) => s + Number(c.valor), 0)
 
   return (
-    <Layout>
+    <>
       <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8'>
         <div>
           <h1 className='text-2xl md:text-4xl font-bold'>Contas a Pagar</h1>
@@ -207,6 +206,6 @@ export default function Contas() {
           </button>
         </div>
       </Modal>
-    </Layout>
+    </>
   )
 }

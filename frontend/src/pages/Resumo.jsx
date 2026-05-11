@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
-import Layout from '../components/Layout'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
@@ -21,7 +20,7 @@ export default function Resumo() {
   ]
 
   return (
-    <Layout>
+    <>
       <div className='mb-8'>
         <h1 className='text-4xl font-bold'>Resumo Financeiro</h1>
         <p className='text-gray-400 mt-2'>Visão consolidada das suas finanças</p>
@@ -97,6 +96,6 @@ export default function Resumo() {
           </div>
         </>
       )}
-    </Layout>
+    </>
   )
 }
