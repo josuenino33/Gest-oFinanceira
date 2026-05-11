@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import BottomNav from './BottomNav'
+import AIChat from './AIChat'
 import MobileDrawer from './MobileDrawer'
 import QuickAddExpense from './QuickAddExpense'
 
@@ -32,6 +33,7 @@ export default function Layout() {
 
       {/* Quick add expense (mobile + desktop) */}
       <QuickAddExpense isOpen={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
+      <AIChat />
 
       {/* Desktop: FAB flutuante para saída rápida */}
       <button

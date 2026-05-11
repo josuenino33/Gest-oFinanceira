@@ -5,6 +5,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import check_password_hash, generate_password_hash
+import google.generativeai as genai
 
 app = Flask(__name__)
 CORS(app)
@@ -12,6 +13,11 @@ CORS(app)
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'super-secret-key')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)
 jwt = JWTManager(app)
+
+# Configuração Google Gemini
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', 'AIzaSyApIggH1cMf5J-18eqZaPTT99uoe6kGn0g')
+genai.configure(api_key=GEMINI_API_KEY)
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 # Configurações de Banco de Dados
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'financeiro.db')
@@ -624,6 +630,61 @@ def rota_perfil():
         execute_query('UPDATE users SET nome=?, email=? WHERE id=?', (d.get('nome'), d.get('email'), uid))
         return jsonify({'msg': 'OK'})
     return jsonify(fetch_one('SELECT id, nome, email, criado_em FROM users WHERE id = ?', (uid,)))
+
+@app.route('/chat', methods=['POST'])
+@jwt_required()
+def chat_ia():
+    uid = int(get_jwt_identity())
+    d = request.json or {}
+    pergunta = d.get('message')
+    
+    # Coleta contexto do usuário
+    res = fetch_one('SELECT COALESCE(SUM(valor), 0) as r FROM receitas WHERE user_id = ?', (uid,))['r']
+    con = fetch_one('SELECT COALESCE(SUM(valor), 0) as c FROM contas WHERE user_id = ?', (uid,))['c']
+    inv = fetch_one('SELECT COALESCE(SUM(valor_atual), 0) as i FROM investimentos WHERE user_id = ?', (uid,))['i']
+    metas = fetch_all('SELECT titulo, progresso FROM metas WHERE user_id = ?', (uid,))
+    
+    contexto = f"""
+    Você é um consultor financeiro sênior e amigável.
+    Dados atuais do usuário:
+    - Saldo Total (Receitas): R$ {res:.2f}
+    - Total de Contas a Pagar (Despesas): R$ {con:.2f}
+    - Saldo Líquido: R$ {res-con:.2f}
+    - Total Investido: R$ {inv:.2f}
+    - Metas: {', '.join([f"{m['titulo']} ({m['progresso']}%)" for m in metas])}
+    
+    Responda de forma curta, objetiva e motivadora. Nunca peça senhas ou dados bancários reais.
+    Pergunta do usuário: {pergunta}
+    """
+    
+    try:
+        response = model.generate_content(contexto)
+        return jsonify({'response': response.text})
+    except Exception as e:
+        return jsonify({'response': 'Desculpe, estou com dificuldades para pensar agora. Tente novamente em breve.'}), 500
+
+@app.route('/auto-categorize', methods=['POST'])
+@jwt_required()
+def auto_categorize():
+    uid = int(get_jwt_identity())
+    d = request.json or {}
+    descricao = d.get('descricao')
+    
+    cats = fetch_all('SELECT id, nome FROM categorias WHERE user_id = ? OR user_id IS NULL', (uid,))
+    lista_cats = ", ".join([f"{c['id']}:{c['nome']}" for c in cats])
+    
+    prompt = f"""
+    Baseado na descrição da despesa "{descricao}", escolha a categoria mais adequada da lista abaixo.
+    Responda APENAS o ID numérico da categoria.
+    Lista: {lista_cats}
+    """
+    
+    try:
+        response = model.generate_content(prompt)
+        cat_id = response.text.strip()
+        return jsonify({'categoria_id': int(cat_id)})
+    except:
+        return jsonify({'categoria_id': None})
 
 @app.route('/patrimonio', methods=['GET'])
 @jwt_required()

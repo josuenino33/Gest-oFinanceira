@@ -20,6 +20,22 @@ export default function Receitas() {
   const now = new Date()
   const [mesFiltro, setMesFiltro] = useState(now.getMonth())
   const [anoFiltro, setAnoFiltro] = useState(now.getFullYear())
+  const [suggesting, setSuggesting] = useState(false)
+
+  const sugerirCategoria = async () => {
+    if (!descricao.trim() || categoriaId) return
+    setSuggesting(true)
+    try {
+      const res = await api.post('/auto-categorize', { descricao })
+      if (res.data.categoria_id) {
+        setCategoriaId(res.data.categoria_id)
+      }
+    } catch (e) {
+      console.error('Erro ao sugerir categoria:', e)
+    } finally {
+      setSuggesting(false)
+    }
+  }
 
   const carregar = () => {
     api.get('/receitas').then(r => setListaCompleta(r.data)).catch(console.error)
@@ -170,8 +186,14 @@ export default function Receitas() {
 
       <Modal isOpen={modalOpen} onClose={fecharModal} title={receitaEditando ? 'Editar Receita' : `Nova Receita — ${mesesNomes[mesFiltro]} ${anoFiltro}`}>
         <div className='space-y-4'>
-          <input value={descricao} onChange={e => setDescricao(e.target.value)} placeholder='Descrição'
-            className='w-full bg-[#111f34] rounded-xl p-4 border border-gray-700 text-white outline-none focus:border-green-400' />
+          <input
+            type='text'
+            value={descricao}
+            onChange={(e) => setDescricao(e.target.value)}
+            onBlur={sugerirCategoria}
+            className={`w-full rounded-xl border ${suggesting ? 'border-green-500 animate-pulse' : 'border-gray-700'} bg-[#111f34] px-4 py-2 text-white outline-none focus:border-green-500`}
+            placeholder='Ex: Salário, Venda...'
+          />
           <input value={valor} onChange={e => setValor(e.target.value)} placeholder='Valor (ex: 1500.00)' type='number' step='0.01'
             className='w-full bg-[#111f34] rounded-xl p-4 border border-gray-700 text-white outline-none focus:border-green-400' />
           <select value={categoriaId} onChange={e => setCategoriaId(e.target.value)}
