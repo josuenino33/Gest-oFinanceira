@@ -824,11 +824,16 @@ def get_insights():
 
 @app.route('/test-ai', methods=['GET'])
 def test_ai():
-    if not model:
-        return jsonify({'status': 'erro', 'msg': 'Modelo não carregado'})
     try:
-        res = model.generate_content("Olá, diga apenas 'OK'")
-        return jsonify({'status': 'sucesso', 'msg': res.text})
+        models = []
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                models.append(m.name)
+        return jsonify({
+            'status': 'sucesso',
+            'modelos_disponiveis': models,
+            'chave_usada': GEMINI_API_KEY[:10] + "..."
+        })
     except Exception as e:
         return jsonify({'status': 'erro', 'msg': str(e)})
 
