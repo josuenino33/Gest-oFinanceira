@@ -129,130 +129,112 @@ export default function Dashboard() {
 
   return (
     <>
-      <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8'>
+      {/* Header com Título e Filtro unificados */}
+      <div className='flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-8'>
         <div>
-          <h1 className='text-2xl md:text-4xl font-bold'>Dashboard</h1>
-          <p className='text-gray-400 mt-1 text-sm md:text-base'>Visão geral da sua gestão financeira</p>
-          <p className='text-gray-500 mt-1 text-xs'>
-            {lastUpdate ? `Atualizado às ${lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Atualizando dados...'}
-          </p>
-        </div>
-        
-        {/* Card de Patrimônio Líquido */}
-        {patrimonioCard && (
-          <div className='bg-gradient-to-br from-[#1e293b] to-[#0f172a] border border-gray-700/50 p-5 rounded-2xl flex flex-col md:flex-row items-center gap-6 shadow-xl'>
-            <div className='text-center md:text-left'>
-              <span className='text-[10px] text-gray-400 uppercase tracking-widest font-bold'>Total do Patrimônio</span>
-              <h2 className={`text-2xl font-black mt-1 ${patrimonioData.patrimonio >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {patrimonioCard.valor}
-              </h2>
-            </div>
-            <div className='h-px md:h-10 w-full md:w-px bg-gray-700'></div>
-            <div className='flex gap-8'>
-              <div className='text-center md:text-left'>
-                <span className='text-[10px] text-gray-500 uppercase font-bold'>Ativos</span>
-                <p className='text-sm text-white font-semibold'>{patrimonioCard.ativos}</p>
-              </div>
-              <div className='text-center md:text-left'>
-                <span className='text-[10px] text-gray-500 uppercase font-bold'>Passivos</span>
-                <p className='text-sm text-white font-semibold'>{patrimonioCard.passivos}</p>
-              </div>
-            </div>
+          <h1 className='text-3xl md:text-4xl font-black text-white tracking-tight'>Dashboard</h1>
+          <p className='text-gray-400 mt-1 text-sm md:text-base font-medium opacity-80'>Visão geral da sua saúde financeira</p>
+          <div className='flex items-center gap-2 mt-2'>
+            <span className='inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse'></span>
+            <span className='text-gray-500 text-[10px] uppercase font-bold tracking-widest'>
+              {lastUpdate ? `Sincronizado às ${lastUpdate.toLocaleTimeString('pt-BR')}` : 'Sincronizando...'}
+            </span>
           </div>
-        )}
-        <div className='flex flex-wrap items-center gap-3 bg-[#0d1a2d]/80 backdrop-blur-md p-2 rounded-2xl border border-gray-800 shadow-2xl'>
-          {/* Botão de Atalho: Mês Atual */}
-          <button
-            onClick={() => {
-              const d = new Date()
-              setMesSelecionado(d.getMonth())
-              setAnoSelecionado(d.getFullYear())
-              setMesFim(d.getMonth())
-              setAnoFim(d.getFullYear())
-            }}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              mesSelecionado === mesFim && anoSelecionado === anoFim && mesSelecionado === new Date().getMonth()
-                ? 'bg-green-500 text-black shadow-lg shadow-green-500/20'
-                : 'text-gray-400 hover:bg-white/5'
-            }`}
-          >
-            Este Mês
-          </button>
+        </div>
 
-          {/* Botão de Atalho: Últimos 3 Meses */}
-          <button
-            onClick={() => {
-              const d = new Date()
-              setMesFim(d.getMonth())
-              setAnoFim(d.getFullYear())
-              let mDe = d.getMonth() - 2
-              let aDe = d.getFullYear()
-              if (mDe < 0) { mDe += 12; aDe -= 1 }
-              setMesSelecionado(mDe)
-              setAnoSelecionado(aDe)
-            }}
-            className='px-4 py-2 rounded-xl text-xs font-bold text-gray-400 hover:bg-white/5 transition-all'
-          >
-            Últimos 3 Meses
-          </button>
+        {/* Novo Filtro - Mais compacto e centrado */}
+        <div className='flex items-center gap-2 bg-[#0d1a2d] border border-gray-800 p-1.5 rounded-2xl shadow-xl self-start xl:self-center'>
+          <div className='flex items-center gap-1 bg-[#111f34] border border-gray-700/30 rounded-xl px-3 py-2'>
+             <button
+               onClick={() => {
+                 const d = new Date(); setMesSelecionado(d.getMonth()); setAnoSelecionado(d.getFullYear());
+                 setMesFim(d.getMonth()); setAnoFim(d.getFullYear());
+               }}
+               className='text-[10px] font-bold text-gray-400 hover:text-green-400 uppercase transition-colors mr-2'
+             >
+               Hoje
+             </button>
+             <div className='h-4 w-px bg-gray-700 mx-1'></div>
+             <select 
+               value={mesSelecionado} 
+               onChange={e => setMesSelecionado(Number(e.target.value))}
+               className='bg-transparent text-white text-xs outline-none cursor-pointer font-bold'
+             >
+               {mesesNomes.map((m, i) => <option key={i} value={i} className='bg-[#111f34]'>{m.substring(0, 3)}</option>)}
+             </select>
+             <span className='text-gray-600 text-xs mx-1'>/</span>
+             <select 
+               value={anoSelecionado} 
+               onChange={e => setAnoSelecionado(Number(e.target.value))}
+               className='bg-transparent text-white text-xs outline-none cursor-pointer font-bold'
+             >
+               {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a} className='bg-[#111f34]'>{a}</option>)}
+             </select>
+          </div>
 
-          <div className='h-6 w-px bg-gray-800 mx-1'></div>
+          <span className='text-gray-600'>-</span>
 
-          {/* Seletores Customizados mais limpos */}
-          <div className='flex items-center gap-2 px-2'>
-            <div className='flex items-center gap-1 bg-[#111f34] border border-gray-700/50 rounded-xl px-2 py-1'>
-              <span className='text-[10px] text-gray-500 font-bold ml-1'>DE:</span>
-              <select 
-                value={mesSelecionado} 
-                onChange={e => setMesSelecionado(Number(e.target.value))}
-                className='bg-transparent text-white text-xs outline-none cursor-pointer py-1'
-              >
-                {mesesNomes.map((m, i) => <option key={i} value={i} className='bg-[#111f34]'>{m.substring(0, 3)}</option>)}
-              </select>
-              <select 
-                value={anoSelecionado} 
-                onChange={e => setAnoSelecionado(Number(e.target.value))}
-                className='bg-transparent text-white text-xs outline-none cursor-pointer py-1'
-              >
-                {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a} className='bg-[#111f34]'>{a}</option>)}
-              </select>
-            </div>
-
-            <div className='text-gray-600'>→</div>
-
-            <div className='flex items-center gap-1 bg-[#111f34] border border-gray-700/50 rounded-xl px-2 py-1'>
-              <span className='text-[10px] text-gray-500 font-bold ml-1'>ATÉ:</span>
-              <select 
-                value={mesFim} 
-                onChange={e => setMesFim(Number(e.target.value))}
-                className='bg-transparent text-white text-xs outline-none cursor-pointer py-1'
-              >
-                {mesesNomes.map((m, i) => <option key={i} value={i} className='bg-[#111f34]'>{m.substring(0, 3)}</option>)}
-              </select>
-              <select 
-                value={anoFim} 
-                onChange={e => setAnoFim(Number(e.target.value))}
-                className='bg-transparent text-white text-xs outline-none cursor-pointer py-1'
-              >
-                {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a} className='bg-[#111f34]'>{a}</option>)}
-              </select>
-            </div>
+          <div className='flex items-center gap-1 bg-[#111f34] border border-gray-700/30 rounded-xl px-3 py-2'>
+             <select 
+               value={mesFim} 
+               onChange={e => setMesFim(Number(e.target.value))}
+               className='bg-transparent text-white text-xs outline-none cursor-pointer font-bold'
+             >
+               {mesesNomes.map((m, i) => <option key={i} value={i} className='bg-[#111f34]'>{m.substring(0, 3)}</option>)}
+             </select>
+             <span className='text-gray-600 text-xs mx-1'>/</span>
+             <select 
+               value={anoFim} 
+               onChange={e => setAnoFim(Number(e.target.value))}
+               className='bg-transparent text-white text-xs outline-none cursor-pointer font-bold'
+             >
+               {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a} className='bg-[#111f34]'>{a}</option>)}
+             </select>
           </div>
 
           <button
             onClick={() => carregarDashboard()}
             disabled={refreshing}
-            className='ml-2 p-2 bg-green-500 hover:bg-green-400 text-black rounded-xl transition-all shadow-lg shadow-green-500/20 disabled:opacity-50'
-            title='Aplicar Filtro'
+            className='w-10 h-10 flex items-center justify-center bg-green-500 hover:bg-green-400 text-black rounded-xl transition-all shadow-lg shadow-green-500/20'
           >
-            {refreshing ? (
-              <div className='w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin'></div>
-            ) : (
-              '🔍'
-            )}
+            {refreshing ? '...' : '🔍'}
           </button>
         </div>
       </div>
+
+      {/* Patrimônio Líquido em Destaque (Full Width em Mobile) */}
+      {patrimonioData && (
+        <div className='mb-10'>
+          <div className='bg-gradient-to-br from-[#1e293b] to-[#080f1e] border border-gray-800 p-6 md:p-8 rounded-[2rem] shadow-2xl relative overflow-hidden group'>
+            <div className='absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity'>
+              <span className='text-8xl'>🏦</span>
+            </div>
+            
+            <div className='flex flex-col md:flex-row md:items-end justify-between gap-6'>
+              <div>
+                <span className='text-[10px] md:text-xs text-green-400/70 uppercase font-black tracking-[0.2em] mb-2 block'>Patrimônio Consolidado</span>
+                <div className='flex items-baseline gap-2'>
+                  <span className='text-2xl md:text-3xl text-gray-400 font-light'>R$</span>
+                  <h2 className={`text-4xl md:text-6xl font-black tracking-tighter ${patrimonioData.patrimonio >= 0 ? 'text-white' : 'text-red-400'}`}>
+                    {Number(patrimonioData.patrimonio).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </h2>
+                </div>
+              </div>
+
+              <div className='grid grid-cols-2 gap-4 md:gap-10 border-t md:border-t-0 md:border-l border-gray-800 pt-6 md:pt-0 md:pl-10'>
+                <div>
+                  <span className='text-[10px] text-gray-500 uppercase font-bold block mb-1'>Ativos Totais</span>
+                  <p className='text-lg md:text-xl text-white font-bold'>{fmt(patrimonioData.ativos)}</p>
+                </div>
+                <div>
+                  <span className='text-[10px] text-gray-500 uppercase font-bold block mb-1'>Dívidas / Passivos</span>
+                  <p className='text-lg md:text-xl text-red-400/80 font-bold'>{fmt(patrimonioData.passivos)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cards */}
       <div className='grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6 mb-8'>
