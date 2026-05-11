@@ -16,8 +16,13 @@ jwt = JWTManager(app)
 
 # Configuração Google Gemini
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', 'AIzaSyApIggH1cMf5J-18eqZaPTT99uoe6kGn0g')
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash')
+try:
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    print("GOOGLE GEMINI: Inicializado com sucesso")
+except Exception as e:
+    print(f"GOOGLE GEMINI: Erro na inicialização: {e}")
+    model = None
 
 # Configurações de Banco de Dados
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'financeiro.db')
@@ -657,6 +662,9 @@ def chat_ia():
     Pergunta do usuário: {pergunta}
     """
     
+    if not model:
+        return jsonify({'response': 'A IA não foi configurada corretamente no servidor. Verifique a chave API.'}), 500
+        
     try:
         response = model.generate_content(contexto)
         if response and response.text:
