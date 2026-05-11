@@ -3,8 +3,13 @@ import api from '../utils/api'
 import Layout from '../components/Layout'
 import Modal from '../components/Modal'
 
+const mesesNomes = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+]
+
 export default function Contas() {
-  const [contas, setContas] = useState([])
+  const [contasCompletas, setContasCompletas] = useState([])
   const [categorias, setCategorias] = useState([])
   const [descricao, setDescricao] = useState('')
   const [valor, setValor] = useState('')
@@ -13,12 +18,23 @@ export default function Contas() {
   const [modalOpen, setModalOpen] = useState(false)
   const [contaEditando, setContaEditando] = useState(null)
 
+  const now = new Date()
+  const [mesFiltro, setMesFiltro] = useState(now.getMonth())
+  const [anoFiltro, setAnoFiltro] = useState(now.getFullYear())
+
   const carregar = () => {
-    api.get('/contas').then(r => setContas(r.data)).catch(console.error)
+    api.get('/contas').then(r => setContasCompletas(r.data)).catch(console.error)
     api.get('/categorias').then(r => setCategorias(r.data)).catch(() => {})
   }
 
   useEffect(() => { carregar() }, [])
+
+  // Filtrar pelo mês/ano selecionado
+  const contas = contasCompletas.filter(item => {
+    if (!item.criado_em) return false
+    const d = new Date(item.criado_em)
+    return d.getMonth() === mesFiltro && d.getFullYear() === anoFiltro
+  })
 
   const salvar = async () => {
     if (!descricao.trim() || !valor) {
@@ -41,6 +57,10 @@ export default function Contas() {
       if (contaEditando) {
         await api.put(`/contas/${contaEditando.id}`, payload)
       } else {
+        // Nova conta: usar a data do mês filtrado
+        const dia = String(new Date().getDate()).padStart(2, '0')
+        const hora = new Date().toTimeString().split(' ')[0]
+        payload.criado_em = `${anoFiltro}-${String(mesFiltro + 1).padStart(2, '0')}-${dia} ${hora}`
         await api.post('/contas', payload)
       }
       fecharModal()
@@ -96,22 +116,38 @@ export default function Contas() {
           <h1 className='text-2xl md:text-4xl font-bold'>Contas a Pagar</h1>
           <p className='text-gray-400 mt-1 text-sm md:text-base'>Acompanhe e adicione suas despesas</p>
         </div>
-        <button onClick={() => setModalOpen(true)} className='w-full sm:w-auto bg-green-500 px-6 py-3 rounded-xl font-semibold hover:bg-green-400 transition'>
-          + Nova Conta
-        </button>
+        <div className='flex flex-wrap gap-3 items-center'>
+          <div className='flex items-center gap-2'>
+            <select value={mesFiltro} onChange={e => setMesFiltro(Number(e.target.value))}
+              className='bg-[#111f34] border border-gray-700 px-3 py-2 rounded-xl text-white cursor-pointer outline-none focus:border-green-500/50 text-xs md:text-sm'>
+              {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
+            </select>
+            <select value={anoFiltro} onChange={e => setAnoFiltro(Number(e.target.value))}
+              className='bg-[#111f34] border border-gray-700 px-3 py-2 rounded-xl text-white cursor-pointer outline-none focus:border-green-500/50 text-xs md:text-sm'>
+              {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </div>
+          <button onClick={() => setModalOpen(true)} className='w-full sm:w-auto bg-green-500 px-6 py-3 rounded-xl font-semibold hover:bg-green-400 transition'>
+            + Nova Conta
+          </button>
+        </div>
       </div>
+
+      <p className='text-gray-500 text-xs mb-4'>
+        📅 Novas contas serão adicionadas em <span className='text-green-400 font-semibold'>{mesesNomes[mesFiltro]} {anoFiltro}</span>
+      </p>
 
       <div className='grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 mb-8'>
         <div className='bg-[#0d1a2d] rounded-2xl p-4 md:p-6 border border-gray-800'>
-          <p className='text-gray-400 text-xs md:text-sm'>Pendentes</p>
+          <p className='text-gray-400 text-xs md:text-sm'>Pendentes no Mês</p>
           <h2 className='text-xl md:text-3xl font-bold text-yellow-400 mt-1 md:mt-2'>{fmt(totalPendente)}</h2>
         </div>
         <div className='bg-[#0d1a2d] rounded-2xl p-4 md:p-6 border border-gray-800'>
-          <p className='text-gray-400 text-xs md:text-sm'>Pagas</p>
+          <p className='text-gray-400 text-xs md:text-sm'>Pagas no Mês</p>
           <h2 className='text-xl md:text-3xl font-bold text-green-400 mt-1 md:mt-2'>{fmt(totalPago)}</h2>
         </div>
         <div className='bg-[#0d1a2d] rounded-2xl p-4 md:p-6 border border-gray-800 col-span-2 md:col-span-1'>
-          <p className='text-gray-400 text-xs md:text-sm'>Total Geral</p>
+          <p className='text-gray-400 text-xs md:text-sm'>Total no Mês</p>
           <h2 className='text-xl md:text-3xl font-bold text-red-400 mt-1 md:mt-2'>{fmt(totalPendente + totalPago)}</h2>
         </div>
       </div>
@@ -123,6 +159,7 @@ export default function Contas() {
               <th className='p-4'>Descrição</th>
               <th className='p-4'>Categoria</th>
               <th className='p-4'>Valor</th>
+              <th className='p-4'>Data</th>
               <th className='p-4'>Status</th>
               <th className='p-4'>Ações</th>
             </tr>
@@ -133,6 +170,7 @@ export default function Contas() {
                 <td className='p-4 font-semibold'>{c.descricao}</td>
                 <td className='p-4 text-gray-400'>{c.categoria_nome || '—'}</td>
                 <td className='p-4 text-red-400 font-bold'>{fmt(c.valor)}</td>
+                <td className='p-4 text-gray-500 text-sm'>{c.criado_em ? new Date(c.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
                 <td className='p-4'>
                   {c.pago
                     ? <span className='bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-sm'>Paga</span>
@@ -149,10 +187,10 @@ export default function Contas() {
             ))}
           </tbody>
         </table>
-        {contas.length === 0 && <p className='text-gray-500 text-center py-8'>Nenhuma conta cadastrada</p>}
+        {contas.length === 0 && <p className='text-gray-500 text-center py-8'>Nenhuma conta em {mesesNomes[mesFiltro]} {anoFiltro}</p>}
       </div>
 
-      <Modal isOpen={modalOpen} onClose={fecharModal} title={contaEditando ? 'Editar Conta' : 'Nova Conta'}>
+      <Modal isOpen={modalOpen} onClose={fecharModal} title={contaEditando ? 'Editar Conta' : `Nova Conta — ${mesesNomes[mesFiltro]} ${anoFiltro}`}>
         <div className='space-y-4'>
           <input value={descricao} onChange={e => setDescricao(e.target.value)} placeholder='Descrição da conta'
             className='w-full bg-[#111f34] rounded-xl p-4 border border-gray-700 text-white outline-none focus:border-green-400' />

@@ -140,7 +140,15 @@ export default function Dashboard() {
             <span className='text-xs text-gray-500 uppercase'>De:</span>
             <select
               value={mesSelecionado}
-              onChange={(e) => setMesSelecionado(Number(e.target.value))}
+              onChange={(e) => {
+                const novoMes = Number(e.target.value)
+                setMesSelecionado(novoMes)
+                // Se "De" ficou maior que "Para", ajustar "Para"
+                if (anoSelecionado > anoFim || (anoSelecionado === anoFim && novoMes > mesFim)) {
+                  setMesFim(novoMes)
+                  setAnoFim(anoSelecionado)
+                }
+              }}
               className='bg-[#111f34] border border-gray-700 px-3 py-2 rounded-xl text-white cursor-pointer outline-none focus:border-green-500/50 text-xs md:text-sm'
             >
               {mesesNomes.map((m, i) => (
@@ -149,7 +157,14 @@ export default function Dashboard() {
             </select>
             <select
               value={anoSelecionado}
-              onChange={(e) => setAnoSelecionado(Number(e.target.value))}
+              onChange={(e) => {
+                const novoAno = Number(e.target.value)
+                setAnoSelecionado(novoAno)
+                if (novoAno > anoFim || (novoAno === anoFim && mesSelecionado > mesFim)) {
+                  setMesFim(mesSelecionado)
+                  setAnoFim(novoAno)
+                }
+              }}
               className='bg-[#111f34] border border-gray-700 px-3 py-2 rounded-xl text-white cursor-pointer outline-none focus:border-green-500/50 text-xs md:text-sm'
             >
               {[2024, 2025, 2026, 2027].map(a => (
@@ -161,7 +176,15 @@ export default function Dashboard() {
             <span className='text-xs text-gray-500 uppercase'>Até:</span>
             <select
               value={mesFim}
-              onChange={(e) => setMesFim(Number(e.target.value))}
+              onChange={(e) => {
+                const novoMes = Number(e.target.value)
+                setMesFim(novoMes)
+                // Se "Para" ficou menor que "De", ajustar "De"
+                if (anoFim < anoSelecionado || (anoFim === anoSelecionado && novoMes < mesSelecionado)) {
+                  setMesSelecionado(novoMes)
+                  setAnoSelecionado(anoFim)
+                }
+              }}
               className='bg-[#111f34] border border-gray-700 px-3 py-2 rounded-xl text-white cursor-pointer outline-none focus:border-green-500/50 text-xs md:text-sm'
             >
               {mesesNomes.map((m, i) => (
@@ -170,7 +193,14 @@ export default function Dashboard() {
             </select>
             <select
               value={anoFim}
-              onChange={(e) => setAnoFim(Number(e.target.value))}
+              onChange={(e) => {
+                const novoAno = Number(e.target.value)
+                setAnoFim(novoAno)
+                if (novoAno < anoSelecionado || (novoAno === anoSelecionado && mesFim < mesSelecionado)) {
+                  setMesSelecionado(mesFim)
+                  setAnoSelecionado(novoAno)
+                }
+              }}
               className='bg-[#111f34] border border-gray-700 px-3 py-2 rounded-xl text-white cursor-pointer outline-none focus:border-green-500/50 text-xs md:text-sm'
             >
               {[2024, 2025, 2026, 2027].map(a => (

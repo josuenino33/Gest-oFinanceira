@@ -249,7 +249,11 @@ def rota_receitas():
     uid = int(get_jwt_identity())
     if request.method == 'POST':
         d = request.json
-        execute_query('INSERT INTO receitas (user_id, descricao, valor, categoria_id) VALUES (?, ?, ?, ?)', (uid, d.get('descricao'), d.get('valor'), d.get('categoria_id')))
+        criado_em = d.get('criado_em')  # opcional: YYYY-MM-DD HH:MM:SS
+        if criado_em:
+            execute_query('INSERT INTO receitas (user_id, descricao, valor, categoria_id, criado_em) VALUES (?, ?, ?, ?, ?)', (uid, d.get('descricao'), d.get('valor'), d.get('categoria_id'), criado_em))
+        else:
+            execute_query('INSERT INTO receitas (user_id, descricao, valor, categoria_id) VALUES (?, ?, ?, ?)', (uid, d.get('descricao'), d.get('valor'), d.get('categoria_id')))
         return jsonify({'msg': 'OK'})
     return jsonify(fetch_all('SELECT r.*, c.nome as categoria_nome FROM receitas r LEFT JOIN categorias c ON c.id = r.categoria_id WHERE r.user_id = ? ORDER BY r.id DESC', (uid,)))
 
@@ -270,7 +274,11 @@ def rota_contas():
     uid = int(get_jwt_identity())
     if request.method == 'POST':
         d = request.json
-        execute_query('INSERT INTO contas (user_id, descricao, valor, categoria_id) VALUES (?, ?, ?, ?)', (uid, d.get('descricao'), d.get('valor'), d.get('categoria_id')))
+        criado_em = d.get('criado_em')  # opcional: YYYY-MM-DD HH:MM:SS
+        if criado_em:
+            execute_query('INSERT INTO contas (user_id, descricao, valor, categoria_id, criado_em) VALUES (?, ?, ?, ?, ?)', (uid, d.get('descricao'), d.get('valor'), d.get('categoria_id'), criado_em))
+        else:
+            execute_query('INSERT INTO contas (user_id, descricao, valor, categoria_id) VALUES (?, ?, ?, ?)', (uid, d.get('descricao'), d.get('valor'), d.get('categoria_id')))
         return jsonify({'msg': 'OK'})
     return jsonify(fetch_all('SELECT co.*, c.nome as categoria_nome FROM contas co LEFT JOIN categorias c ON c.id = co.categoria_id WHERE co.user_id = ? ORDER BY co.id DESC', (uid,)))
 
@@ -343,7 +351,31 @@ def rota_compras():
     uid = int(get_jwt_identity())
     if request.method == 'POST':
         d = request.json
-        execute_query('INSERT INTO compras_cartao (user_id, cartao_id, descricao, valor, parcelas, parcela_atual) VALUES (?, ?, ?, ?, ?, ?)', (uid, d.get('cartao_id'), d.get('descricao'), d.get('valor'), d.get('parcelas', 1), d.get('parcela_atual', 1)))
+        num_parcelas = int(d.get('parcelas', 1))
+        valor_total = float(d.get('valor', 0))
+        valor_parcela = round(valor_total / num_parcelas, 2)
+        mes_compra = d.get('mes_compra')  # 1-12, opcional
+        ano_compra = d.get('ano_compra')  # ex: 2026, opcional
+
+        for i in range(num_parcelas):
+            parcela_atual = i + 1
+            # Calcular criado_em para cada parcela
+            if mes_compra and ano_compra:
+                m = int(mes_compra) + i
+                a = int(ano_compra)
+                while m > 12:
+                    m -= 12
+                    a += 1
+                criado_em = f"{a}-{m:02d}-15 12:00:00"
+                execute_query(
+                    'INSERT INTO compras_cartao (user_id, cartao_id, descricao, valor, parcelas, parcela_atual, criado_em) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    (uid, d.get('cartao_id'), d.get('descricao'), valor_parcela, num_parcelas, parcela_atual, criado_em)
+                )
+            else:
+                execute_query(
+                    'INSERT INTO compras_cartao (user_id, cartao_id, descricao, valor, parcelas, parcela_atual) VALUES (?, ?, ?, ?, ?, ?)',
+                    (uid, d.get('cartao_id'), d.get('descricao'), valor_parcela, num_parcelas, parcela_atual)
+                )
         return jsonify({'msg': 'OK'})
     return jsonify(fetch_all('SELECT cc.*, ca.nome as cartao_nome, ca.bandeira FROM compras_cartao cc JOIN cartoes ca ON ca.id = cc.cartao_id AND ca.user_id = cc.user_id WHERE cc.user_id = ? ORDER BY cc.id DESC', (uid,)))
 
@@ -446,6 +478,11 @@ def resumo_mensal():
     ano = request.args.get('ano', datetime.now().year, type=int)
     mes_fim = request.args.get('mes_fim', mes, type=int)
     ano_fim = request.args.get('ano_fim', ano, type=int)
+
+    # Garantir que "De" não é maior que "Para"
+    if (ano > ano_fim) or (ano == ano_fim and mes > mes_fim):
+        mes, mes_fim = mes_fim, mes
+        ano, ano_fim = ano_fim, ano
 
     # Filtro de data genérico para SQLite e Postgres
     f_range = "criado_em >= ? AND criado_em < ?"
