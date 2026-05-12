@@ -140,18 +140,6 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
         </div>
       )}
 
-      {/* Botão Principal (Desktop e Tablet) */}
-      <button
-        onClick={() => {
-          if (isOpen) setIsOpen(false)
-          else setIsMenuOpen(!isMenuOpen)
-        }}
-        className={`hidden lg:flex w-16 h-16 rounded-full items-center justify-center text-3xl shadow-2xl transition-all duration-500 pointer-events-auto ${
-          isMenuOpen || isOpen ? 'bg-red-500 text-white rotate-45' : 'bg-green-500 text-black hover:scale-110 shadow-green-500/20'
-        }`}
-      >
-        {isMenuOpen || isOpen ? '✕' : '+'}
-      </button>
     </div>
   )
 }

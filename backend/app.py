@@ -371,7 +371,7 @@ def rota_cartoes():
         d = request.json
         execute_query('INSERT INTO cartoes (user_id, nome, bandeira, limite) VALUES (?, ?, ?, ?)', (uid, d.get('nome'), d.get('bandeira'), d.get('limite')))
         return jsonify({'msg': 'OK'})
-    return jsonify(fetch_all('SELECT ca.*, COALESCE(SUM(cc.valor), 0) as total_gasto FROM cartoes ca LEFT JOIN compras_cartao cc ON cc.cartao_id = ca.id AND cc.user_id = ca.user_id WHERE ca.user_id = ? GROUP BY ca.id ORDER BY ca.id DESC', (uid,)))
+    return jsonify(fetch_all('SELECT ca.id, ca.nome, ca.bandeira, ca.limite, COALESCE(SUM(cc.valor), 0) as total_gasto FROM cartoes ca LEFT JOIN compras_cartao cc ON cc.cartao_id = ca.id AND cc.user_id = ca.user_id WHERE ca.user_id = ? GROUP BY ca.id, ca.nome, ca.bandeira, ca.limite ORDER BY ca.id DESC', (uid,)))
 
 @app.route('/cartoes/<int:id>', methods=['DELETE', 'PUT'])
 @jwt_required()
@@ -506,7 +506,7 @@ def relatorios():
     td = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM contas WHERE user_id = ?', (uid,))['t']
     ti = fetch_one('SELECT COALESCE(SUM(valor_investido), 0) as t FROM investimentos WHERE user_id = ?', (uid,))['t']
     ta = fetch_one('SELECT COALESCE(SUM(valor_atual), 0) as t FROM investimentos WHERE user_id = ?', (uid,))['t']
-    pc = fetch_all('SELECT c.nome, c.cor, COALESCE(SUM(co.valor), 0) as total FROM categorias c LEFT JOIN contas co ON co.categoria_id = c.id AND co.user_id = ? GROUP BY c.id HAVING COALESCE(SUM(co.valor), 0) > 0 ORDER BY total DESC', (uid,))
+    pc = fetch_all('SELECT c.nome, c.cor, COALESCE(SUM(co.valor), 0) as total FROM categorias c LEFT JOIN contas co ON co.categoria_id = c.id AND co.user_id = ? GROUP BY c.id, c.nome, c.cor HAVING COALESCE(SUM(co.valor), 0) > 0 ORDER BY total DESC', (uid,))
     return jsonify({'receitas': r, 'despesas': d, 'total_receitas': float(tr), 'total_despesas': float(td), 'saldo': float(tr-td), 'total_investido': float(ti), 'total_atual_investimentos': float(ta), 'por_categoria': pc})
 
 @app.route('/notificacoes', methods=['GET'])
@@ -568,10 +568,14 @@ def resumo_mensal():
     d = fetch_one(f'SELECT COALESCE(SUM(valor), 0) as t FROM contas WHERE user_id = ? AND {f_range}', (uid, start_date, end_date))['t']
 
     # Categorias com percentual
-    total_despesas = float(d)
-    cats = fetch_all(f'SELECT c.nome, COALESCE(SUM(co.valor), 0) as total FROM categorias c LEFT JOIN contas co ON co.categoria_id = c.id AND co.user_id = ? AND {f_range_co} WHERE (c.user_id IS NULL OR c.user_id = ?) GROUP BY c.id HAVING COALESCE(SUM(co.valor), 0) > 0 ORDER BY total DESC', (uid, start_date, end_date, uid))
-    for c in cats:
-        c['percentual'] = round((c['total'] / total_despesas * 100), 1) if total_despesas > 0 else 0
+    try:
+        total_despesas = float(d)
+        cats = fetch_all(f'SELECT c.nome, COALESCE(SUM(co.valor), 0) as total FROM categorias c LEFT JOIN contas co ON co.categoria_id = c.id AND co.user_id = ? AND {f_range_co} WHERE (c.user_id IS NULL OR c.user_id = ?) GROUP BY c.id, c.nome HAVING COALESCE(SUM(co.valor), 0) > 0 ORDER BY total DESC', (uid, start_date, end_date, uid))
+        for c in cats:
+            c['percentual'] = round((float(c['total']) / total_despesas * 100), 1) if total_despesas > 0 else 0
+    except Exception as e:
+        print(f"Erro ao carregar categorias: {e}")
+        cats = []
 
     # Contas a pagar (não pagas e do período)
     cp = fetch_all(f'SELECT * FROM contas WHERE user_id = ? AND pago = 0 AND {f_range} ORDER BY id DESC', (uid, start_date, end_date))

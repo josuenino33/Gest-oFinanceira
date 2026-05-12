@@ -43,22 +43,22 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('resumo')
   const [showFilters, setShowFilters] = useState(false)
 
-  const carregarDashboard = useCallback(async ({ showLoading = false } = {}) => {
-    if (showLoading) setLoading(true)
+  const carregarDashboard = useCallback(async (opt = {}) => {
+    if (opt.showLoading) setLoading(true)
     setRefreshing(true)
     try {
       const res = await api.get(`/resumo-mensal?mes=${mesSelecionado + 1}&ano=${anoSelecionado}&mes_fim=${mesFim + 1}&ano_fim=${anoFim}`)
-      setData(res.data)
+      if (res.data) setData(res.data)
+      
+      const pat = await api.get('/patrimonio')
+      if (pat.data) setPatrimonioData(pat.data)
+      
+      const ins = await api.get('/insights')
+      if (ins.data) setInsights(ins.data)
+      
       setLastUpdate(new Date())
     } catch (e) {
-      console.error(e)
-      setData({
-        receitas: 0, despesas: 0, saldo: 0, meta_economia: 0,
-        categorias: [],
-        contas_pagar: [],
-        compras_cartao: [],
-        metas: [],
-      })
+      console.error('Erro ao carregar dashboard:', e)
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -67,8 +67,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     carregarDashboard({ showLoading: true })
-    api.get('/patrimonio').then(r => setPatrimonioData(r.data)).catch(console.error)
-    api.get('/insights').then(r => setInsights(r.data)).catch(console.error)
   }, [carregarDashboard])
 
   useEffect(() => {

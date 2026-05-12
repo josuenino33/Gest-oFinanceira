@@ -56,32 +56,30 @@ export default function Contas() {
       alert('Informe a descrição e o valor da conta.')
       return
     }
-    const valorNumerico = Number(String(valor).replace(',', '.'))
-    if (!Number.isFinite(valorNumerico) || valorNumerico <= 0) {
-      alert('Informe um valor válido para a conta.')
-      return
-    }
     setLoading(true)
     try {
+      const valorNumerico = Number(String(valor).replace(',', '.'))
       const payload = {
         descricao,
         valor: valorNumerico,
         categoria_id: categoriaId || null,
-        pago: contaEditando ? contaEditando.pago : 0
+        pago: pago ? 1 : 0,
+        criado_em: `${anoFiltro}-${String(mesFiltro + 1).padStart(2, '0')}-15 12:00:00`
       }
+      
       if (contaEditando) {
         await api.put(`/contas/${contaEditando.id}`, payload)
       } else {
-        // Nova conta: usar a data do mês filtrado
-        const dia = String(new Date().getDate()).padStart(2, '0')
-        const hora = new Date().toTimeString().split(' ')[0]
-        payload.criado_em = `${anoFiltro}-${String(mesFiltro + 1).padStart(2, '0')}-${dia} ${hora}`
         await api.post('/contas', payload)
       }
       fecharModal()
       carregar()
-    } catch (e) { console.error(e); alert('Erro ao salvar conta') }
-    finally { setLoading(false) }
+    } catch (e) {
+      console.error('Erro detalhado:', e.response?.data || e.message)
+      alert('Erro ao salvar: ' + (e.response?.data?.msg || 'Verifique sua conexão'))
+    } finally {
+      setLoading(false)
+    }
   }
 
   const fecharModal = () => {

@@ -56,32 +56,30 @@ export default function Receitas() {
       alert('Informe a descrição e o valor da receita.')
       return
     }
-    const valorNumerico = Number(String(valor).replace(',', '.'))
-    if (!Number.isFinite(valorNumerico) || valorNumerico <= 0) {
-      alert('Informe um valor válido para a receita.')
-      return
-    }
     setLoading(true)
     try {
+      const valorNumerico = Number(String(valor).replace(',', '.'))
       const payload = {
         descricao,
         valor: valorNumerico,
         categoria_id: categoriaId || null,
+        criado_em: `${anoFiltro}-${String(mesFiltro + 1).padStart(2, '0')}-15 12:00:00`
       }
+
       if (receitaEditando) {
         await api.put(`/receitas/${receitaEditando.id}`, payload)
       } else {
-        // Nova receita: usar a data do mês filtrado
-        const dia = String(new Date().getDate()).padStart(2, '0')
-        const hora = new Date().toTimeString().split(' ')[0]
-        payload.criado_em = `${anoFiltro}-${String(mesFiltro + 1).padStart(2, '0')}-${dia} ${hora}`
         await api.post('/receitas', payload)
       }
+      
       fecharModal()
       carregar()
-    } catch (e) { console.error(e); alert('Erro ao salvar receita.') }
-    finally { setLoading(false) }
-  }
+    } catch (e) { 
+      console.error('Erro detalhado:', e.response?.data || e.message)
+      alert('Erro ao salvar: ' + (e.response?.data?.msg || 'Verifique sua conexão'))
+    } finally { 
+      setLoading(false) 
+    }
 
   const fecharModal = () => {
     setModalOpen(false)
