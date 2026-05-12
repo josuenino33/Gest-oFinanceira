@@ -326,9 +326,9 @@ export default function Dashboard() {
                 </div>
              </div>
 
-             <div className='bg-[#0d1a2d] rounded-[3rem] p-8 border border-gray-800 shadow-2xl'>
+             <div className='bg-[#0d1a2d] rounded-[3rem] p-8 border border-gray-800 shadow-2xl flex flex-col relative group'>
                 <h3 className='text-2xl font-black text-white mb-8'>Maiores Gastos</h3>
-                <div className='h-80 w-full'>
+                <div className='h-80 w-full relative'>
                    <ResponsiveContainer width='100%' height='100%'>
                     <PieChart>
                       <Pie
