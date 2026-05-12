@@ -64,24 +64,27 @@ export default function Sidebar() {
               </button>
               
               {showNotif && (
-                <div className='absolute left-0 mt-2 w-64 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl shadow-2xl z-50 p-3 max-h-80 overflow-y-auto'>
-                  <h3 className='text-xs font-bold text-gray-500 uppercase mb-3'>Alertas</h3>
-                  {notificacoes.length === 0 ? (
-                    <p className='text-[var(--text-muted)] text-sm'>Nenhuma pendência próxima.</p>
-                  ) : (
-                    <div className='space-y-3'>
-                      {notificacoes.map((n, i) => (
-                        <div key={i} className={`p-2 rounded-lg border-l-4 text-xs ${
-                          n.tipo === 'urgente' ? 'bg-red-500/10 border-red-500' : 
-                          n.tipo === 'alerta' ? 'bg-yellow-500/10 border-yellow-500' : 'bg-blue-500/10 border-blue-500'
-                        }`}>
-                          <p className='font-semibold text-[var(--text-main)]'>{n.msg}</p>
-                          <p className='text-[var(--text-muted)] mt-1'>R$ {n.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <>
+                  <div className='fixed inset-0 z-40' onClick={() => setShowNotif(false)} />
+                  <div className='absolute left-0 mt-2 w-64 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl shadow-2xl z-50 p-3 max-h-80 overflow-y-auto'>
+                    <h3 className='text-xs font-bold text-gray-500 uppercase mb-3'>Alertas</h3>
+                    {notificacoes.length === 0 ? (
+                      <p className='text-[var(--text-muted)] text-sm'>Nenhuma pendência próxima.</p>
+                    ) : (
+                      <div className='space-y-3'>
+                        {notificacoes.map((n, i) => (
+                          <div key={i} className={`p-2 rounded-lg border-l-4 text-xs ${
+                            n.tipo === 'urgente' ? 'bg-red-500/10 border-red-500' : 
+                            n.tipo === 'alerta' ? 'bg-yellow-500/10 border-yellow-500' : 'bg-blue-500/10 border-blue-500'
+                          }`}>
+                            <p className='font-semibold text-[var(--text-main)]'>{n.msg}</p>
+                            <p className='text-[var(--text-muted)] mt-1'>R$ {n.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </div>

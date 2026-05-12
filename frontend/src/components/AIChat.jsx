@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import api from '../utils/api'
 
-export default function AIChat() {
+export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
   const [isOpen, setIsOpen] = useState(false)
-  const [showMenu, setShowMenu] = useState(false)
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState([
     { role: 'ai', text: 'Olá! Sou seu consultor financeiro inteligente. Como posso te ajudar hoje?' }
@@ -42,40 +41,48 @@ export default function AIChat() {
   }
 
   return (
-    <div className='fixed bottom-10 right-10 z-50 flex flex-col items-end gap-4'>
+    <div className='fixed bottom-10 right-10 z-50 flex flex-col items-end gap-4 pointer-events-none'>
+      {/* Backdrop para fechar ao clicar fora */}
+      {(isMenuOpen || isOpen) && (
+        <div 
+          className='fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[-1] pointer-events-auto' 
+          onClick={() => { setIsMenuOpen(false); setIsOpen(false); }}
+        />
+      )}
+
       {/* Menu de Ações Rápidas */}
-      {showMenu && !isOpen && (
-        <div className='flex flex-col items-end gap-3 mb-2 animate-in slide-in-from-bottom-4 fade-in duration-200'>
+      {isMenuOpen && !isOpen && (
+        <div className='flex flex-col items-end gap-3 mb-2 animate-in slide-in-from-bottom-4 fade-in duration-200 pointer-events-auto'>
           <button 
-            onClick={() => { window.location.href='/carteira?tab=receitas'; setShowMenu(false); }}
-            className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 hover:bg-gray-800 transition-all font-bold text-sm w-max min-w-[200px] justify-between'
+            onClick={() => { window.location.href='/carteira?tab=receitas'; setIsMenuOpen(false); }}
+            className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 hover:bg-gray-800 transition-all font-bold text-sm w-max min-w-[220px] justify-between group active:scale-95'
           >
-            Novo Ganho <span>💰</span>
+            Novo Ganho <span className='group-hover:rotate-12 transition-transform'>💰</span>
           </button>
           <button 
-            onClick={() => { window.location.href='/carteira?tab=contas'; setShowMenu(false); }}
-            className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 hover:bg-gray-800 transition-all font-bold text-sm w-max min-w-[200px] justify-between'
+            onClick={() => { window.location.href='/carteira?tab=contas'; setIsMenuOpen(false); }}
+            className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 hover:bg-gray-800 transition-all font-bold text-sm w-max min-w-[220px] justify-between group active:scale-95'
           >
-            Nova Despesa <span>💸</span>
+            Nova Despesa <span className='group-hover:rotate-12 transition-transform'>💸</span>
           </button>
           <button 
-            onClick={() => { window.location.href='/carteira?tab=cartoes'; setShowMenu(false); }}
-            className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 hover:bg-gray-800 transition-all font-bold text-sm w-max min-w-[200px] justify-between'
+            onClick={() => { window.location.href='/carteira?tab=cartoes'; setIsMenuOpen(false); }}
+            className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 hover:bg-gray-800 transition-all font-bold text-sm w-max min-w-[220px] justify-between group active:scale-95'
           >
-            Compra no Cartão <span>💳</span>
+            Compra no Cartão <span className='group-hover:rotate-12 transition-transform'>💳</span>
           </button>
           <button 
-            onClick={() => { setIsOpen(true); setShowMenu(false); }}
-            className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 hover:bg-gray-800 transition-all font-bold text-sm w-max min-w-[200px] justify-between'
+            onClick={() => { setIsOpen(true); setIsMenuOpen(false); }}
+            className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 hover:bg-gray-800 transition-all font-bold text-sm w-max min-w-[220px] justify-between group active:scale-95'
           >
-            Falar com IA <span>🤖</span>
+            Falar com IA <span className='group-hover:rotate-12 transition-transform'>🤖</span>
           </button>
         </div>
       )}
 
       {/* Janela de Chat Glassmorphism */}
       {isOpen && (
-        <div className='absolute bottom-20 right-0 w-[320px] md:w-[450px] h-[650px] bg-[#0b1728]/80 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-500'>
+        <div className='absolute bottom-20 right-0 w-[320px] md:w-[450px] h-[650px] bg-[#0b1728]/80 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-500 pointer-events-auto'>
           {/* Header */}
           <div className='bg-gradient-to-r from-green-500 to-emerald-600 p-6 flex justify-between items-center shadow-lg'>
             <div className='flex items-center gap-3'>
@@ -131,17 +138,17 @@ export default function AIChat() {
         </div>
       )}
 
-      {/* Botão Principal */}
+      {/* Botão Principal (Desktop e Tablet) */}
       <button
         onClick={() => {
           if (isOpen) setIsOpen(false)
-          else setShowMenu(!showMenu)
+          else setIsMenuOpen(!isMenuOpen)
         }}
-        className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl shadow-2xl transition-all duration-500 ${
-          showMenu || isOpen ? 'bg-red-500 text-white rotate-45' : 'bg-green-500 text-black hover:scale-110 shadow-green-500/20'
+        className={`hidden lg:flex w-16 h-16 rounded-full items-center justify-center text-3xl shadow-2xl transition-all duration-500 pointer-events-auto ${
+          isMenuOpen || isOpen ? 'bg-red-500 text-white rotate-45' : 'bg-green-500 text-black hover:scale-110 shadow-green-500/20'
         }`}
       >
-        {showMenu || isOpen ? '✕' : '+'}
+        {isMenuOpen || isOpen ? '✕' : '+'}
       </button>
     </div>
   )

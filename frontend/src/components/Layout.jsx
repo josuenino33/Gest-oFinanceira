@@ -8,7 +8,7 @@ import QuickAddExpense from './QuickAddExpense'
 
 export default function Layout() {
   const [menuOpen, setMenuOpen] = useState(false)
-  const [quickAddOpen, setQuickAddOpen] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
 
   return (
     <div className='flex bg-[var(--bg-main)] text-[var(--text-main)] min-h-screen font-sans transition-colors duration-300'>
@@ -25,15 +25,13 @@ export default function Layout() {
       {/* Mobile: bottom nav */}
       <BottomNav
         onMenuOpen={() => setMenuOpen(true)}
-        onQuickAdd={() => setQuickAddOpen(true)}
+        onActionOpen={() => setIsMenuOpen(!isMenuOpen)}
       />
 
       {/* Mobile: drawer menu */}
       <MobileDrawer isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
 
-      {/* Quick add expense (mobile + desktop) */}
-      <QuickAddExpense isOpen={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
-      <AIChat />
+      <AIChat isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />
     </div>
   )
 }
