@@ -78,8 +78,9 @@ export default function Receitas() {
       console.error('Erro detalhado:', e.response?.data || e.message)
       alert('Erro ao salvar: ' + (e.response?.data?.msg || 'Verifique sua conexão'))
     } finally { 
-      setLoading(false) 
+      setLoading(false)
     }
+  }
 
   const fecharModal = () => {
     setModalOpen(false)

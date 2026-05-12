@@ -230,6 +230,28 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {/* Status da Conexão e Cards de Resumo */}
+      <div className='space-y-6 mb-10'>
+        {refreshing && (
+          <div className='flex items-center gap-2 text-[10px] text-green-500 font-black uppercase tracking-widest animate-pulse'>
+            <span className='w-2 h-2 bg-green-500 rounded-full'></span>
+            Sincronizando dados...
+          </div>
+        )}
+        
+        <div className='grid grid-cols-2 lg:grid-cols-4 gap-6'>
+          {cards.map((card, i) => (
+            <div key={i} className='bg-[#0d1a2d] rounded-[2.5rem] p-8 border border-gray-800 hover:border-gray-600 transition-all shadow-xl group flex flex-col items-center text-center'>
+              <div className={`w-16 h-16 rounded-[1.5rem] ${card.cor.split(' ')[0]} mb-6 flex items-center justify-center text-3xl shadow-lg group-hover:scale-110 transition-transform ${card.cor.split(' ')[1]}`}>
+                 {card.icone}
+              </div>
+              <p className='text-gray-500 text-[10px] font-black uppercase tracking-[0.1em] mb-2'>{card.titulo}</p>
+              <h3 className='text-2xl md:text-3xl font-black text-white'>{card.valor}</h3>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Conteúdo Dinâmico */}
       {activeTab === 'resumo' && (
         <div className='fade-in duration-500 space-y-10'>
@@ -285,19 +307,6 @@ export default function Dashboard() {
                   <span className='text-6xl'>✨</span>
                </div>
             </div>
-          </div>
-
-          {/* Cards de Resumo */}
-          <div className='grid grid-cols-2 lg:grid-cols-4 gap-6'>
-            {cards.map((card, i) => (
-              <div key={i} className='bg-[#0d1a2d] rounded-[2.5rem] p-8 border border-gray-800 hover:border-gray-600 transition-all shadow-xl group flex flex-col items-center text-center'>
-                <div className={`w-16 h-16 rounded-[1.5rem] ${card.cor.split(' ')[0]} mb-6 flex items-center justify-center text-3xl shadow-lg group-hover:scale-110 transition-transform ${card.cor.split(' ')[1]}`}>
-                   {card.icone}
-                </div>
-                <p className='text-gray-500 text-[10px] font-black uppercase tracking-[0.1em] mb-2'>{card.titulo}</p>
-                <h3 className='text-2xl md:text-3xl font-black text-white'>{card.valor}</h3>
-              </div>
-            ))}
           </div>
 
           {/* Seção de Gráficos */}

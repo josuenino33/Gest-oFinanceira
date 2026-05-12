@@ -8,10 +8,10 @@ from werkzeug.security import check_password_hash, generate_password_hash
 import google.generativeai as genai
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'super-secret-key')
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=7) # Aumentado para 7 dias
 jwt = JWTManager(app)
 
 # Configuração Google Gemini
@@ -282,18 +282,38 @@ def resumo():
     m = fetch_one('SELECT COALESCE(AVG(progresso), 0) as p FROM metas WHERE user_id = ?', (uid,))['p']
     return jsonify({'receitas': float(r), 'despesas': float(d), 'saldo': float(r-d), 'meta': float(m)})
 
+@app.route('/health', methods=['GET'])
+def health():
+    try:
+        execute_query('SELECT 1')
+        return jsonify({'status': 'healthy', 'db': 'connected'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
 @app.route('/receitas', methods=['GET', 'POST'])
 @jwt_required()
 def rota_receitas():
     uid = int(get_jwt_identity())
     if request.method == 'POST':
         d = request.json
-        criado_em = d.get('criado_em')  # opcional: YYYY-MM-DD HH:MM:SS
-        if criado_em:
-            execute_query('INSERT INTO receitas (user_id, descricao, valor, categoria_id, criado_em) VALUES (?, ?, ?, ?, ?)', (uid, d.get('descricao'), d.get('valor'), d.get('categoria_id'), criado_em))
-        else:
-            execute_query('INSERT INTO receitas (user_id, descricao, valor, categoria_id) VALUES (?, ?, ?, ?)', (uid, d.get('descricao'), d.get('valor'), d.get('categoria_id')))
-        return jsonify({'msg': 'OK'})
+        try:
+            descricao = str(d.get('descricao', '')).strip()
+            valor = float(str(d.get('valor', '0')).replace(',', '.'))
+            cat_id = d.get('categoria_id')
+            cat_id = int(cat_id) if cat_id and str(cat_id).isdigit() else None
+            criado_em = d.get('criado_em')
+
+            if not descricao or valor <= 0:
+                return jsonify({'msg': 'Descrição e valor são obrigatórios'}), 400
+
+            if criado_em:
+                execute_query('INSERT INTO receitas (user_id, descricao, valor, categoria_id, criado_em) VALUES (?, ?, ?, ?, ?)', (uid, descricao, valor, cat_id, criado_em))
+            else:
+                execute_query('INSERT INTO receitas (user_id, descricao, valor, categoria_id) VALUES (?, ?, ?, ?)', (uid, descricao, valor, cat_id))
+            return jsonify({'msg': 'OK'})
+        except Exception as e:
+            return jsonify({'msg': f'Erro ao salvar: {str(e)}'}), 500
+    
     return jsonify(fetch_all('SELECT r.*, c.nome as categoria_nome FROM receitas r LEFT JOIN categorias c ON c.id = r.categoria_id WHERE r.user_id = ? ORDER BY r.id DESC', (uid,)))
 
 @app.route('/receitas/<int:id>', methods=['DELETE', 'PUT'])
@@ -313,12 +333,25 @@ def rota_contas():
     uid = int(get_jwt_identity())
     if request.method == 'POST':
         d = request.json
-        criado_em = d.get('criado_em')  # opcional: YYYY-MM-DD HH:MM:SS
-        if criado_em:
-            execute_query('INSERT INTO contas (user_id, descricao, valor, categoria_id, criado_em) VALUES (?, ?, ?, ?, ?)', (uid, d.get('descricao'), d.get('valor'), d.get('categoria_id'), criado_em))
-        else:
-            execute_query('INSERT INTO contas (user_id, descricao, valor, categoria_id) VALUES (?, ?, ?, ?)', (uid, d.get('descricao'), d.get('valor'), d.get('categoria_id')))
-        return jsonify({'msg': 'OK'})
+        try:
+            descricao = str(d.get('descricao', '')).strip()
+            valor = float(str(d.get('valor', '0')).replace(',', '.'))
+            cat_id = d.get('categoria_id')
+            cat_id = int(cat_id) if cat_id and str(cat_id).isdigit() else None
+            pago = 1 if d.get('pago') in [1, True, '1', 'true'] else 0
+            criado_em = d.get('criado_em')
+
+            if not descricao or valor <= 0:
+                return jsonify({'msg': 'Descrição e valor são obrigatórios'}), 400
+
+            if criado_em:
+                execute_query('INSERT INTO contas (user_id, descricao, valor, categoria_id, pago, criado_em) VALUES (?, ?, ?, ?, ?, ?)', (uid, descricao, valor, cat_id, pago, criado_em))
+            else:
+                execute_query('INSERT INTO contas (user_id, descricao, valor, categoria_id, pago) VALUES (?, ?, ?, ?, ?)', (uid, descricao, valor, cat_id, pago))
+            return jsonify({'msg': 'OK'})
+        except Exception as e:
+            return jsonify({'msg': f'Erro ao salvar: {str(e)}'}), 500
+            
     return jsonify(fetch_all('SELECT co.*, c.nome as categoria_nome FROM contas co LEFT JOIN categorias c ON c.id = co.categoria_id WHERE co.user_id = ? ORDER BY co.id DESC', (uid,)))
 
 @app.route('/contas/<int:id>', methods=['DELETE', 'PUT', 'PATCH'])
