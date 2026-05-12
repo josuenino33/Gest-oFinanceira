@@ -47,16 +47,28 @@ export default function AIChat() {
       {showMenu && !isOpen && (
         <div className='flex flex-col items-end gap-3 mb-2 animate-in slide-in-from-bottom-4 fade-in duration-200'>
           <button 
-            onClick={() => { window.location.href='/contas'; setShowMenu(false); }}
-            className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 hover:bg-gray-800 transition-all font-bold text-sm'
+            onClick={() => { window.location.href='/carteira?tab=receitas'; setShowMenu(false); }}
+            className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 hover:bg-gray-800 transition-all font-bold text-sm w-max min-w-[200px] justify-between'
           >
-            <span>💸</span> Nova Despesa
+            Novo Ganho <span>💰</span>
+          </button>
+          <button 
+            onClick={() => { window.location.href='/carteira?tab=contas'; setShowMenu(false); }}
+            className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 hover:bg-gray-800 transition-all font-bold text-sm w-max min-w-[200px] justify-between'
+          >
+            Nova Despesa <span>💸</span>
+          </button>
+          <button 
+            onClick={() => { window.location.href='/carteira?tab=cartoes'; setShowMenu(false); }}
+            className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 hover:bg-gray-800 transition-all font-bold text-sm w-max min-w-[200px] justify-between'
+          >
+            Compra no Cartão <span>💳</span>
           </button>
           <button 
             onClick={() => { setIsOpen(true); setShowMenu(false); }}
-            className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 hover:bg-gray-800 transition-all font-bold text-sm'
+            className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 hover:bg-gray-800 transition-all font-bold text-sm w-max min-w-[200px] justify-between'
           >
-            <span>🤖</span> Falar com IA
+            Falar com IA <span>🤖</span>
           </button>
         </div>
       )}

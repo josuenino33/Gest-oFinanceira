@@ -1,10 +1,18 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import Receitas from './Receitas'
 import Contas from './Contas'
 import Cartoes from './Cartoes'
 
 export default function Carteira() {
+  const location = useLocation()
   const [abaAtiva, setAbaAtiva] = useState('contas')
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const tab = params.get('tab')
+    if (tab) setAbaAtiva(tab)
+  }, [location])
 
   const abas = [
     { id: 'contas', label: 'Contas a Pagar', icon: '💸' },

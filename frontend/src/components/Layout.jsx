@@ -34,15 +34,6 @@ export default function Layout() {
       {/* Quick add expense (mobile + desktop) */}
       <QuickAddExpense isOpen={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
       <AIChat />
-
-      {/* Desktop: FAB flutuante para saída rápida */}
-      <button
-        onClick={() => setQuickAddOpen(true)}
-        className='hidden lg:flex fixed bottom-8 right-8 w-16 h-16 rounded-full bg-green-500 items-center justify-center text-3xl shadow-lg shadow-green-500/30 hover:bg-green-400 hover:scale-105 transition-all z-30 active:scale-95'
-        title='Registrar saída rápida'
-      >
-        ＋
-      </button>
     </div>
   )
 }
