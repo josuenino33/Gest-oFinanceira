@@ -178,6 +178,30 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+      
+      {/* AI Proactive Insight Banner */}
+      {insights.length > 0 && (
+        <div className='mb-10 animate-in fade-in slide-in-from-top-4 duration-700'>
+          <div className='bg-gradient-to-r from-[#1e293b] to-[#0f172a] border border-green-500/30 rounded-[2.5rem] p-1 flex items-center shadow-2xl overflow-hidden group'>
+            <div className='bg-green-500 text-black font-black px-6 py-8 rounded-[2.2rem] flex flex-col items-center justify-center gap-1 shadow-lg group-hover:scale-105 transition-transform'>
+              <span className='text-xs uppercase tracking-tighter'>Insight</span>
+              <span className='text-3xl'>🤖</span>
+            </div>
+            <div className='px-8 flex-1'>
+              <p className='text-gray-300 text-lg font-medium leading-tight group-hover:text-white transition-colors'>
+                {insights[0].msg}
+              </p>
+              <div className='flex gap-4 mt-3'>
+                <span className='text-[10px] text-green-500 font-bold uppercase tracking-widest bg-green-500/10 px-3 py-1 rounded-full'>Dica do Gemini</span>
+                <span className='text-[10px] text-gray-500 font-bold uppercase tracking-widest'>• {mesesNomes[mesSelecionado]}</span>
+              </div>
+            </div>
+            <div className='hidden md:block pr-8 opacity-20 group-hover:opacity-40 transition-opacity'>
+               <span className='text-7xl grayscale'>{insights[0].icon}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Navegação por Abas Premium */}
       <div className='flex gap-1 bg-[#0d1a2d] p-2 rounded-[2rem] border border-gray-800 mb-10 max-w-lg'>
@@ -201,30 +225,59 @@ export default function Dashboard() {
       {/* Conteúdo Dinâmico */}
       {activeTab === 'resumo' && (
         <div className='fade-in duration-500 space-y-10'>
-          {/* Patrimônio Líquido - Versão Compacta */}
-          {patrimonioData && (
-            <div className='bg-gradient-to-br from-[#1e293b] to-[#080f1e] border border-gray-800 p-6 md:p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group'>
-              <div className='flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10'>
-                <div className='text-center md:text-left'>
-                  <span className='text-[10px] text-green-400 font-black tracking-[0.2em] uppercase mb-1 block'>Patrimônio Consolidado</span>
-                  <h2 className={`text-4xl md:text-7xl font-black tracking-tighter ${patrimonioData.patrimonio >= 0 ? 'text-white' : 'text-red-400'}`}>
-                    {fmt(patrimonioData.patrimonio)}
-                  </h2>
-                </div>
-                <div className='flex justify-around md:justify-end gap-10 border-t md:border-t-0 md:border-l border-gray-800/50 pt-6 md:pt-0 md:pl-10'>
-                  <div className='text-center'>
-                    <span className='text-[10px] text-gray-500 font-black uppercase block mb-1'>Ativos</span>
-                    <p className='text-xl text-white font-black'>{fmt(patrimonioData.ativos)}</p>
+          {/* Patrimônio e Score - Grid Combinado */}
+          <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
+            {/* Patrimônio Líquido */}
+            {patrimonioData && (
+              <div className='lg:col-span-2 bg-gradient-to-br from-[#1e293b] to-[#080f1e] border border-gray-800 p-8 md:p-10 rounded-[3rem] shadow-2xl relative overflow-hidden group h-full flex flex-col justify-center'>
+                <div className='relative z-10'>
+                  <span className='text-[10px] text-green-400 font-black tracking-[0.3em] uppercase mb-4 block'>Patrimônio Consolidado</span>
+                  <div className='flex items-baseline gap-4 mb-10'>
+                    <span className='text-3xl text-gray-500 font-light'>R$</span>
+                    <h2 className={`text-5xl md:text-8xl font-black tracking-tighter ${patrimonioData.patrimonio >= 0 ? 'text-white' : 'text-red-400'}`}>
+                      {fmt(patrimonioData.patrimonio).replace('R$', '').trim()}
+                    </h2>
                   </div>
-                  <div className='text-center'>
-                    <span className='text-[10px] text-gray-500 font-black uppercase block mb-1'>Dívidas</span>
-                    <p className='text-xl text-red-400/80 font-black'>{fmt(patrimonioData.passivos)}</p>
+                  
+                  <div className='grid grid-cols-2 gap-10 border-t border-gray-800/50 pt-10 max-w-md'>
+                    <div>
+                      <span className='text-[10px] text-gray-500 font-black uppercase tracking-widest block mb-2'>Total em Ativos</span>
+                      <p className='text-2xl text-white font-black'>{fmt(patrimonioData.ativos)}</p>
+                    </div>
+                    <div>
+                      <span className='text-[10px] text-gray-500 font-black uppercase tracking-widest block mb-2'>Total em Dívidas</span>
+                      <p className='text-2xl text-red-400/80 font-black'>{fmt(patrimonioData.passivos)}</p>
+                    </div>
                   </div>
                 </div>
+                <div className='absolute -right-10 -bottom-10 opacity-5 group-hover:opacity-10 transition-opacity text-[15rem]'>🏦</div>
               </div>
-              <div className='absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity text-9xl'>🏦</div>
+            )}
+
+            {/* Score de Saúde Financeira */}
+            <div className='bg-[#0d1a2d] border border-gray-800 p-10 rounded-[3rem] shadow-2xl flex flex-col items-center justify-center text-center relative overflow-hidden group'>
+               <span className='text-[10px] text-purple-400 font-black tracking-[0.3em] uppercase mb-8 block relative z-10'>Financial Health Score</span>
+               
+               <div className='relative w-48 h-48 flex items-center justify-center mb-8'>
+                  <svg className='w-full h-full transform -rotate-90'>
+                    <circle cx='96' cy='96' r='88' stroke='currentColor' strokeWidth='12' fill='transparent' className='text-gray-800' />
+                    <circle cx='96' cy='96' r='88' stroke='currentColor' strokeWidth='12' fill='transparent' strokeDasharray={552.92} strokeDashoffset={552.92 - (552.92 * (data?.meta_economia > 0 ? data.meta_economia : 10)) / 100} className='text-green-500 transition-all duration-1000' />
+                  </svg>
+                  <div className='absolute inset-0 flex flex-col items-center justify-center'>
+                     <span className='text-5xl font-black text-white'>{Math.round(data?.meta_economia > 0 ? data.meta_economia : 15)}</span>
+                     <span className='text-[10px] text-gray-500 font-bold uppercase'>Pontos</span>
+                  </div>
+               </div>
+
+               <p className='text-gray-400 text-sm font-medium leading-relaxed relative z-10 px-4'>
+                 {data?.meta_economia > 30 ? 'Seu comportamento este mês está excelente! Continue assim.' : 'Você pode melhorar sua taxa de economia este mês.'}
+               </p>
+               
+               <div className='absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity'>
+                  <span className='text-6xl'>✨</span>
+               </div>
             </div>
-          )}
+          </div>
 
           {/* Cards de Resumo */}
           <div className='grid grid-cols-2 lg:grid-cols-4 gap-6'>

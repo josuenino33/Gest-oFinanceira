@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import Receitas from './Receitas'
 import Contas from './Contas'
 import Cartoes from './Cartoes'
+import Investimentos from './Investimentos'
 
 export default function Carteira() {
   const location = useLocation()
@@ -17,7 +18,8 @@ export default function Carteira() {
   const abas = [
     { id: 'contas', label: 'Contas a Pagar', icon: '💸' },
     { id: 'receitas', label: 'Minhas Receitas', icon: '💰' },
-    { id: 'cartoes', label: 'Cartões & Compras', icon: '💳' }
+    { id: 'cartoes', label: 'Cartões & Compras', icon: '💳' },
+    { id: 'investimentos', label: 'Investimentos', icon: '📈' }
   ]
 
   return (
@@ -47,6 +49,7 @@ export default function Carteira() {
         {abaAtiva === 'receitas' && <Receitas />}
         {abaAtiva === 'contas' && <Contas />}
         {abaAtiva === 'cartoes' && <Cartoes />}
+        {abaAtiva === 'investimentos' && <Investimentos />}
       </div>
     </div>
   )
