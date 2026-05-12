@@ -22,7 +22,10 @@ export default function Dashboard() {
   const [anoSelecionado, setAnoSelecionado] = useState(now.getFullYear())
   const [mesFim, setMesFim] = useState(now.getMonth())
   const [anoFim, setAnoFim] = useState(now.getFullYear())
+  const [actionLoading, setActionLoading] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [lastUpdate, setLastUpdate] = useState(null)
+  const [categoriaFiltro, setCategoriaFiltro] = useState(null)
   const [patrimonioData, setPatrimonioData] = useState(null)
   const [insights, setInsights] = useState([])
   const [activeTab, setActiveTab] = useState('resumo')
@@ -34,8 +37,16 @@ export default function Dashboard() {
     try {
       const res = await api.get(`/resumo-mensal?mes=${mesSelecionado + 1}&ano=${anoSelecionado}&mes_fim=${mesFim + 1}&ano_fim=${anoFim}`)
       setData(res.data)
+      setLastUpdate(new Date())
     } catch (e) {
       console.error(e)
+      setData({
+        receitas: 0, despesas: 0, saldo: 0, meta_economia: 0,
+        categorias: [],
+        contas_pagar: [],
+        compras_cartao: [],
+        metas: [],
+      })
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -46,6 +57,26 @@ export default function Dashboard() {
     carregarDashboard({ showLoading: true })
     api.get('/patrimonio').then(r => setPatrimonioData(r.data)).catch(console.error)
     api.get('/insights').then(r => setInsights(r.data)).catch(console.error)
+  }, [carregarDashboard])
+
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') {
+        carregarDashboard()
+      }
+    }
+
+    const interval = setInterval(refreshIfVisible, 60000)
+    window.addEventListener('focus', refreshIfVisible)
+    window.addEventListener('pageshow', refreshIfVisible)
+    document.addEventListener('visibilitychange', refreshIfVisible)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('focus', refreshIfVisible)
+      window.removeEventListener('pageshow', refreshIfVisible)
+      document.removeEventListener('visibilitychange', refreshIfVisible)
+    }
   }, [carregarDashboard])
 
   const chartData = (data?.historico || mesesLabel.map(m => ({ name: m, receitas: 0, despesas: 0 })))
@@ -71,17 +102,18 @@ export default function Dashboard() {
           </div>
           <div className='h-12 w-32 bg-gray-800 rounded-2xl'></div>
         </div>
-        <div className='h-48 w-full bg-gray-800 rounded-[3rem] mb-10'></div>
+        <div className='h-64 w-full bg-gray-800 rounded-[3rem] mb-10'></div>
         <div className='grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10'>
           {[1,2,3,4].map(i => <div key={i} className='h-40 bg-gray-800 rounded-[2.5rem]'></div>)}
         </div>
+        <div className='h-80 w-full bg-gray-800 rounded-[3rem]'></div>
       </div>
     )
   }
 
   return (
     <div className='max-w-7xl mx-auto pb-20 px-4 md:px-0'>
-      {/* Header e Filtros */}
+      {/* Header e Filtros Minimalistas */}
       <div className='flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8'>
         <div>
           <h1 className='text-3xl md:text-5xl font-black text-white tracking-tighter'>Dashboard</h1>
@@ -157,28 +189,27 @@ export default function Dashboard() {
       {/* Conteúdo Dinâmico */}
       {activeTab === 'resumo' && (
         <div className='animate-in fade-in duration-500 space-y-10'>
-          {/* Patrimônio Líquido - VERSÃO COMPACTA */}
+          {/* Patrimônio Líquido */}
           {patrimonioData && (
-            <div className='bg-gradient-to-br from-[#1e293b] to-[#080f1e] border border-gray-800 p-6 md:p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group'>
-              <div className='flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10'>
-                <div className='text-center md:text-left'>
-                  <span className='text-[10px] text-green-400 font-black tracking-[0.2em] uppercase mb-1 block'>Patrimônio Consolidado</span>
-                  <h2 className='text-4xl md:text-7xl font-black text-white tracking-tighter'>
-                    {fmt(patrimonioData.patrimonio)}
-                  </h2>
+            <div className='bg-gradient-to-br from-[#1e293b] to-[#080f1e] border border-gray-800 p-8 rounded-[3rem] shadow-2xl relative overflow-hidden group'>
+              <div className='absolute top-0 right-0 p-10 opacity-5 group-hover:opacity-10 transition-opacity'>
+                <span className='text-9xl'>🏦</span>
+              </div>
+              <div className='flex flex-col md:flex-row md:items-end justify-between gap-10'>
+                <div>
+                  <span className='text-[10px] text-green-400 font-black tracking-[0.3em] uppercase mb-3 block'>Patrimônio Consolidado</span>
+                  <div className='flex items-baseline gap-3'>
+                    <span className='text-3xl text-gray-500 font-light'>R$</span>
+                    <h2 className={`text-5xl md:text-8xl font-black tracking-tighter ${patrimonioData.patrimonio >= 0 ? 'text-white' : 'text-red-400'}`}>
+                      {Number(patrimonioData.patrimonio).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </h2>
+                  </div>
                 </div>
-                <div className='flex justify-around md:justify-end gap-10 border-t md:border-t-0 md:border-l border-gray-800/50 pt-6 md:pt-0 md:pl-10'>
-                  <div className='text-center'>
-                    <span className='text-[10px] text-gray-500 font-black uppercase block mb-1'>Ativos</span>
-                    <p className='text-xl text-white font-black'>{fmt(patrimonioData.ativos)}</p>
-                  </div>
-                  <div className='text-center'>
-                    <span className='text-[10px] text-gray-500 font-black uppercase block mb-1'>Dívidas</span>
-                    <p className='text-xl text-red-400/80 font-black'>{fmt(patrimonioData.passivos)}</p>
-                  </div>
+                <div className='grid grid-cols-2 gap-10 border-t md:border-t-0 md:border-l border-gray-800 pt-10 md:pt-0 md:pl-10'>
+                  <div><span className='text-[10px] text-gray-500 font-black uppercase tracking-widest'>Ativos</span><p className='text-2xl text-white font-black'>{fmt(patrimonioData.ativos)}</p></div>
+                  <div><span className='text-[10px] text-gray-500 font-black uppercase tracking-widest'>Dívidas</span><p className='text-2xl text-red-400/80 font-black'>{fmt(patrimonioData.passivos)}</p></div>
                 </div>
               </div>
-              <div className='absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity text-9xl'>🏦</div>
             </div>
           )}
 
@@ -195,10 +226,10 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Seção de Gráficos e Tabelas Rápidas */}
-          <div className='grid grid-cols-1 xl:grid-cols-2 gap-8'>
-             <div className='bg-[#0d1a2d] rounded-[3rem] p-8 border border-gray-800 shadow-2xl'>
-                <h3 className='text-2xl font-black text-white mb-8'>Evolução das Finanças</h3>
+          {/* Seção de Gráficos */}
+          <div className='grid grid-cols-1 xl:grid-cols-3 gap-8'>
+             <div className='xl:col-span-2 bg-[#0d1a2d] rounded-[3rem] p-8 border border-gray-800 shadow-2xl'>
+                <h3 className='text-2xl font-black text-white mb-8'>Evolução Financeira</h3>
                 <div className='h-80 w-full'>
                    <ResponsiveContainer width='100%' height='100%'>
                     <AreaChart data={chartData}>
@@ -207,11 +238,15 @@ export default function Dashboard() {
                           <stop offset='5%' stopColor='#22c55e' stopOpacity={0.3}/>
                           <stop offset='95%' stopColor='#22c55e' stopOpacity={0}/>
                         </linearGradient>
+                        <linearGradient id='colorDes' x1='0' y1='0' x2='0' y2='1'>
+                          <stop offset='5%' stopColor='#ef4444' stopOpacity={0.3}/>
+                          <stop offset='95%' stopColor='#ef4444' stopOpacity={0}/>
+                        </linearGradient>
                       </defs>
                       <XAxis dataKey='mes' stroke='#4b5563' fontSize={12} tickLine={false} axisLine={false} />
                       <Tooltip contentStyle={{ backgroundColor: '#0d1a2d', border: 'none', borderRadius: '20px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} />
                       <Area type='monotone' dataKey='receitas' stroke='#22c55e' strokeWidth={4} fillOpacity={1} fill='url(#colorRec)' />
-                      <Area type='monotone' dataKey='despesas' stroke='#ef4444' strokeWidth={4} fillOpacity={0} />
+                      <Area type='monotone' dataKey='despesas' stroke='#ef4444' strokeWidth={4} fillOpacity={1} fill='url(#colorDes)' />
                     </AreaChart>
                    </ResponsiveContainer>
                 </div>
@@ -219,18 +254,25 @@ export default function Dashboard() {
 
              <div className='bg-[#0d1a2d] rounded-[3rem] p-8 border border-gray-800 shadow-2xl'>
                 <h3 className='text-2xl font-black text-white mb-8'>Maiores Gastos</h3>
-                <div className='space-y-6'>
-                   {pieData.slice(0, 4).map((cat, i) => (
-                      <div key={i}>
-                         <div className='flex justify-between mb-2 text-sm font-bold'>
-                            <span className='text-gray-400'>{cat.name}</span>
-                            <span className='text-white'>{fmt(cat.value)}</span>
-                         </div>
-                         <div className='w-full h-2.5 bg-gray-900 rounded-full overflow-hidden'>
-                            <div className='h-full bg-green-500 rounded-full' style={{ width: `${(cat.value / cards[1].valor.replace(/\D/g,'') * 100) || 0}%` }}></div>
-                         </div>
-                      </div>
-                   ))}
+                <div className='h-80 w-full'>
+                   <ResponsiveContainer width='100%' height='100%'>
+                      <PieChart>
+                        <Pie
+                          data={pieData}
+                          cx='50%'
+                          cy='50%'
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey='value'
+                        >
+                          {pieData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                   </ResponsiveContainer>
                 </div>
              </div>
           </div>
@@ -252,6 +294,11 @@ export default function Dashboard() {
                   </div>
                 ))}
              </div>
+             {insights.length === 0 && (
+               <div className='text-center py-20'>
+                  <p className='text-gray-400 italic'>Sua IA está analisando os dados... Tente filtrar um período com movimentações.</p>
+               </div>
+             )}
           </div>
         </div>
       )}
