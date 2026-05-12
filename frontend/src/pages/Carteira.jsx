@@ -29,17 +29,18 @@ export default function Carteira() {
         <p className='text-gray-500 font-medium'>Gerencie todos os seus lançamentos em um só lugar</p>
       </div>
 
-      {/* Navegação Interna */}
-      <div className='flex gap-2 bg-[#0d1a2d] p-1.5 rounded-[2rem] border border-gray-800 mb-10 max-w-2xl'>
+      {/* Navegação Interna - Ajustada para Mobile */}
+      <div className='flex flex-wrap md:flex-nowrap gap-2 bg-[#0d1a2d] p-2 rounded-[2rem] border border-gray-800 mb-10'>
         {abas.map((aba) => (
           <button
             key={aba.id}
             onClick={() => setAbaAtiva(aba.id)}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all ${
-              abaAtiva === aba.id ? 'bg-green-500 text-black shadow-lg' : 'text-gray-500 hover:text-gray-300'
+            className={`flex-1 min-w-[140px] flex items-center justify-center gap-3 py-4 rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-wider transition-all ${
+              abaAtiva === aba.id ? 'bg-green-500 text-black shadow-lg shadow-green-500/20' : 'text-gray-500 hover:text-gray-300'
             }`}
           >
-            <span>{aba.icon}</span> {aba.label}
+            <span className='text-lg md:text-xl'>{aba.icon}</span> 
+            <span>{aba.label}</span>
           </button>
         ))}
       </div>

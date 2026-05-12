@@ -212,7 +212,7 @@ export default function Dashboard() {
       )}
 
       {/* Navegação por Abas Premium */}
-      <div className='flex gap-1 bg-[#0d1a2d] p-2 rounded-[2rem] border border-gray-800 mb-10 max-w-lg'>
+      <div className='flex gap-1 bg-[#0d1a2d] p-1.5 rounded-[2rem] border border-gray-800 mb-10 max-w-lg'>
         {[
           { id: 'resumo', label: 'Resumo', icon: '📊' },
           { id: 'ia', label: 'IA & Análise', icon: '🤖' },
@@ -221,11 +221,12 @@ export default function Dashboard() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-wider transition-all ${
-              activeTab === tab.id ? 'bg-green-500 text-black shadow-lg shadow-green-500/10' : 'text-gray-500 hover:text-gray-300'
+            className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-[9px] md:text-xs font-black uppercase tracking-wider transition-all ${
+              activeTab === tab.id ? 'bg-green-500 text-black shadow-lg shadow-green-500/20' : 'text-gray-500 hover:text-gray-300'
             }`}
           >
-            <span className='hidden sm:inline'>{tab.icon}</span> {tab.label}
+            <span className='text-lg md:text-xl'>{tab.icon}</span> 
+            <span className='hidden xs:inline'>{tab.label}</span>
           </button>
         ))}
       </div>
@@ -239,14 +240,14 @@ export default function Dashboard() {
           </div>
         )}
         
-        <div className='grid grid-cols-2 lg:grid-cols-4 gap-6'>
+        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6'>
           {cards.map((card, i) => (
-            <div key={i} className='bg-[#0d1a2d] rounded-[2.5rem] p-8 border border-gray-800 hover:border-gray-600 transition-all shadow-xl group flex flex-col items-center text-center'>
-              <div className={`w-16 h-16 rounded-[1.5rem] ${card.cor.split(' ')[0]} mb-6 flex items-center justify-center text-3xl shadow-lg group-hover:scale-110 transition-transform ${card.cor.split(' ')[1]}`}>
+            <div key={i} className='bg-[#0d1a2d] rounded-[2.5rem] p-6 md:p-8 border border-gray-800 hover:border-gray-600 transition-all shadow-xl group flex flex-col items-center text-center'>
+              <div className={`w-14 h-14 md:w-16 md:h-16 rounded-[1.5rem] ${card.cor.split(' ')[0]} mb-4 md:mb-6 flex items-center justify-center text-2xl md:text-3xl shadow-lg group-hover:scale-110 transition-transform ${card.cor.split(' ')[1]}`}>
                  {card.icone}
               </div>
-              <p className='text-gray-500 text-[10px] font-black uppercase tracking-[0.1em] mb-2'>{card.titulo}</p>
-              <h3 className='text-2xl md:text-3xl font-black text-white'>{card.valor}</h3>
+              <p className='text-gray-500 text-[10px] font-black uppercase tracking-[0.1em] mb-1 md:mb-2'>{card.titulo}</p>
+              <h3 className='text-xl md:text-2xl lg:text-3xl font-black text-white break-words'>{card.valor}</h3>
             </div>
           ))}
         </div>
@@ -262,9 +263,9 @@ export default function Dashboard() {
               <div className='lg:col-span-2 bg-gradient-to-br from-[#1e293b] to-[#080f1e] border border-gray-800 p-8 md:p-10 rounded-[3rem] shadow-2xl relative overflow-hidden group h-full flex flex-col justify-center'>
                 <div className='relative z-10'>
                   <span className='text-[10px] text-green-400 font-black tracking-[0.3em] uppercase mb-4 block'>Patrimônio Consolidado</span>
-                  <div className='flex items-baseline gap-4 mb-10'>
-                    <span className='text-3xl text-gray-500 font-light'>R$</span>
-                    <h2 className={`text-5xl md:text-8xl font-black tracking-tighter ${patrimonioData.patrimonio >= 0 ? 'text-white' : 'text-red-400'}`}>
+                  <div className='flex items-baseline gap-2 md:gap-4 mb-6 md:mb-10'>
+                    <span className='text-xl md:text-3xl text-gray-500 font-light'>R$</span>
+                    <h2 className={`text-4xl sm:text-5xl md:text-8xl font-black tracking-tighter ${patrimonioData.patrimonio >= 0 ? 'text-white' : 'text-red-400'}`}>
                       {fmt(patrimonioData.patrimonio).replace('R$', '').trim()}
                     </h2>
                   </div>
