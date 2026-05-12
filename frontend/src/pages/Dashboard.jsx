@@ -91,10 +91,10 @@ export default function Dashboard() {
     }
   }, [carregarDashboard])
 
-  const chartData = (data?.historico || mesesLabel.map(m => ({ name: m, receitas: 0, despesas: 0 })))
+  const chartData = data?.historico || []
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
   
-  const pieData = (data?.categorias || []).map(c => ({ name: c.nome, value: Number(c.valor) }))
+  const pieData = (data?.categorias || []).map(c => ({ name: c.nome, value: Number(c.total) }))
   const conquistas = patrimonioData?.conquistas || []
 
   const cards = [
@@ -107,18 +107,28 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className='max-w-7xl mx-auto pb-20 px-4 md:px-0 animate-pulse'>
+        {/* Header Skeleton */}
         <div className='flex justify-between items-center mb-12'>
           <div className='space-y-3'>
-            <div className='h-10 w-48 bg-gray-800 rounded-2xl'></div>
-            <div className='h-4 w-32 bg-gray-800 rounded-lg'></div>
+            <div className='h-12 w-64 bg-gray-800 rounded-2xl'></div>
+            <div className='h-4 w-40 bg-gray-800 rounded-lg'></div>
           </div>
-          <div className='h-12 w-32 bg-gray-800 rounded-2xl'></div>
+          <div className='h-14 w-40 bg-gray-800 rounded-2xl'></div>
         </div>
-        <div className='h-64 w-full bg-gray-800 rounded-[3rem] mb-10'></div>
+
+        {/* AI Banner Skeleton */}
+        <div className='h-32 w-full bg-gray-800 rounded-[2.5rem] mb-10'></div>
+
+        {/* Patrimonio + Score Skeleton */}
+        <div className='grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10'>
+          <div className='lg:col-span-2 h-80 bg-gray-800 rounded-[3rem]'></div>
+          <div className='h-80 bg-gray-800 rounded-[3rem]'></div>
+        </div>
+
+        {/* Cards Skeleton */}
         <div className='grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10'>
-          {[1,2,3,4].map(i => <div key={i} className='h-40 bg-gray-800 rounded-[2.5rem]'></div>)}
+          {[1,2,3,4].map(i => <div key={i} className='h-48 bg-gray-800 rounded-[2.5rem]'></div>)}
         </div>
-        <div className='h-80 w-full bg-gray-800 rounded-[3rem]'></div>
       </div>
     )
   }
@@ -309,7 +319,7 @@ export default function Dashboard() {
                           <stop offset='95%' stopColor='#ef4444' stopOpacity={0}/>
                         </linearGradient>
                       </defs>
-                      <XAxis dataKey='mes' stroke='#4b5563' fontSize={12} tickLine={false} axisLine={false} />
+                      <XAxis dataKey='name' stroke='#4b5563' fontSize={12} tickLine={false} axisLine={false} />
                       <Tooltip contentStyle={{ backgroundColor: '#0d1a2d', border: 'none', borderRadius: '20px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} />
                       <Area type='monotone' dataKey='receitas' stroke='#22c55e' strokeWidth={4} fillOpacity={1} fill='url(#colorRec)' />
                       <Area type='monotone' dataKey='despesas' stroke='#ef4444' strokeWidth={4} fillOpacity={1} fill='url(#colorDes)' />
@@ -322,23 +332,31 @@ export default function Dashboard() {
                 <h3 className='text-2xl font-black text-white mb-8'>Maiores Gastos</h3>
                 <div className='h-80 w-full'>
                    <ResponsiveContainer width='100%' height='100%'>
-                      <PieChart>
-                        <Pie
-                          data={pieData}
-                          cx='50%'
-                          cy='50%'
-                          innerRadius={60}
-                          outerRadius={80}
-                          paddingAngle={5}
-                          dataKey='value'
-                        >
-                          {pieData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                   </ResponsiveContainer>
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        innerRadius={80}
+                        outerRadius={110}
+                        paddingAngle={5}
+                        dataKey='value'
+                        stroke='none'
+                        cx='50%'
+                        cy='50%'
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#111f34', border: 'none', borderRadius: '12px', color: '#fff' }}
+                        itemStyle={{ color: '#fff' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className='absolute inset-0 flex flex-col items-center justify-center pointer-events-none'>
+                    <span className='text-[10px] text-gray-500 font-black uppercase tracking-widest'>Gastos</span>
+                    <span className='text-xl font-black text-white'>{fmt(data.despesas)}</span>
+                  </div>
                 </div>
              </div>
           </div>
