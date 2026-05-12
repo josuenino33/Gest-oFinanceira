@@ -13,7 +13,9 @@ export default function Contas() {
   const [descricao, setDescricao] = useState('')
   const [valor, setValor] = useState('')
   const [categoriaId, setCategoriaId] = useState('')
+  const [pago, setPago] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [contaEditando, setContaEditando] = useState(null)
 
@@ -57,6 +59,7 @@ export default function Contas() {
       return
     }
     setLoading(true)
+    setError(null)
     try {
       const valorNumerico = Number(String(valor).replace(',', '.'))
       const payload = {
@@ -76,7 +79,7 @@ export default function Contas() {
       carregar()
     } catch (e) {
       console.error('Erro detalhado:', e.response?.data || e.message)
-      alert('Erro ao salvar: ' + (e.response?.data?.msg || 'Verifique sua conexão'))
+      setError(e.response?.data?.msg || 'Erro ao conectar com o servidor. Verifique sua conexão.')
     } finally {
       setLoading(false)
     }
@@ -204,25 +207,48 @@ export default function Contas() {
       </div>
 
       <Modal isOpen={modalOpen} onClose={fecharModal} title={contaEditando ? 'Editar Conta' : `Nova Conta — ${mesesNomes[mesFiltro]} ${anoFiltro}`}>
-        <div className='space-y-4'>
-          <input
+        <div className='space-y-5'>
+          {error && (
+            <div className='bg-red-500/10 border border-red-500/50 p-4 rounded-xl text-red-500 text-xs font-bold leading-relaxed animate-in fade-in zoom-in duration-300'>
+              ⚠️ {error}
+            </div>
+          )}
+
+          <div className='space-y-2'>
+            <label className='text-[10px] text-gray-500 font-black uppercase tracking-widest ml-1'>Descrição</label>
+            <input
               type='text'
               value={descricao}
               onChange={(e) => setDescricao(e.target.value)}
               onBlur={sugerirCategoria}
-              className={`w-full rounded-xl border ${suggesting ? 'border-green-500 animate-pulse' : 'border-gray-700'} bg-[#111f34] px-4 py-2 text-white outline-none focus:border-green-500`}
+              className={`w-full rounded-2xl border ${suggesting ? 'border-green-500 animate-pulse' : 'border-[var(--border-color)]'} bg-[var(--bg-input)] px-6 py-4 text-white outline-none focus:border-green-500 transition-all`}
               placeholder='Ex: Aluguel, Supermercado...'
             />
-          <input value={valor} onChange={e => setValor(e.target.value)} placeholder='Valor' type="number" step="0.01"
-            className='w-full bg-[#111f34] rounded-xl p-4 border border-gray-700 text-white outline-none focus:border-green-400' />
-          <select value={categoriaId} onChange={e => setCategoriaId(e.target.value)}
-            className='w-full bg-[#111f34] rounded-xl p-4 border border-gray-700 text-white outline-none focus:border-green-400'>
-            <option value=''>Sem categoria</option>
-            {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-          </select>
+          </div>
+
+          <div className='space-y-2'>
+            <label className='text-[10px] text-gray-500 font-black uppercase tracking-widest ml-1'>Valor (R$)</label>
+            <input value={valor} onChange={e => setValor(e.target.value)} placeholder='0.00' type='number' step='0.01'
+              className='w-full bg-[var(--bg-input)] rounded-2xl p-6 border border-[var(--border-color)] text-white text-xl font-black outline-none focus:border-green-400 transition-all' />
+          </div>
+
+          <div className='space-y-2'>
+            <label className='text-[10px] text-gray-500 font-black uppercase tracking-widest ml-1'>Categoria</label>
+            <select value={categoriaId} onChange={e => setCategoriaId(e.target.value)}
+              className='w-full bg-[var(--bg-input)] rounded-2xl p-6 border border-[var(--border-color)] text-white outline-none focus:border-green-400 appearance-none transition-all'>
+              <option value=''>Sem categoria</option>
+              {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+          </div>
+
+          <div className='flex items-center gap-3 p-2'>
+            <input type='checkbox' id='pago' checked={pago} onChange={e => setPago(e.target.checked)} className='w-5 h-5 accent-green-500' />
+            <label htmlFor='pago' className='text-sm text-gray-300 font-bold cursor-pointer uppercase tracking-widest'>Já está paga?</label>
+          </div>
+
           <button onClick={salvar} disabled={loading}
-            className='w-full bg-green-500 rounded-xl px-6 py-4 font-semibold hover:bg-green-400 transition disabled:opacity-60'>
-            {loading ? 'Salvando...' : 'Salvar Conta'}
+            className='w-full bg-green-500 text-black rounded-[2rem] px-8 py-5 font-black uppercase tracking-widest hover:bg-green-400 transition-all disabled:opacity-60 shadow-xl shadow-green-500/10 active:scale-95'>
+            {loading ? 'Sincronizando...' : contaEditando ? 'Atualizar Despesa' : 'Salvar Conta'}
           </button>
         </div>
       </Modal>

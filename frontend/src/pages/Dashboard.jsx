@@ -23,13 +23,12 @@ export default function Dashboard() {
     metas: [],
     historico: mesesLabel.map(m => ({ name: m, receitas: 0, despesas: 0 }))
   })
-  const [loading, setLoading] = useState(true)
   const now = new Date()
   const [mesSelecionado, setMesSelecionado] = useState(now.getMonth())
   const [anoSelecionado, setAnoSelecionado] = useState(now.getFullYear())
   const [mesFim, setMesFim] = useState(now.getMonth())
   const [anoFim, setAnoFim] = useState(now.getFullYear())
-  const [actionLoading, setActionLoading] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdate, setLastUpdate] = useState(null)
   const [categoriaFiltro, setCategoriaFiltro] = useState(null)
@@ -42,6 +41,7 @@ export default function Dashboard() {
   const [insights, setInsights] = useState([])
   const [activeTab, setActiveTab] = useState('resumo')
   const [showFilters, setShowFilters] = useState(false)
+  const [actionLoading, setActionLoading] = useState(null)
 
   const carregarDashboard = useCallback(async (opt = {}) => {
     if (opt.showLoading) setLoading(true)
@@ -133,22 +133,29 @@ export default function Dashboard() {
 
   return (
     <div className='max-w-7xl mx-auto pb-20 px-4 md:px-0'>
-      {/* Header e Filtros Minimalistas */}
-      <div className='flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8'>
+      {/* Header e Status da Conexão */}
+      <div className='flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12'>
         <div>
-          <h1 className='text-3xl md:text-5xl font-black text-white tracking-tighter'>Dashboard</h1>
-          <p className='text-gray-500 font-medium text-sm md:text-base'>Sua saúde financeira em tempo real</p>
+          <h1 className='text-4xl md:text-6xl font-black text-white tracking-tighter uppercase'>Cockpit</h1>
+          <div className='flex items-center gap-3 mt-2'>
+            <div className={`w-2 h-2 rounded-full ${refreshing ? 'bg-yellow-500 animate-pulse' : 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]'}`}></div>
+            <p className='text-gray-500 font-bold text-[10px] uppercase tracking-widest'>
+              {refreshing ? 'Sincronizando...' : lastUpdate ? `Atualizado ${lastUpdate.toLocaleTimeString()}` : 'Pronto'}
+            </p>
+          </div>
         </div>
 
-        <div className='relative'>
+        <div className='flex items-center gap-4'>
           <button 
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-6 py-3 rounded-2xl border transition-all font-bold text-sm ${
-              showFilters ? 'bg-green-500 text-black border-green-500 shadow-lg' : 'bg-[#0d1a2d] border-gray-800 text-gray-400 hover:border-gray-600'
+            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-8 py-4 rounded-2xl border transition-all font-black text-xs uppercase tracking-widest ${
+              showFilters ? 'bg-green-500 text-black border-green-500 shadow-xl' : 'bg-[var(--bg-card)] border-[var(--border-color)] text-gray-400 hover:border-green-500/50'
             }`}
           >
-            <span>{showFilters ? '✕ Fechar' : '🔍 Filtrar Período'}</span>
+            {showFilters ? '✕ Fechar' : '🔍 Filtrar Período'}
           </button>
+        </div>
+      </div>
 
           {showFilters && (
             <div className='absolute top-16 right-0 z-50 min-w-[320px] bg-[#0d1a2d] border border-gray-800 p-6 rounded-[2rem] shadow-2xl animate-in fade-in slide-in-from-top-4 duration-200'>
@@ -184,8 +191,6 @@ export default function Dashboard() {
               </button>
             </div>
           )}
-        </div>
-      </div>
       
       {/* AI Proactive Insight Banner */}
       {insights.length > 0 && (
@@ -212,45 +217,37 @@ export default function Dashboard() {
       )}
 
       {/* Navegação por Abas Premium */}
-      <div className='flex gap-1 bg-[#0d1a2d] p-1.5 rounded-[2rem] border border-gray-800 mb-10 max-w-lg'>
+      <div className='flex gap-1.5 bg-[var(--bg-card)] p-2 rounded-[2.5rem] border border-[var(--border-color)] mb-12 max-w-lg'>
         {[
           { id: 'resumo', label: 'Resumo', icon: '📊' },
-          { id: 'ia', label: 'IA & Análise', icon: '🤖' },
+          { id: 'ia', label: 'Análise', icon: '🤖' },
           { id: 'conquistas', label: 'Troféus', icon: '🏆' }
         ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-[9px] md:text-xs font-black uppercase tracking-wider transition-all ${
-              activeTab === tab.id ? 'bg-green-500 text-black shadow-lg shadow-green-500/20' : 'text-gray-500 hover:text-gray-300'
+            className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-wider transition-all ${
+              activeTab === tab.id ? 'bg-green-500 text-black shadow-2xl shadow-green-500/20' : 'text-gray-500 hover:bg-white/5'
             }`}
           >
             <span className='text-lg md:text-xl'>{tab.icon}</span> 
-            <span className='hidden xs:inline'>{tab.label}</span>
+            <span className='hidden sm:inline'>{tab.label}</span>
           </button>
         ))}
       </div>
 
-      {/* Status da Conexão e Cards de Resumo */}
-      <div className='space-y-6 mb-10'>
-        {refreshing && (
-          <div className='flex items-center gap-2 text-[10px] text-green-500 font-black uppercase tracking-widest animate-pulse'>
-            <span className='w-2 h-2 bg-green-500 rounded-full'></span>
-            Sincronizando dados...
-          </div>
-        )}
-        
-        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6'>
-          {cards.map((card, i) => (
-            <div key={i} className='bg-[#0d1a2d] rounded-[2.5rem] p-6 md:p-8 border border-gray-800 hover:border-gray-600 transition-all shadow-xl group flex flex-col items-center text-center'>
-              <div className={`w-14 h-14 md:w-16 md:h-16 rounded-[1.5rem] ${card.cor.split(' ')[0]} mb-4 md:mb-6 flex items-center justify-center text-2xl md:text-3xl shadow-lg group-hover:scale-110 transition-transform ${card.cor.split(' ')[1]}`}>
-                 {card.icone}
-              </div>
-              <p className='text-gray-500 text-[10px] font-black uppercase tracking-[0.1em] mb-1 md:mb-2'>{card.titulo}</p>
-              <h3 className='text-xl md:text-2xl lg:text-3xl font-black text-white break-words'>{card.valor}</h3>
+      {/* Cards de Resumo - Grid Responsiva Premium */}
+      <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12'>
+        {cards.map((card, i) => (
+          <div key={i} className='bg-[var(--bg-card)] rounded-[3rem] p-8 border border-[var(--border-color)] hover:border-green-500/30 transition-all shadow-2xl group flex flex-col items-center text-center relative overflow-hidden'>
+            <div className={`w-16 h-16 rounded-[1.8rem] ${card.cor.split(' ')[0]} mb-6 flex items-center justify-center text-3xl shadow-xl group-hover:scale-110 transition-transform ${card.cor.split(' ')[1]}`}>
+               {card.icone}
             </div>
-          ))}
-        </div>
+            <p className='text-[var(--text-muted)] text-[10px] font-black uppercase tracking-[0.2em] mb-2'>{card.titulo}</p>
+            <h3 className='text-2xl md:text-3xl font-black text-white'>{card.valor}</h3>
+            <div className='absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-green-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity'></div>
+          </div>
+        ))}
       </div>
 
       {/* Conteúdo Dinâmico */}
