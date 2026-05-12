@@ -6,10 +6,13 @@ import api from '../utils/api'
 
 const menu = [
   { label: 'Dashboard', path: '/', icon: '📊' },
-  { label: 'Minha Carteira', path: '/carteira', icon: '💳' },
-  { label: 'Resumo Mensal', path: '/resumo', icon: '📋' },
+  { label: 'Minha Carteira', path: '/carteira', icon: '💼' },
+  { label: 'Receitas', path: '/receitas', icon: '💰' },
+  { label: 'Contas a Pagar', path: '/contas', icon: '💸' },
+  { label: 'Cartões', path: '/cartoes', icon: '💳' },
   { label: 'Metas', path: '/metas', icon: '🎯' },
   { label: 'Investimentos', path: '/investimentos', icon: '📈' },
+  { label: 'Resumo Mensal', path: '/resumo', icon: '📋' },
   { label: 'Configurações', path: '/configuracoes', icon: '⚙️' },
 ]
 

@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../utils/api'
 
 export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
+  const navigate = useNavigate()
   const [isOpen, setIsOpen] = useState(false)
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState([
@@ -54,19 +56,19 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
       {isMenuOpen && !isOpen && (
         <div className='flex flex-col items-end gap-3 mb-2 animate-in slide-in-from-bottom-4 fade-in duration-200 pointer-events-auto'>
           <button 
-            onClick={() => { window.location.href='/carteira?tab=receitas'; setIsMenuOpen(false); }}
+            onClick={() => { navigate('/carteira?tab=receitas'); setIsMenuOpen(false); }}
             className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 hover:bg-gray-800 transition-all font-bold text-sm w-max min-w-[220px] justify-between group active:scale-95'
           >
             Novo Ganho <span className='group-hover:rotate-12 transition-transform'>💰</span>
           </button>
           <button 
-            onClick={() => { window.location.href='/carteira?tab=contas'; setIsMenuOpen(false); }}
+            onClick={() => { navigate('/carteira?tab=contas'); setIsMenuOpen(false); }}
             className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 hover:bg-gray-800 transition-all font-bold text-sm w-max min-w-[220px] justify-between group active:scale-95'
           >
             Nova Despesa <span className='group-hover:rotate-12 transition-transform'>💸</span>
           </button>
           <button 
-            onClick={() => { window.location.href='/carteira?tab=cartoes'; setIsMenuOpen(false); }}
+            onClick={() => { navigate('/carteira?tab=cartoes'); setIsMenuOpen(false); }}
             className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 hover:bg-gray-800 transition-all font-bold text-sm w-max min-w-[220px] justify-between group active:scale-95'
           >
             Compra no Cartão <span className='group-hover:rotate-12 transition-transform'>💳</span>

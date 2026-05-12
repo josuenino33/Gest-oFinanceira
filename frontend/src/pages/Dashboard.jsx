@@ -15,7 +15,14 @@ const mesesNomes = [
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#a855f7', '#ec4899']
 
 export default function Dashboard() {
-  const [data, setData] = useState(null)
+  const [data, setData] = useState({
+    receitas: 0, despesas: 0, saldo: 0, meta_economia: 0,
+    categorias: [],
+    contas_pagar: [],
+    compras_cartao: [],
+    metas: [],
+    historico: mesesLabel.map(m => ({ name: m, receitas: 0, despesas: 0 }))
+  })
   const [loading, setLoading] = useState(true)
   const now = new Date()
   const [mesSelecionado, setMesSelecionado] = useState(now.getMonth())
@@ -26,7 +33,12 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdate, setLastUpdate] = useState(null)
   const [categoriaFiltro, setCategoriaFiltro] = useState(null)
-  const [patrimonioData, setPatrimonioData] = useState(null)
+  const [patrimonioData, setPatrimonioData] = useState({
+    patrimonio: 0,
+    ativos: 0,
+    passivos: 0,
+    conquistas: []
+  })
   const [insights, setInsights] = useState([])
   const [activeTab, setActiveTab] = useState('resumo')
   const [showFilters, setShowFilters] = useState(false)
@@ -85,12 +97,12 @@ export default function Dashboard() {
   const pieData = (data?.categorias || []).map(c => ({ name: c.nome, value: Number(c.valor) }))
   const conquistas = patrimonioData?.conquistas || []
 
-  const cards = data ? [
-    { titulo: 'Receitas no período', valor: fmt(data.receitas), cor: 'bg-green-500', icone: '💰' },
-    { titulo: 'Despesas no período', valor: fmt(data.despesas), cor: 'bg-red-500', icone: '💸' },
-    { titulo: 'Saldo acumulado', valor: fmt(data.saldo), cor: 'bg-blue-500', icone: '📊' },
-    { titulo: 'Taxa de economia', valor: `${Math.round(data.meta_economia)}%`, cor: 'bg-purple-500', icone: '🎯' },
-  ] : []
+  const cards = [
+    { titulo: 'Receitas no período', valor: fmt(data?.receitas || 0), cor: 'bg-green-500/10 text-green-500', icone: '💰' },
+    { titulo: 'Despesas no período', valor: fmt(data?.despesas || 0), cor: 'bg-red-500/10 text-red-500', icone: '💸' },
+    { titulo: 'Saldo acumulado', valor: fmt(data?.saldo || 0), cor: 'bg-blue-500/10 text-blue-500', icone: '📊' },
+    { titulo: 'Taxa de economia', valor: `${Math.round(data?.meta_economia || 0)}%`, cor: 'bg-purple-500/10 text-purple-500', icone: '🎯' },
+  ]
 
   if (loading) {
     return (
@@ -188,7 +200,7 @@ export default function Dashboard() {
 
       {/* Conteúdo Dinâmico */}
       {activeTab === 'resumo' && (
-        <div className='animate-in fade-in duration-500 space-y-10'>
+        <div className='fade-in duration-500 space-y-10'>
           {/* Patrimônio Líquido - Versão Compacta */}
           {patrimonioData && (
             <div className='bg-gradient-to-br from-[#1e293b] to-[#080f1e] border border-gray-800 p-6 md:p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group'>
@@ -217,8 +229,8 @@ export default function Dashboard() {
           {/* Cards de Resumo */}
           <div className='grid grid-cols-2 lg:grid-cols-4 gap-6'>
             {cards.map((card, i) => (
-              <div key={i} className='bg-[#0d1a2d] rounded-[2.5rem] p-8 border border-gray-800 hover:border-gray-600 transition-all shadow-xl group'>
-                <div className={`w-16 h-16 rounded-[1.5rem] ${card.cor} mb-6 flex items-center justify-center text-3xl shadow-lg group-hover:scale-110 transition-transform`}>
+              <div key={i} className='bg-[#0d1a2d] rounded-[2.5rem] p-8 border border-gray-800 hover:border-gray-600 transition-all shadow-xl group flex flex-col items-center text-center'>
+                <div className={`w-16 h-16 rounded-[1.5rem] ${card.cor.split(' ')[0]} mb-6 flex items-center justify-center text-3xl shadow-lg group-hover:scale-110 transition-transform ${card.cor.split(' ')[1]}`}>
                    {card.icone}
                 </div>
                 <p className='text-gray-500 text-[10px] font-black uppercase tracking-[0.1em] mb-2'>{card.titulo}</p>
