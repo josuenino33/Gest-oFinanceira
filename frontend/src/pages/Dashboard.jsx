@@ -189,27 +189,28 @@ export default function Dashboard() {
       {/* Conteúdo Dinâmico */}
       {activeTab === 'resumo' && (
         <div className='animate-in fade-in duration-500 space-y-10'>
-          {/* Patrimônio Líquido */}
+          {/* Patrimônio Líquido - Versão Compacta */}
           {patrimonioData && (
-            <div className='bg-gradient-to-br from-[#1e293b] to-[#080f1e] border border-gray-800 p-8 rounded-[3rem] shadow-2xl relative overflow-hidden group'>
-              <div className='absolute top-0 right-0 p-10 opacity-5 group-hover:opacity-10 transition-opacity'>
-                <span className='text-9xl'>🏦</span>
-              </div>
-              <div className='flex flex-col md:flex-row md:items-end justify-between gap-10'>
-                <div>
-                  <span className='text-[10px] text-green-400 font-black tracking-[0.3em] uppercase mb-3 block'>Patrimônio Consolidado</span>
-                  <div className='flex items-baseline gap-3'>
-                    <span className='text-3xl text-gray-500 font-light'>R$</span>
-                    <h2 className={`text-5xl md:text-8xl font-black tracking-tighter ${patrimonioData.patrimonio >= 0 ? 'text-white' : 'text-red-400'}`}>
-                      {Number(patrimonioData.patrimonio).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </h2>
+            <div className='bg-gradient-to-br from-[#1e293b] to-[#080f1e] border border-gray-800 p-6 md:p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group'>
+              <div className='flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10'>
+                <div className='text-center md:text-left'>
+                  <span className='text-[10px] text-green-400 font-black tracking-[0.2em] uppercase mb-1 block'>Patrimônio Consolidado</span>
+                  <h2 className={`text-4xl md:text-7xl font-black tracking-tighter ${patrimonioData.patrimonio >= 0 ? 'text-white' : 'text-red-400'}`}>
+                    {fmt(patrimonioData.patrimonio)}
+                  </h2>
+                </div>
+                <div className='flex justify-around md:justify-end gap-10 border-t md:border-t-0 md:border-l border-gray-800/50 pt-6 md:pt-0 md:pl-10'>
+                  <div className='text-center'>
+                    <span className='text-[10px] text-gray-500 font-black uppercase block mb-1'>Ativos</span>
+                    <p className='text-xl text-white font-black'>{fmt(patrimonioData.ativos)}</p>
+                  </div>
+                  <div className='text-center'>
+                    <span className='text-[10px] text-gray-500 font-black uppercase block mb-1'>Dívidas</span>
+                    <p className='text-xl text-red-400/80 font-black'>{fmt(patrimonioData.passivos)}</p>
                   </div>
                 </div>
-                <div className='grid grid-cols-2 gap-10 border-t md:border-t-0 md:border-l border-gray-800 pt-10 md:pt-0 md:pl-10'>
-                  <div><span className='text-[10px] text-gray-500 font-black uppercase tracking-widest'>Ativos</span><p className='text-2xl text-white font-black'>{fmt(patrimonioData.ativos)}</p></div>
-                  <div><span className='text-[10px] text-gray-500 font-black uppercase tracking-widest'>Dívidas</span><p className='text-2xl text-red-400/80 font-black'>{fmt(patrimonioData.passivos)}</p></div>
-                </div>
               </div>
+              <div className='absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity text-9xl'>🏦</div>
             </div>
           )}
 
