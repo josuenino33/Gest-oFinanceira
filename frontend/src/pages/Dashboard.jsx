@@ -121,12 +121,6 @@ export default function Dashboard() {
   const pieData = (data?.categorias || []).map(c => ({ name: c.nome, value: Number(c.total) }))
   const conquistas = patrimonioData?.conquistas || []
 
-  const cards = [
-    { titulo: 'Receitas', valor: fmt(data?.receitas), cor: '#22c55e', bg: 'rgba(34,197,94,0.1)', icone: '💰' },
-    { titulo: 'Despesas', valor: fmt(data?.despesas), cor: '#ef4444', bg: 'rgba(239,68,68,0.1)', icone: '💸' },
-    { titulo: 'Saldo', valor: fmt(data?.saldo), cor: '#3b82f6', bg: 'rgba(59,130,246,0.1)', icone: '📊' },
-  ]
-
   if (loading && !data.receitas) {
     return (
       <div className='flex flex-col items-center justify-center min-h-[60vh] gap-4'>
@@ -239,74 +233,107 @@ export default function Dashboard() {
 
       {/* Grid Principal */}
       {activeTab === 'resumo' && (
-        <div className='space-y-10'>
-          {/* Cards */}
-          <div className='grid grid-cols-1 sm:grid-cols-3 gap-6'>
-            {cards.map((card, i) => (
-              <div key={i} className='rounded-[3rem] p-8 border hover:border-green-500/30 transition-all shadow-lg flex flex-col items-center text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-                <div className='w-16 h-16 rounded-[1.8rem] mb-6 flex items-center justify-center text-3xl' style={{ background: card.bg, color: card.cor }}>
-                  {card.icone}
-                </div>
-                <p style={{ color: 'var(--text-muted)' }} className='text-[10px] font-black uppercase tracking-[0.2em] mb-2'>{card.titulo}</p>
-                <h3 className='text-2xl md:text-3xl font-black' style={{ color: 'var(--text-main)' }}>{card.valor}</h3>
-              </div>
-            ))}
-          </div>
+        <div className='space-y-6'>
 
-          {/* Patrimônio + Economia */}
-          <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
-            <div className='lg:col-span-2 border p-10 rounded-[3rem] shadow-lg relative overflow-hidden' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-              <div className='relative z-10'>
-                <span className='text-[10px] font-black tracking-[0.3em] uppercase mb-1 block' style={{ color: 'var(--accent)' }}>Patrimônio Total</span>
-                <p className='text-xs mb-6' style={{ color: 'var(--text-muted)' }}>Caixa + investimentos — todos os períodos</p>
-                <div className='flex items-baseline gap-4 mb-10'>
-                  <span className='text-3xl font-light' style={{ color: 'var(--text-muted)' }}>R$</span>
-                  <h2 className='text-5xl md:text-7xl font-black tracking-tighter' style={{ color: 'var(--text-main)' }}>
+          {/* HERO — Patrimônio Líquido */}
+          <div className='border rounded-[2.5rem] p-8 md:p-10 relative overflow-hidden shadow-lg' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            <div className='relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-8'>
+              <div>
+                <span className='text-[10px] font-black tracking-[0.3em] uppercase block mb-1' style={{ color: 'var(--accent)' }}>Patrimônio Líquido</span>
+                <p className='text-xs mb-3' style={{ color: 'var(--text-muted)' }}>Sua riqueza total — todos os períodos</p>
+                <div className='flex items-baseline gap-2'>
+                  <span className='text-2xl font-light' style={{ color: 'var(--text-muted)' }}>R$</span>
+                  <h2 className='text-5xl md:text-6xl font-black tracking-tighter' style={{ color: 'var(--text-main)' }}>
                     {fmt(patrimonioData?.patrimonio_liquido).replace('R$', '').trim()}
                   </h2>
                 </div>
-                <div className='grid grid-cols-3 gap-6 border-t pt-8' style={{ borderColor: 'var(--border-color)' }}>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)' }} className='text-[10px] font-black uppercase tracking-widest block mb-2'>💵 Em Caixa</span>
-                    <p className='text-lg font-black' style={{ color: (patrimonioData?.saldo_caixa || 0) >= 0 ? 'var(--text-main)' : '#ef4444' }}>
-                      {fmt(patrimonioData?.saldo_caixa || 0)}
-                    </p>
+              </div>
+              <div className='flex flex-wrap gap-6 md:gap-8'>
+                <div>
+                  <span className='text-[10px] font-black uppercase tracking-widest block mb-1' style={{ color: 'var(--text-muted)' }}>💵 Em Caixa</span>
+                  <p className='text-xl font-black' style={{ color: (patrimonioData?.saldo_caixa || 0) >= 0 ? 'var(--text-main)' : '#ef4444' }}>
+                    {fmt(patrimonioData?.saldo_caixa || 0)}
+                  </p>
+                </div>
+                <div className='hidden md:block w-px self-stretch' style={{ background: 'var(--border-color)' }} />
+                <div>
+                  <span className='text-[10px] font-black uppercase tracking-widest block mb-1' style={{ color: 'var(--text-muted)' }}>📈 Investido</span>
+                  <p className='text-xl font-black' style={{ color: '#3b82f6' }}>
+                    {fmt(patrimonioData?.investimentos || 0)}
+                  </p>
+                </div>
+                <div className='hidden md:block w-px self-stretch' style={{ background: 'var(--border-color)' }} />
+                <div>
+                  <span className='text-[10px] font-black uppercase tracking-widest block mb-1' style={{ color: 'var(--text-muted)' }}>🔥 Rendimento</span>
+                  <p className='text-xl font-black' style={{ color: (patrimonioData?.rendimento || 0) >= 0 ? '#22c55e' : '#ef4444' }}>
+                    {(patrimonioData?.rendimento || 0) >= 0 ? '+' : ''}{fmt(patrimonioData?.rendimento || 0)}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className='absolute -right-8 -bottom-8 opacity-[0.04] text-[14rem] select-none'>💎</div>
+          </div>
+
+          {/* Este Período + Taxa de Poupança */}
+          <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
+
+            {/* Fluxo do período */}
+            <div className='md:col-span-2 border rounded-[2.5rem] p-8' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+              <div className='mb-6'>
+                <span className='text-[10px] font-black tracking-[0.3em] uppercase block' style={{ color: '#3b82f6' }}>Este Período</span>
+                <p className='text-xs mt-0.5' style={{ color: 'var(--text-muted)' }}>{periodoLabel}</p>
+              </div>
+              <div className='space-y-3'>
+                <div className='flex items-center justify-between px-5 py-4 rounded-2xl' style={{ background: 'rgba(34,197,94,0.08)' }}>
+                  <div className='flex items-center gap-3'>
+                    <span className='w-7 h-7 rounded-xl bg-green-500/20 flex items-center justify-center text-green-500 font-black text-sm'>↑</span>
+                    <span className='font-bold text-sm' style={{ color: 'var(--text-muted)' }}>Receitas</span>
                   </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)' }} className='text-[10px] font-black uppercase tracking-widest block mb-2'>📈 Investido</span>
-                    <p className='text-lg font-black' style={{ color: 'var(--text-main)' }}>
-                      {fmt(patrimonioData?.investimentos || 0)}
-                    </p>
+                  <span className='text-xl font-black text-green-500'>{fmt(data?.receitas)}</span>
+                </div>
+                <div className='flex items-center justify-between px-5 py-4 rounded-2xl' style={{ background: 'rgba(239,68,68,0.08)' }}>
+                  <div className='flex items-center gap-3'>
+                    <span className='w-7 h-7 rounded-xl bg-red-500/20 flex items-center justify-center text-red-400 font-black text-sm'>↓</span>
+                    <span className='font-bold text-sm' style={{ color: 'var(--text-muted)' }}>Despesas</span>
                   </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)' }} className='text-[10px] font-black uppercase tracking-widest block mb-2'>🔥 Rendimento</span>
-                    <p className='text-lg font-black' style={{ color: (patrimonioData?.rendimento || 0) >= 0 ? '#22c55e' : '#ef4444' }}>
-                      {(patrimonioData?.rendimento || 0) >= 0 ? '+' : ''}{fmt(patrimonioData?.rendimento || 0)}
-                    </p>
+                  <span className='text-xl font-black text-red-400'>{fmt(data?.despesas)}</span>
+                </div>
+                <div className='border-t pt-4' style={{ borderColor: 'var(--border-color)' }}>
+                  <div className='flex items-center justify-between px-5 py-3'>
+                    <div className='flex items-center gap-3'>
+                      <span className='w-7 h-7 rounded-xl flex items-center justify-center font-black text-sm'
+                        style={{ background: (data?.saldo || 0) >= 0 ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: (data?.saldo || 0) >= 0 ? '#22c55e' : '#ef4444' }}>
+                        =
+                      </span>
+                      <span className='font-black text-sm' style={{ color: 'var(--text-main)' }}>Saldo do Período</span>
+                    </div>
+                    <span className='text-2xl font-black' style={{ color: (data?.saldo || 0) >= 0 ? '#22c55e' : '#ef4444' }}>
+                      {fmt(data?.saldo)}
+                    </span>
                   </div>
                 </div>
               </div>
-              <div className='absolute -right-10 -bottom-10 opacity-5 text-[15rem]'>📈</div>
             </div>
 
-            <div className='border p-10 rounded-[3rem] shadow-lg flex flex-col items-center justify-center text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-               <span className='text-[10px] font-black tracking-[0.3em] uppercase mb-2 block' style={{ color: '#a855f7' }}>Taxa de Poupança</span>
-               <p className='text-xs mb-6' style={{ color: 'var(--text-muted)' }}>do período filtrado</p>
-               <div className='relative w-44 h-44 flex items-center justify-center'>
-                 <svg className='w-full h-full transform -rotate-90'>
-                   <circle cx='88' cy='88' r='80' stroke='var(--border-color)' strokeWidth='12' fill='transparent' />
-                   <circle cx='88' cy='88' r='80' stroke='#22c55e' strokeWidth='12' fill='transparent'
-                     strokeDasharray={502.65}
-                     strokeDashoffset={502.65 - (502.65 * Math.min(100, Math.max(0, data?.meta_economia || 0))) / 100} />
-                 </svg>
-                 <div className='absolute inset-0 flex flex-col items-center justify-center'>
-                    <span className='text-4xl font-black' style={{ color: 'var(--text-main)' }}>{Math.round(data?.meta_economia || 0)}%</span>
-                    <span className='text-[10px] font-bold mt-1' style={{ color: 'var(--text-muted)' }}>economizado</span>
-                 </div>
-               </div>
-               <p className='text-xs mt-6 font-semibold' style={{ color: (data?.meta_economia || 0) >= 20 ? '#22c55e' : '#f59e0b' }}>
-                 {(data?.meta_economia || 0) >= 30 ? 'Excelente ritmo! 🚀' : (data?.meta_economia || 0) >= 20 ? 'Ótima poupança! 👍' : (data?.meta_economia || 0) > 0 ? 'Pode melhorar ⚡' : 'Sem receitas no período'}
-               </p>
+            {/* Taxa de Poupança */}
+            <div className='border rounded-[2.5rem] p-8 flex flex-col items-center justify-center text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+              <span className='text-[10px] font-black tracking-[0.3em] uppercase mb-2 block' style={{ color: '#a855f7' }}>Taxa de Poupança</span>
+              <p className='text-xs mb-5' style={{ color: 'var(--text-muted)' }}>{periodoLabel}</p>
+              <div className='relative w-36 h-36 flex items-center justify-center'>
+                <svg className='w-full h-full transform -rotate-90'>
+                  <circle cx='72' cy='72' r='62' stroke='var(--border-color)' strokeWidth='10' fill='transparent' />
+                  <circle cx='72' cy='72' r='62' stroke='#22c55e' strokeWidth='10' fill='transparent'
+                    strokeDasharray={389.56}
+                    strokeDashoffset={389.56 - (389.56 * Math.min(100, Math.max(0, data?.meta_economia || 0))) / 100} />
+                </svg>
+                <div className='absolute inset-0 flex flex-col items-center justify-center'>
+                  <span className='text-3xl font-black' style={{ color: 'var(--text-main)' }}>{Math.round(data?.meta_economia || 0)}%</span>
+                  <span className='text-[9px] font-bold mt-0.5' style={{ color: 'var(--text-muted)' }}>economizado</span>
+                </div>
+              </div>
+              <p className='text-xs mt-5 font-semibold' style={{ color: (data?.meta_economia || 0) >= 20 ? '#22c55e' : '#f59e0b' }}>
+                {(data?.meta_economia || 0) >= 30 ? 'Excelente ritmo! 🚀' : (data?.meta_economia || 0) >= 20 ? 'Ótima poupança! 👍' : (data?.meta_economia || 0) > 0 ? 'Pode melhorar ⚡' : 'Sem receitas no período'}
+              </p>
             </div>
           </div>
 
