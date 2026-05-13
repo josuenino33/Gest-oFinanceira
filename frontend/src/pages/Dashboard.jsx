@@ -47,13 +47,14 @@ export default function Dashboard() {
     if (opt.showLoading) setLoading(true)
     setRefreshing(true)
     try {
-      const res = await api.get(`/resumo-mensal?mes=${mesSelecionado + 1}&ano=${anoSelecionado}&mes_fim=${mesFim + 1}&ano_fim=${anoFim}`)
+      const [res, pat, ins] = await Promise.all([
+        api.get(`/resumo-mensal?mes=${mesSelecionado + 1}&ano=${anoSelecionado}&mes_fim=${mesFim + 1}&ano_fim=${anoFim}`),
+        api.get('/patrimonio'),
+        api.get('/insights')
+      ])
+      
       if (res.data) setData(res.data)
-      
-      const pat = await api.get('/patrimonio')
       if (pat.data) setPatrimonioData(pat.data)
-      
-      const ins = await api.get('/insights')
       if (ins.data) setInsights(ins.data)
       
       setLastUpdate(new Date())
@@ -102,31 +103,11 @@ export default function Dashboard() {
     { titulo: 'Taxa de economia', valor: `${Math.round(data?.meta_economia || 0)}%`, cor: 'bg-purple-500/10 text-purple-500', icone: '🎯' },
   ]
 
-  if (loading) {
+  if (loading && !data.receitas) {
     return (
-      <div className='max-w-7xl mx-auto pb-20 px-4 md:px-0 animate-pulse'>
-        {/* Header Skeleton */}
-        <div className='flex justify-between items-center mb-12'>
-          <div className='space-y-3'>
-            <div className='h-12 w-64 bg-gray-800 rounded-2xl'></div>
-            <div className='h-4 w-40 bg-gray-800 rounded-lg'></div>
-          </div>
-          <div className='h-14 w-40 bg-gray-800 rounded-2xl'></div>
-        </div>
-
-        {/* AI Banner Skeleton */}
-        <div className='h-32 w-full bg-gray-800 rounded-[2.5rem] mb-10'></div>
-
-        {/* Patrimonio + Score Skeleton */}
-        <div className='grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10'>
-          <div className='lg:col-span-2 h-80 bg-gray-800 rounded-[3rem]'></div>
-          <div className='h-80 bg-gray-800 rounded-[3rem]'></div>
-        </div>
-
-        {/* Cards Skeleton */}
-        <div className='grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10'>
-          {[1,2,3,4].map(i => <div key={i} className='h-48 bg-gray-800 rounded-[2.5rem]'></div>)}
-        </div>
+      <div className='flex flex-col items-center justify-center min-h-[60vh] gap-4'>
+        <div className='w-12 h-12 border-4 border-green-500/20 border-t-green-500 rounded-full animate-spin'></div>
+        <p className='text-gray-500 font-black uppercase tracking-widest text-[10px] animate-pulse'>Iniciando Cockpit...</p>
       </div>
     )
   }
