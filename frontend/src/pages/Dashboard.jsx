@@ -44,7 +44,7 @@ export default function Dashboard() {
   const [actionLoading, setActionLoading] = useState(null)
 
   const carregarDashboard = useCallback(async (opt = {}) => {
-    if (opt.showLoading) setLoading(true)
+    if (opt.showLoading && !data.receitas) setLoading(true)
     setRefreshing(true)
     try {
       const [res, pat, ins] = await Promise.all([
@@ -53,9 +53,18 @@ export default function Dashboard() {
         api.get('/insights')
       ])
       
-      if (res.data) setData(res.data)
-      if (pat.data) setPatrimonioData(pat.data)
-      if (ins.data) setInsights(ins.data)
+      const newData = res.data || data
+      const newPat = pat.data || patrimonioData
+      const newIns = ins.data || insights
+
+      setData(newData)
+      setPatrimonioData(newPat)
+      setInsights(newIns)
+      
+      // Salvar no cache local
+      localStorage.setItem('dash_cache_data', JSON.stringify(newData))
+      localStorage.setItem('dash_cache_pat', JSON.stringify(newPat))
+      localStorage.setItem('dash_cache_ins', JSON.stringify(newIns))
       
       setLastUpdate(new Date())
     } catch (e) {
@@ -64,10 +73,19 @@ export default function Dashboard() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [mesSelecionado, anoSelecionado, mesFim, anoFim])
+  }, [mesSelecionado, anoSelecionado, mesFim, anoFim, data, patrimonioData, insights])
 
   useEffect(() => {
-    carregarDashboard({ showLoading: true })
+    // Tentar carregar do cache primeiro (Instantaneo)
+    const cData = localStorage.getItem('dash_cache_data')
+    const cPat = localStorage.getItem('dash_cache_pat')
+    const cIns = localStorage.getItem('dash_cache_ins')
+
+    if (cData) setData(JSON.parse(cData))
+    if (cPat) setPatrimonioData(JSON.parse(cPat))
+    if (cIns) setInsights(JSON.parse(cIns))
+
+    carregarDashboard({ showLoading: !cData })
   }, [carregarDashboard])
 
   useEffect(() => {

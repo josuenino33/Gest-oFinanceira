@@ -58,28 +58,46 @@ export default function Contas() {
       alert('Informe a descrição e o valor da conta.')
       return
     }
+
+    const valorNumerico = Number(String(valor).replace(',', '.'))
+    const payload = {
+      descricao,
+      valor: valorNumerico,
+      categoria_id: categoriaId || null,
+      pago: pago ? 1 : 0,
+      criado_em: `${anoFiltro}-${String(mesFiltro + 1).padStart(2, '0')}-15 12:00:00`
+    }
+
+    // --- UPDATE OTIMISTA ---
+    const tempId = Date.now()
+    const categoriaEncontrada = categorias.find(c => String(c.id) === String(categoriaId))
+    const itemOtimista = {
+      ...payload,
+      id: tempId,
+      categoria_nome: categoriaEncontrada ? categoriaEncontrada.nome : '—',
+    }
+
+    if (!contaEditando) {
+      setContasCompletas(prev => [itemOtimista, ...prev])
+    } else {
+      setContasCompletas(prev => prev.map(item => item.id === contaEditando.id ? { ...item, ...payload } : item))
+    }
+    fecharModal()
+    // -----------------------
+
     setLoading(true)
     setError(null)
     try {
-      const valorNumerico = Number(String(valor).replace(',', '.'))
-      const payload = {
-        descricao,
-        valor: valorNumerico,
-        categoria_id: categoriaId || null,
-        pago: pago ? 1 : 0,
-        criado_em: `${anoFiltro}-${String(mesFiltro + 1).padStart(2, '0')}-15 12:00:00`
-      }
-      
       if (contaEditando) {
         await api.put(`/contas/${contaEditando.id}`, payload)
       } else {
         await api.post('/contas', payload)
       }
-      fecharModal()
       carregar()
     } catch (e) {
       console.error('Erro detalhado:', e.response?.data || e.message)
-      setError(e.response?.data?.msg || 'Erro ao conectar com o servidor. Verifique sua conexão.')
+      setError(e.response?.data?.msg || 'Erro ao conectar com o servidor.')
+      carregar()
     } finally {
       setLoading(false)
     }
@@ -102,21 +120,31 @@ export default function Contas() {
   }
 
   const excluir = async (id) => {
+    // --- UPDATE OTIMISTA ---
+    const backup = [...contasCompletas]
+    setContasCompletas(prev => prev.filter(item => item.id !== id))
+    // -----------------------
+
     try {
       await api.delete(`/contas/${id}`)
-      carregar()
     } catch (e) {
       console.error(e)
-      alert('Erro ao excluir conta. Verifique sua conexão ou se você tem permissão.')
+      setContasCompletas(backup)
+      alert('Erro ao excluir conta.')
     }
   }
 
   const marcarPaga = async (id) => {
+    // --- UPDATE OTIMISTA ---
+    const backup = [...contasCompletas]
+    setContasCompletas(prev => prev.map(item => item.id === id ? { ...item, pago: 1 } : item))
+    // -----------------------
+
     try {
       await api.patch(`/contas/${id}`)
-      carregar()
     } catch (e) {
       console.error(e)
+      setContasCompletas(backup)
       alert('Erro ao marcar como paga.')
     }
   }

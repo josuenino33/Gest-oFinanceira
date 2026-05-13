@@ -57,28 +57,49 @@ export default function Receitas() {
       alert('Informe a descrição e o valor da receita.')
       return
     }
+
+    const valorNumerico = Number(String(valor).replace(',', '.'))
+    const payload = {
+      descricao,
+      valor: valorNumerico,
+      categoria_id: categoriaId || null,
+      criado_em: `${anoFiltro}-${String(mesFiltro + 1).padStart(2, '0')}-15 12:00:00`
+    }
+
+    // --- UPDATE OTIMISTA (SENSACAO INSTANTANEA) ---
+    const tempId = Date.now()
+    const categoriaEncontrada = categorias.find(c => String(c.id) === String(categoriaId))
+    const itemOtimista = {
+      ...payload,
+      id: tempId,
+      categoria_nome: categoriaEncontrada ? categoriaEncontrada.nome : '—',
+      otimista: true // Flag para controle interno se precisar
+    }
+
+    // Se for nova, adiciona logo na lista
+    if (!receitaEditando) {
+      setListaCompleta(prev => [itemOtimista, ...prev])
+    } else {
+      // Se for edição, atualiza na lista
+      setListaCompleta(prev => prev.map(item => item.id === receitaEditando.id ? { ...item, ...payload } : item))
+    }
+    
+    fecharModal()
+    // ----------------------------------------------
+
     setLoading(true)
     setError(null)
     try {
-      const valorNumerico = Number(String(valor).replace(',', '.'))
-      const payload = {
-        descricao,
-        valor: valorNumerico,
-        categoria_id: categoriaId || null,
-        criado_em: `${anoFiltro}-${String(mesFiltro + 1).padStart(2, '0')}-15 12:00:00`
-      }
-
       if (receitaEditando) {
         await api.put(`/receitas/${receitaEditando.id}`, payload)
       } else {
         await api.post('/receitas', payload)
       }
-      
-      fecharModal()
-      carregar()
+      carregar() // Sincroniza com o ID real do banco
     } catch (e) { 
       console.error('Erro detalhado:', e.response?.data || e.message)
-      setError(e.response?.data?.msg || 'Erro ao conectar com o servidor. Verifique sua conexão.')
+      setError(e.response?.data?.msg || 'Erro ao conectar com o servidor.')
+      carregar() // Reverte para o estado seguro do banco
     } finally { 
       setLoading(false)
     }
@@ -101,12 +122,18 @@ export default function Receitas() {
   }
 
   const excluir = async (id) => {
+    // --- UPDATE OTIMISTA ---
+    const backup = [...listaCompleta]
+    setListaCompleta(prev => prev.filter(item => item.id !== id))
+    // -----------------------
+
     try {
       await api.delete(`/receitas/${id}`)
-      carregar()
+      // Não precisa fazer nada, o item já sumiu otimistamente
     } catch (e) {
       console.error(e)
-      alert('Erro ao excluir receita.')
+      setListaCompleta(backup) // Reverte se der erro
+      alert('Erro ao excluir receita. Tente novamente.')
     }
   }
 
