@@ -36,7 +36,7 @@ export default function Carteira() {
           <button
             key={aba.id}
             onClick={() => setAbaAtiva(aba.id)}
-            className={`flex-none min-w-[140px] flex items-center justify-center gap-3 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+            className={`flex-1 min-w-[130px] flex items-center justify-center gap-3 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
               abaAtiva === aba.id ? 'bg-green-500 text-black shadow-lg shadow-green-500/20' : 'hover:bg-green-500/10'
             }`}
             style={abaAtiva !== aba.id ? { color: 'var(--text-muted)' } : {}}

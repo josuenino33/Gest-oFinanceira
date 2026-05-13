@@ -98,7 +98,7 @@ export default function Metas() {
               <div>
                 <label className='block text-sm font-medium mb-2' style={{ color: 'var(--text-main)' }}>Em quantos meses?</label>
                 <input type='range' min='1' max='60' value={calcMeses} onChange={e => setCalcMeses(e.target.value)}
-                  className='w-full accent-green-500 h-2 rounded-lg appearance-none cursor-pointer mb-2' />
+                  className='w-full mb-2' />
                 <div className='flex justify-between text-xs'>
                   <span style={{ color: 'var(--text-muted)' }}>1 mês</span>
                   <span className='text-green-500 font-bold text-lg'>{calcMeses} meses</span>

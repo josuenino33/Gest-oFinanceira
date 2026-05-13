@@ -222,12 +222,21 @@ def login():
 @app.route('/register', methods=['POST'])
 def register():
     d = request.json or {}
+    nome = (d.get('nome') or '').strip()
+    email = (d.get('email') or '').strip()
+    password = d.get('password') or ''
+    if not nome or not email or not password:
+        return jsonify({'msg': 'Preencha todos os campos.'}), 400
+    if len(password) < 6:
+        return jsonify({'msg': 'A senha deve ter ao menos 6 caracteres.'}), 400
+    if '@' not in email:
+        return jsonify({'msg': 'Email inválido.'}), 400
     try:
-        h = generate_password_hash(d.get('password'))
-        execute_query('INSERT INTO users (nome, email, senha) VALUES (?, ?, ?)', (d.get('nome'), d.get('email'), h))
+        h = generate_password_hash(password)
+        execute_query('INSERT INTO users (nome, email, senha) VALUES (?, ?, ?)', (nome, email, h))
         return jsonify({'msg': 'Usuário criado'}), 201
     except Exception as e:
-        return jsonify({'msg': str(e)}), 400
+        return jsonify({'msg': 'Email já cadastrado.'}), 400
 
 @app.route('/resumo', methods=['GET'])
 @jwt_required()
@@ -551,6 +560,23 @@ def update_perfil():
     d = request.json
     execute_query('UPDATE users SET nome = ?, email = ? WHERE id = ?', (d.get('nome'), d.get('email'), uid))
     return jsonify({'msg': 'OK'})
+
+@app.route('/perfil/senha', methods=['PUT'])
+@jwt_required()
+def update_senha():
+    uid = int(get_jwt_identity())
+    d = request.json
+    senha_atual = d.get('senha_atual', '')
+    nova_senha = d.get('nova_senha', '')
+    if not senha_atual or not nova_senha:
+        return jsonify({'msg': 'Preencha os campos de senha.'}), 400
+    if len(nova_senha) < 6:
+        return jsonify({'msg': 'A nova senha deve ter ao menos 6 caracteres.'}), 400
+    user = fetch_one('SELECT senha FROM users WHERE id = ?', (uid,))
+    if not user or not check_password_hash(user['senha'], senha_atual):
+        return jsonify({'msg': 'Senha atual incorreta.'}), 400
+    execute_query('UPDATE users SET senha = ? WHERE id = ?', (generate_password_hash(nova_senha), uid))
+    return jsonify({'msg': 'Senha alterada com sucesso!'})
 
 @app.route('/test-ai', methods=['GET'])
 def test_ai():

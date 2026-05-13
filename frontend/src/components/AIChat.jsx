@@ -10,7 +10,10 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
     { role: 'ai', text: 'Olá! Sou seu consultor financeiro inteligente. Como posso te ajudar hoje?' }
   ])
   const [loading, setLoading] = useState(false)
+  const [listening, setListening] = useState(false)
+  const [speakEnabled, setSpeakEnabled] = useState(false)
   const scrollRef = useRef(null)
+  const recognitionRef = useRef(null)
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
@@ -24,11 +27,47 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
     setLoading(true)
     try {
       const res = await api.post('/chat', { message: userMsg })
-      setMessages(prev => [...prev, { role: 'ai', text: res.data.response }])
+      const aiText = res.data.response
+      setMessages(prev => [...prev, { role: 'ai', text: aiText }])
+      if (speakEnabled) speak(aiText)
     } catch (err) {
       const errorMsg = err.response?.data?.response || 'Erro de conexão com o servidor.'
-      setMessages(prev => [...prev, { role: 'ai', text: `${errorMsg}` }])
+      setMessages(prev => [...prev, { role: 'ai', text: errorMsg }])
     } finally { setLoading(false) }
+  }
+
+  const toggleVoice = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) {
+      setMessages(prev => [...prev, { role: 'ai', text: 'Seu navegador não suporta reconhecimento de voz. Use Chrome ou Edge.' }])
+      return
+    }
+    if (listening) {
+      recognitionRef.current?.stop()
+      return
+    }
+    const r = new SR()
+    r.lang = 'pt-BR'
+    r.continuous = false
+    r.interimResults = false
+    r.onresult = (e) => {
+      const transcript = e.results[0][0].transcript
+      setInput(prev => (prev ? prev + ' ' : '') + transcript)
+    }
+    r.onend = () => setListening(false)
+    r.onerror = () => setListening(false)
+    recognitionRef.current = r
+    r.start()
+    setListening(true)
+  }
+
+  const speak = (text) => {
+    if (!window.speechSynthesis) return
+    window.speechSynthesis.cancel()
+    const utter = new SpeechSynthesisUtterance(text)
+    utter.lang = 'pt-BR'
+    utter.rate = 1.05
+    window.speechSynthesis.speak(utter)
   }
 
   const actionBtnStyle = { background: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }
@@ -68,7 +107,15 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
                 <span className='text-[10px] text-black/60 font-bold uppercase'>Online Agora</span>
               </div>
             </div>
-            <button onClick={() => setIsOpen(false)} className='text-black/60 hover:text-black transition text-2xl'>✕</button>
+            <div className='flex items-center gap-2'>
+              <button
+                onClick={() => { setSpeakEnabled(v => !v); window.speechSynthesis?.cancel() }}
+                title={speakEnabled ? 'Desativar voz da IA' : 'Ativar voz da IA'}
+                className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm transition ${speakEnabled ? 'bg-black/30' : 'bg-black/10'}`}>
+                🔊
+              </button>
+              <button onClick={() => setIsOpen(false)} className='text-black/60 hover:text-black transition text-2xl'>✕</button>
+            </div>
           </div>
 
           <div ref={scrollRef} className='flex-1 overflow-y-auto p-6 space-y-4 scroll-smooth'>
@@ -90,14 +137,31 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
             )}
           </div>
 
-          <div className='p-6 border-t' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+          <div className='p-4 border-t' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            {listening && (
+              <div className='flex items-center gap-2 mb-3 px-1'>
+                <span className='w-2 h-2 rounded-full bg-red-500 animate-pulse' />
+                <span className='text-xs font-semibold text-red-500'>Ouvindo... fale agora</span>
+              </div>
+            )}
             <div className='flex gap-2'>
+              <button
+                onClick={toggleVoice}
+                title={listening ? 'Parar de ouvir' : 'Falar para a IA'}
+                className={`p-3 rounded-2xl border transition shrink-0 text-base ${
+                  listening
+                    ? 'bg-red-500 text-white border-red-500'
+                    : 'hover:bg-green-500/10'
+                }`}
+                style={!listening ? { borderColor: 'var(--border-color)', color: 'var(--text-muted)' } : {}}>
+                🎤
+              </button>
               <input type='text' value={input} onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSend()} placeholder='Pergunte algo...'
-                className='flex-1 border rounded-2xl px-5 py-3 text-sm outline-none focus:border-green-500 transition-all'
+                className='flex-1 border rounded-2xl px-4 py-3 text-sm outline-none focus:border-green-500 transition-all'
                 style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }} />
               <button onClick={handleSend} disabled={loading}
-                className='bg-green-500 hover:bg-green-400 text-black p-4 rounded-2xl transition shadow-lg disabled:opacity-50'>
+                className='bg-green-500 hover:bg-green-400 text-black p-3 rounded-2xl transition shadow-lg disabled:opacity-50 shrink-0'>
                 🚀
               </button>
             </div>
