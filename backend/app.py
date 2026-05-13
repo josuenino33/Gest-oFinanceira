@@ -148,6 +148,16 @@ def ensure_postgres_schema(cursor):
         ],
     }
 
+migrations = {
+    'users': [('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
+    'categorias': [('cor', "TEXT DEFAULT '#22c55e'"), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
+    'receitas': [('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
+    'contas': [('pago', 'INTEGER DEFAULT 0'), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
+    'metas': [('valor_atual', 'REAL DEFAULT 0'), ('progresso', 'INTEGER DEFAULT 0')],
+    'investimentos': [('rentabilidade', 'REAL DEFAULT 0')]
+}
+
+def ensure_postgres_schema(cursor):
     for table, columns in migrations.items():
         cursor.execute(
             "SELECT column_name FROM information_schema.columns WHERE table_name = %s",
