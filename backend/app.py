@@ -3,7 +3,8 @@ import sqlite3
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
-load_dotenv()
+from pathlib import Path
+load_dotenv(Path(__file__).parent / '.env')
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
