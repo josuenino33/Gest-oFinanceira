@@ -35,10 +35,16 @@ def init_pool():
     if IS_POSTGRES and db_pool is None:
         try:
             from psycopg2.pool import ThreadedConnectionPool
-            db_pool = ThreadedConnectionPool(1, 20, DATABASE_URL)
+            # Correção de URL para o Render (postgres:// para postgresql://)
+            url = DATABASE_URL
+            if url and url.startswith("postgres://"):
+                url = url.replace("postgres://", "postgresql://", 1)
+            
+            db_pool = ThreadedConnectionPool(1, 20, url)
             print("Pool de conexões PostgreSQL inicializado.")
         except Exception as e:
-            print(f"Erro ao inicializar pool: {e}")
+            print(f"ERRO CRÍTICO ao inicializar pool: {e}")
+            raise e
 
 DEFAULT_CATEGORIES = [
     ('Alimentação', '#ef4444'),
@@ -366,6 +372,12 @@ def get_patrimonio():
 @jwt_required()
 def get_insights():
     return jsonify([{'msg': 'Seu planejamento está em dia!', 'tipo': 'sucesso'}])
+
+try:
+    init_db()
+    print("Banco de dados inicializado com sucesso.")
+except Exception as e:
+    print(f"FALHA CRÍTICA NA INICIALIZAÇÃO DO BANCO: {e}")
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
