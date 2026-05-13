@@ -10,14 +10,121 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
     { role: 'ai', text: 'Olá! Sou seu consultor financeiro inteligente. Como posso te ajudar hoje?' }
   ])
   const [loading, setLoading] = useState(false)
-  const [listening, setListening] = useState(false)
-  const [speakEnabled, setSpeakEnabled] = useState(false)
+  const [voiceMode, setVoiceMode] = useState(false)
+  const [voiceState, setVoiceState] = useState('idle') // idle | listening | processing | speaking
+  const [liveTranscript, setLiveTranscript] = useState('')
+
   const scrollRef = useRef(null)
   const recognitionRef = useRef(null)
+  const voiceModeRef = useRef(false)
+  const finalTranscriptRef = useRef('')
+  // actionRef holds latest function versions — avoids stale closures in recognition callbacks
+  const actionRef = useRef({})
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-  }, [messages])
+  }, [messages, liveTranscript])
+
+  // Stop everything when chat is closed
+  useEffect(() => {
+    if (!isOpen && voiceMode) stopVoiceMode()
+  }, [isOpen])
+
+  const speak = (text, onEnd) => {
+    if (!window.speechSynthesis) { onEnd?.(); return }
+    window.speechSynthesis.cancel()
+    const utter = new SpeechSynthesisUtterance(text)
+    utter.lang = 'pt-BR'
+    utter.rate = 1.05
+    utter.onend = () => onEnd?.()
+    window.speechSynthesis.speak(utter)
+  }
+
+  // Defined via ref so recognition callbacks always call the latest version
+  actionRef.current.startListening = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR || !voiceModeRef.current) return
+    recognitionRef.current?.abort()
+    finalTranscriptRef.current = ''
+
+    const r = new SR()
+    r.lang = 'pt-BR'
+    r.continuous = false
+    r.interimResults = true
+
+    r.onstart = () => setVoiceState('listening')
+
+    r.onresult = (e) => {
+      let interim = ''
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript
+        if (e.results[i].isFinal) finalTranscriptRef.current += t
+        else interim += t
+      }
+      setLiveTranscript(finalTranscriptRef.current + interim)
+    }
+
+    r.onend = () => {
+      const text = finalTranscriptRef.current.trim()
+      finalTranscriptRef.current = ''
+      setLiveTranscript('')
+      if (text) {
+        actionRef.current.sendVoiceMessage(text)
+      } else if (voiceModeRef.current) {
+        setTimeout(() => actionRef.current.startListening(), 600)
+      } else {
+        setVoiceState('idle')
+      }
+    }
+
+    r.onerror = (e) => {
+      if (e.error === 'aborted') return
+      if (voiceModeRef.current) setTimeout(() => actionRef.current.startListening(), 800)
+      else setVoiceState('idle')
+    }
+
+    recognitionRef.current = r
+    try { r.start() } catch {}
+  }
+
+  actionRef.current.sendVoiceMessage = async (text) => {
+    setVoiceState('processing')
+    setMessages(prev => [...prev, { role: 'user', text }])
+    try {
+      const res = await api.post('/chat', { message: text })
+      const aiText = res.data.response
+      setMessages(prev => [...prev, { role: 'ai', text: aiText }])
+      setVoiceState('speaking')
+      speak(aiText, () => {
+        if (voiceModeRef.current) setTimeout(() => actionRef.current.startListening(), 400)
+        else setVoiceState('idle')
+      })
+    } catch {
+      setMessages(prev => [...prev, { role: 'ai', text: 'Erro de conexão com o servidor.' }])
+      if (voiceModeRef.current) setTimeout(() => actionRef.current.startListening(), 1000)
+      else setVoiceState('idle')
+    }
+  }
+
+  const stopVoiceMode = () => {
+    recognitionRef.current?.abort()
+    window.speechSynthesis?.cancel()
+    voiceModeRef.current = false
+    setVoiceMode(false)
+    setVoiceState('idle')
+    setLiveTranscript('')
+  }
+
+  const startVoiceMode = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) {
+      setMessages(prev => [...prev, { role: 'ai', text: 'Modo voz não suportado neste navegador. Use Chrome ou Edge.' }])
+      return
+    }
+    voiceModeRef.current = true
+    setVoiceMode(true)
+    setTimeout(() => actionRef.current.startListening(), 150)
+  }
 
   const handleSend = async () => {
     if (!input.trim() || loading) return
@@ -27,49 +134,13 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
     setLoading(true)
     try {
       const res = await api.post('/chat', { message: userMsg })
-      const aiText = res.data.response
-      setMessages(prev => [...prev, { role: 'ai', text: aiText }])
-      if (speakEnabled) speak(aiText)
+      setMessages(prev => [...prev, { role: 'ai', text: res.data.response }])
     } catch (err) {
-      const errorMsg = err.response?.data?.response || 'Erro de conexão com o servidor.'
-      setMessages(prev => [...prev, { role: 'ai', text: errorMsg }])
+      setMessages(prev => [...prev, { role: 'ai', text: err.response?.data?.response || 'Erro de conexão.' }])
     } finally { setLoading(false) }
   }
 
-  const toggleVoice = () => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SR) {
-      setMessages(prev => [...prev, { role: 'ai', text: 'Seu navegador não suporta reconhecimento de voz. Use Chrome ou Edge.' }])
-      return
-    }
-    if (listening) {
-      recognitionRef.current?.stop()
-      return
-    }
-    const r = new SR()
-    r.lang = 'pt-BR'
-    r.continuous = false
-    r.interimResults = false
-    r.onresult = (e) => {
-      const transcript = e.results[0][0].transcript
-      setInput(prev => (prev ? prev + ' ' : '') + transcript)
-    }
-    r.onend = () => setListening(false)
-    r.onerror = () => setListening(false)
-    recognitionRef.current = r
-    r.start()
-    setListening(true)
-  }
-
-  const speak = (text) => {
-    if (!window.speechSynthesis) return
-    window.speechSynthesis.cancel()
-    const utter = new SpeechSynthesisUtterance(text)
-    utter.lang = 'pt-BR'
-    utter.rate = 1.05
-    window.speechSynthesis.speak(utter)
-  }
-
+  const voiceLabel = { listening: 'Ouvindo...', processing: 'Processando...', speaking: 'Respondendo...' }
   const actionBtnStyle = { background: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }
 
   return (
@@ -99,73 +170,102 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
       {isOpen && (
         <div className='absolute bottom-16 right-0 w-[90vw] max-w-[340px] md:max-w-[420px] h-[70vh] max-h-[600px] backdrop-blur-2xl border rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden pointer-events-auto'
           style={{ background: 'var(--bg-sidebar)', borderColor: 'var(--border-color)' }}>
-          <div className='bg-gradient-to-r from-green-500 to-emerald-600 p-6 flex justify-between items-center shadow-lg'>
+
+          {/* Header */}
+          <div className='bg-gradient-to-r from-green-500 to-emerald-600 p-5 flex justify-between items-center shadow-lg shrink-0'>
             <div className='flex items-center gap-3'>
               <div className='w-10 h-10 bg-black/20 rounded-xl flex items-center justify-center text-xl'>🤖</div>
               <div>
                 <h3 className='font-black text-black leading-none'>Consultor de IA</h3>
-                <span className='text-[10px] text-black/60 font-bold uppercase'>Online Agora</span>
+                <span className='text-[10px] text-black/60 font-bold uppercase tracking-wider'>
+                  {voiceMode ? '🎙️ Modo Voz Ativo' : 'Online Agora'}
+                </span>
               </div>
             </div>
-            <div className='flex items-center gap-2'>
-              <button
-                onClick={() => { setSpeakEnabled(v => !v); window.speechSynthesis?.cancel() }}
-                title={speakEnabled ? 'Desativar voz da IA' : 'Ativar voz da IA'}
-                className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm transition ${speakEnabled ? 'bg-black/30' : 'bg-black/10'}`}>
-                🔊
-              </button>
-              <button onClick={() => setIsOpen(false)} className='text-black/60 hover:text-black transition text-2xl'>✕</button>
-            </div>
+            <button onClick={() => setIsOpen(false)} className='text-black/60 hover:text-black transition text-2xl leading-none'>✕</button>
           </div>
 
-          <div ref={scrollRef} className='flex-1 overflow-y-auto p-6 space-y-4 scroll-smooth'>
+          {/* Messages */}
+          <div ref={scrollRef} className='flex-1 overflow-y-auto p-5 space-y-4 scroll-smooth'>
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] p-4 rounded-2xl text-sm font-medium leading-relaxed ${
-                  m.role === 'user'
-                    ? 'bg-green-500 text-black rounded-tr-none'
-                    : 'border rounded-tl-none'
+                  m.role === 'user' ? 'bg-green-500 text-black rounded-tr-none' : 'border rounded-tl-none'
                 }`} style={m.role !== 'user' ? { background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' } : {}}>
                   {m.text}
                 </div>
               </div>
             ))}
-            {loading && (
+            {loading && !voiceMode && (
               <div className='flex justify-start'>
                 <div className='p-4 rounded-2xl text-xs animate-pulse' style={{ background: 'var(--bg-input)', color: 'var(--text-muted)' }}>Digitando...</div>
               </div>
             )}
           </div>
 
-          <div className='p-4 border-t' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-            {listening && (
-              <div className='flex items-center gap-2 mb-3 px-1'>
-                <span className='w-2 h-2 rounded-full bg-red-500 animate-pulse' />
-                <span className='text-xs font-semibold text-red-500'>Ouvindo... fale agora</span>
+          {/* Voice Mode Panel */}
+          {voiceMode ? (
+            <div className='shrink-0 border-t flex flex-col items-center py-6 px-4 gap-3'
+              style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+
+              {/* Animated indicator */}
+              <div className='relative flex items-center justify-center w-24 h-24'>
+                {voiceState === 'listening' && (
+                  <>
+                    <span className='absolute inset-0 rounded-full bg-green-500/25 animate-ping' />
+                    <span className='absolute inset-3 rounded-full bg-green-500/20 animate-ping' style={{ animationDelay: '0.2s' }} />
+                  </>
+                )}
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl shadow-xl transition-all ${
+                  voiceState === 'listening' ? 'bg-green-500 scale-110' :
+                  voiceState === 'speaking'  ? 'bg-blue-500 animate-pulse' :
+                  'bg-orange-400 animate-pulse'
+                }`}>
+                  {voiceState === 'listening' ? '🎤' : voiceState === 'speaking' ? '🔊' : '⏳'}
+                </div>
               </div>
-            )}
-            <div className='flex gap-2'>
-              <button
-                onClick={toggleVoice}
-                title={listening ? 'Parar de ouvir' : 'Falar para a IA'}
-                className={`p-3 rounded-2xl border transition shrink-0 text-base ${
-                  listening
-                    ? 'bg-red-500 text-white border-red-500'
-                    : 'hover:bg-green-500/10'
-                }`}
-                style={!listening ? { borderColor: 'var(--border-color)', color: 'var(--text-muted)' } : {}}>
-                🎤
-              </button>
-              <input type='text' value={input} onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSend()} placeholder='Pergunte algo...'
-                className='flex-1 border rounded-2xl px-4 py-3 text-sm outline-none focus:border-green-500 transition-all'
-                style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }} />
-              <button onClick={handleSend} disabled={loading}
-                className='bg-green-500 hover:bg-green-400 text-black p-3 rounded-2xl transition shadow-lg disabled:opacity-50 shrink-0'>
-                🚀
+
+              <p className='font-bold text-sm' style={{ color: 'var(--text-main)' }}>
+                {voiceLabel[voiceState] || 'Aguardando...'}
+              </p>
+
+              {liveTranscript ? (
+                <p className='text-xs italic text-center px-4 max-w-[260px]' style={{ color: 'var(--text-muted)' }}>
+                  "{liveTranscript}"
+                </p>
+              ) : (
+                voiceState === 'listening' && (
+                  <p className='text-xs text-center' style={{ color: 'var(--text-muted)' }}>
+                    Fale agora — envio automático ao terminar
+                  </p>
+                )
+              )}
+
+              <button onClick={stopVoiceMode}
+                className='mt-1 px-6 py-2 rounded-xl border text-red-500 border-red-500/30 text-sm font-semibold hover:bg-red-500/10 transition'>
+                Parar Conversa
               </button>
             </div>
-          </div>
+          ) : (
+            /* Text input + voice button */
+            <div className='p-4 border-t shrink-0' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+              <button onClick={startVoiceMode}
+                className='w-full flex items-center justify-center gap-2 py-3 mb-3 rounded-2xl border font-semibold text-sm text-green-500 border-green-500/40 hover:bg-green-500/10 active:scale-95 transition'>
+                🎙️ Iniciar Conversa de Voz
+              </button>
+              <div className='flex gap-2'>
+                <input type='text' value={input} onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSend()}
+                  placeholder='Ou escreva aqui...'
+                  className='flex-1 border rounded-2xl px-4 py-3 text-sm outline-none focus:border-green-500 transition'
+                  style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }} />
+                <button onClick={handleSend} disabled={loading}
+                  className='bg-green-500 hover:bg-green-400 text-black p-3 rounded-2xl transition shadow-lg disabled:opacity-50 shrink-0'>
+                  🚀
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
