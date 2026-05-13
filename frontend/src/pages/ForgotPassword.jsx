@@ -5,23 +5,22 @@ import api from '../utils/api'
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
-  const [token, setToken] = useState('')
-  const [step, setStep] = useState(1) // 1: Email, 2: New Password
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
-  const handleRequestReset = async (e) => {
+  const handleFindAccount = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
     try {
       const res = await api.post('/forgot-password', { email })
-      setToken(res.data.token) // No demo, pegamos o token direto
       setMessage(res.data.msg)
       setStep(2)
     } catch (err) {
-      setError(err.response?.data?.msg || 'Erro ao processar solicitação')
+      setError(err.response?.data?.msg || 'Email não encontrado')
     } finally {
       setLoading(false)
     }
@@ -29,12 +28,20 @@ export default function ForgotPassword() {
 
   const handleResetPassword = async (e) => {
     e.preventDefault()
+    if (newPassword !== confirmPassword) {
+      setError('As senhas não coincidem')
+      return
+    }
+    if (newPassword.length < 4) {
+      setError('A senha deve ter pelo menos 4 caracteres')
+      return
+    }
     setLoading(true)
     setError('')
     try {
-      await api.post('/reset-password', { email, password: newPassword, token })
-      setMessage('Senha alterada com sucesso! Você já pode fazer login.')
-      setStep(3) // Sucesso
+      await api.post('/reset-password', { email, password: newPassword })
+      setMessage('Senha alterada com sucesso!')
+      setStep(3)
     } catch (err) {
       setError(err.response?.data?.msg || 'Erro ao redefinir senha')
     } finally {
@@ -48,13 +55,13 @@ export default function ForgotPassword() {
         <div className='mb-8 text-center'>
           <h1 className='text-3xl font-bold mb-2'>Recuperar Senha</h1>
           <p className='text-gray-400 text-sm'>
-            {step === 1 ? 'Informe seu email para receber o link de recuperação.' : 
+            {step === 1 ? 'Informe seu email cadastrado.' :
              step === 2 ? 'Defina sua nova senha abaixo.' : 'Tudo pronto!'}
           </p>
         </div>
 
         {step === 1 && (
-          <form onSubmit={handleRequestReset} className='space-y-6'>
+          <form onSubmit={handleFindAccount} className='space-y-6'>
             <div className='space-y-2'>
               <label className='text-sm text-gray-400 font-medium ml-1'>Email</label>
               <input
@@ -72,20 +79,17 @@ export default function ForgotPassword() {
               disabled={loading}
               className='w-full rounded-2xl bg-green-500 py-4 font-bold text-black transition-all hover:bg-green-400 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 shadow-lg shadow-green-500/20'
             >
-              {loading ? 'Processando...' : 'Enviar Link'}
+              {loading ? 'Buscando...' : 'Buscar Conta'}
             </button>
           </form>
         )}
 
         {step === 2 && (
           <form onSubmit={handleResetPassword} className='space-y-6'>
-            <div className='bg-green-500/10 p-4 rounded-xl border border-green-500/20 mb-6'>
-              <p className='text-xs text-green-400 leading-relaxed'>
-                {message} <br/>
-                <span className='opacity-70 font-mono mt-1 block'>Token: {token}</span>
-              </p>
+            <div className='bg-green-500/10 p-4 rounded-xl border border-green-500/20 mb-2'>
+              <p className='text-xs text-green-400'>✅ {message}</p>
+              <p className='text-xs text-gray-500 mt-1'>Conta: {email}</p>
             </div>
-            
             <div className='space-y-2'>
               <label className='text-sm text-gray-400 font-medium ml-1'>Nova Senha</label>
               <input
@@ -93,6 +97,17 @@ export default function ForgotPassword() {
                 required
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
+                className='w-full rounded-2xl border border-gray-700 bg-[#111f34] px-5 py-4 text-white outline-none focus:border-green-400 transition-all'
+                placeholder='••••••••'
+              />
+            </div>
+            <div className='space-y-2'>
+              <label className='text-sm text-gray-400 font-medium ml-1'>Confirmar Senha</label>
+              <input
+                type='password'
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 className='w-full rounded-2xl border border-gray-700 bg-[#111f34] px-5 py-4 text-white outline-none focus:border-green-400 transition-all'
                 placeholder='••••••••'
               />

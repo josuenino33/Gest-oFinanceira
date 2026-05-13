@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import Receitas from './Receitas'
 import Contas from './Contas'
 import Cartoes from './Cartoes'
+import ComprasCartao from './ComprasCartao'
 import Investimentos from './Investimentos'
 
 export default function Carteira() {
@@ -18,38 +19,39 @@ export default function Carteira() {
   const abas = [
     { id: 'contas', label: 'Contas a Pagar', icon: '💸' },
     { id: 'receitas', label: 'Minhas Receitas', icon: '💰' },
-    { id: 'cartoes', label: 'Cartões & Compras', icon: '💳' },
+    { id: 'cartoes', label: 'Cartões', icon: '💳' },
+    { id: 'compras', label: 'Compras Cartão', icon: '🛒' },
     { id: 'investimentos', label: 'Investimentos', icon: '📈' }
   ]
 
   return (
     <div className='max-w-7xl mx-auto'>
       <div className='mb-10'>
-        <h1 className='text-4xl font-black text-white tracking-tighter'>Minha Carteira</h1>
-        <p className='text-gray-500 font-medium'>Gerencie todos os seus lançamentos em um só lugar</p>
+        <h1 className='text-4xl font-black tracking-tighter' style={{ color: 'var(--text-main)' }}>Minha Carteira</h1>
+        <p style={{ color: 'var(--text-muted)' }} className='font-medium'>Gerencie todos os seus lançamentos em um só lugar</p>
       </div>
 
-      {/* Navegação Interna - Scroll Horizontal no Mobile */}
-      <div className='flex overflow-x-auto hide-scrollbar gap-2 bg-[#0d1a2d] p-2 rounded-[2rem] border border-gray-800 mb-10'>
+      <div className='flex overflow-x-auto hide-scrollbar gap-2 p-2 rounded-[2rem] border mb-10' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         {abas.map((aba) => (
           <button
             key={aba.id}
             onClick={() => setAbaAtiva(aba.id)}
-            className={`flex-none min-w-[150px] flex items-center justify-center gap-3 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
-              abaAtiva === aba.id ? 'bg-green-500 text-black shadow-lg shadow-green-500/20' : 'text-gray-500 hover:bg-white/5'
+            className={`flex-none min-w-[140px] flex items-center justify-center gap-3 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+              abaAtiva === aba.id ? 'bg-green-500 text-black shadow-lg shadow-green-500/20' : 'hover:bg-green-500/10'
             }`}
+            style={abaAtiva !== aba.id ? { color: 'var(--text-muted)' } : {}}
           >
-            <span className='text-xl'>{aba.icon}</span> 
+            <span className='text-xl'>{aba.icon}</span>
             <span className='whitespace-nowrap'>{aba.label}</span>
           </button>
         ))}
       </div>
 
-      {/* Renderização Condicional das Páginas Existentes */}
-      <div className='animate-in fade-in slide-in-from-bottom-4 duration-500'>
+      <div>
         {abaAtiva === 'receitas' && <Receitas />}
         {abaAtiva === 'contas' && <Contas />}
         {abaAtiva === 'cartoes' && <Cartoes />}
+        {abaAtiva === 'compras' && <ComprasCartao />}
         {abaAtiva === 'investimentos' && <Investimentos />}
       </div>
     </div>

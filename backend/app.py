@@ -16,12 +16,17 @@ app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=30)
 jwt = JWTManager(app)
 
 # IA Gemini
-genai.configure(api_key=os.environ.get('GEMINI_API_KEY'))
 model = None
 try:
-    model = genai.GenerativeModel('gemini-1.5-flash')
-except:
-    pass
+    api_key = os.environ.get('GEMINI_API_KEY')
+    if api_key:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        print('IA Gemini configurada com sucesso.')
+    else:
+        print('GEMINI_API_KEY não configurada. IA desabilitada.')
+except Exception as e:
+    print(f'Erro ao configurar IA: {e}')
 
 # Banco de Dados
 DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -196,7 +201,7 @@ def init_db():
     finally:
         release_db(conn)
 
-# Inicializar banco
+# Inicializar banco na importação
 init_db()
 
 # ==================== ROTAS ====================
@@ -403,11 +408,182 @@ def chat():
 def auto_categorize():
     return jsonify({'categoria_id': None})
 
-try:
-    init_db()
-    print("Banco de dados inicializado com sucesso.")
-except Exception as e:
-    print(f"FALHA CRÍTICA NA INICIALIZAÇÃO DO BANCO: {e}")
+@app.route('/cartoes', methods=['GET', 'POST'])
+@jwt_required()
+def rota_cartoes():
+    uid = int(get_jwt_identity())
+    if request.method == 'POST':
+        d = request.json
+        try:
+            execute_query('INSERT INTO cartoes (user_id, nome, bandeira, limite) VALUES (?, ?, ?, ?)',
+                          (uid, d.get('nome'), d.get('bandeira'), float(str(d.get('limite','0')).replace(',','.'))))
+            return jsonify({'msg': 'OK'})
+        except Exception as e:
+            return jsonify({'msg': str(e)}), 500
+    rows = fetch_all('SELECT * FROM cartoes WHERE user_id = ? ORDER BY id DESC', (uid,))
+    for r in rows:
+        gasto = fetch_one('SELECT COALESCE(SUM(valor),0) as t FROM compras_cartao WHERE cartao_id=? AND user_id=? AND pago=0', (r['id'], uid))
+        r['total_gasto'] = float(gasto['t']) if gasto else 0
+    return jsonify(rows)
+
+@app.route('/cartoes/<int:id>', methods=['DELETE', 'PUT'])
+@jwt_required()
+def acao_cartao(id):
+    uid = int(get_jwt_identity())
+    if request.method == 'DELETE':
+        execute_query('DELETE FROM cartoes WHERE id = ? AND user_id = ?', (id, uid))
+    else:
+        d = request.json
+        execute_query('UPDATE cartoes SET nome=?, bandeira=?, limite=? WHERE id=? AND user_id=?',
+                      (d.get('nome'), d.get('bandeira'), d.get('limite'), id, uid))
+    return jsonify({'msg': 'OK'})
+
+@app.route('/compras-cartao', methods=['GET', 'POST'])
+@jwt_required()
+def rota_compras_cartao():
+    uid = int(get_jwt_identity())
+    if request.method == 'POST':
+        d = request.json
+        try:
+            cartao_id = int(d.get('cartao_id'))
+            descricao = str(d.get('descricao','')).strip()
+            valor_total = float(str(d.get('valor','0')).replace(',','.'))
+            parcelas = int(d.get('parcelas', 1))
+            mes_compra = int(d.get('mes_compra', datetime.now().month))
+            ano_compra = int(d.get('ano_compra', datetime.now().year))
+            valor_parcela = valor_total / parcelas
+            for i in range(parcelas):
+                m = mes_compra + i
+                a = ano_compra
+                while m > 12:
+                    m -= 12
+                    a += 1
+                criado_em = f"{a}-{m:02d}-15 12:00:00"
+                execute_query('INSERT INTO compras_cartao (user_id, cartao_id, descricao, valor, parcelas, parcela_atual, pago, criado_em) VALUES (?,?,?,?,?,?,0,?)',
+                              (uid, cartao_id, descricao, valor_parcela, parcelas, i+1, criado_em))
+            return jsonify({'msg': 'OK'})
+        except Exception as e:
+            return jsonify({'msg': str(e)}), 500
+    rows = fetch_all('SELECT cc.*, c.nome as cartao_nome, c.bandeira FROM compras_cartao cc LEFT JOIN cartoes c ON c.id=cc.cartao_id WHERE cc.user_id=? ORDER BY cc.id DESC', (uid,))
+    return jsonify(rows)
+
+@app.route('/compras-cartao/<int:id>', methods=['DELETE', 'PUT', 'PATCH'])
+@jwt_required()
+def acao_compra_cartao(id):
+    uid = int(get_jwt_identity())
+    if request.method == 'DELETE':
+        execute_query('DELETE FROM compras_cartao WHERE id=? AND user_id=?', (id, uid))
+    elif request.method == 'PATCH':
+        execute_query('UPDATE compras_cartao SET pago=1 WHERE id=? AND user_id=?', (id, uid))
+    else:
+        d = request.json
+        execute_query('UPDATE compras_cartao SET descricao=?, valor=?, cartao_id=?, parcelas=? WHERE id=? AND user_id=?',
+                      (d.get('descricao'), d.get('valor'), d.get('cartao_id'), d.get('parcelas'), id, uid))
+    return jsonify({'msg': 'OK'})
+
+@app.route('/metas', methods=['GET', 'POST'])
+@jwt_required()
+def rota_metas():
+    uid = int(get_jwt_identity())
+    if request.method == 'POST':
+        d = request.json
+        try:
+            va = float(str(d.get('valor_alvo','0')).replace(',','.'))
+            vc = float(str(d.get('valor_atual','0')).replace(',','.'))
+            prog = int((vc/va)*100) if va > 0 else 0
+            execute_query('INSERT INTO metas (user_id, titulo, descricao, valor_alvo, valor_atual, progresso) VALUES (?,?,?,?,?,?)',
+                          (uid, d.get('titulo'), d.get('descricao',''), va, vc, prog))
+            return jsonify({'msg': 'OK'})
+        except Exception as e:
+            return jsonify({'msg': str(e)}), 500
+    return jsonify(fetch_all('SELECT * FROM metas WHERE user_id=? ORDER BY id DESC', (uid,)))
+
+@app.route('/metas/<int:id>', methods=['DELETE', 'PUT'])
+@jwt_required()
+def acao_meta(id):
+    uid = int(get_jwt_identity())
+    if request.method == 'DELETE':
+        execute_query('DELETE FROM metas WHERE id=? AND user_id=?', (id, uid))
+    else:
+        d = request.json
+        va = float(str(d.get('valor_alvo','0')).replace(',','.'))
+        vc = float(str(d.get('valor_atual','0')).replace(',','.'))
+        prog = int((vc/va)*100) if va > 0 else 0
+        execute_query('UPDATE metas SET titulo=?, descricao=?, valor_alvo=?, valor_atual=?, progresso=? WHERE id=? AND user_id=?',
+                      (d.get('titulo'), d.get('descricao',''), va, vc, prog, id, uid))
+    return jsonify({'msg': 'OK'})
+
+@app.route('/investimentos', methods=['GET', 'POST'])
+@jwt_required()
+def rota_investimentos():
+    uid = int(get_jwt_identity())
+    if request.method == 'POST':
+        d = request.json
+        try:
+            vi = float(str(d.get('valor_investido','0')).replace(',','.'))
+            va = float(str(d.get('valor_atual','0')).replace(',','.'))
+            rent = round(((va-vi)/vi)*100, 2) if vi > 0 else 0
+            execute_query('INSERT INTO investimentos (user_id, titulo, tipo, valor_investido, valor_atual, rentabilidade) VALUES (?,?,?,?,?,?)',
+                          (uid, d.get('titulo'), d.get('tipo'), vi, va, rent))
+            return jsonify({'msg': 'OK'})
+        except Exception as e:
+            return jsonify({'msg': str(e)}), 500
+    return jsonify(fetch_all('SELECT * FROM investimentos WHERE user_id=? ORDER BY id DESC', (uid,)))
+
+@app.route('/investimentos/<int:id>', methods=['DELETE', 'PUT'])
+@jwt_required()
+def acao_investimento(id):
+    uid = int(get_jwt_identity())
+    if request.method == 'DELETE':
+        execute_query('DELETE FROM investimentos WHERE id=? AND user_id=?', (id, uid))
+    else:
+        d = request.json
+        vi = float(str(d.get('valor_investido','0')).replace(',','.'))
+        va = float(str(d.get('valor_atual','0')).replace(',','.'))
+        rent = round(((va-vi)/vi)*100, 2) if vi > 0 else 0
+        execute_query('UPDATE investimentos SET titulo=?, tipo=?, valor_investido=?, valor_atual=?, rentabilidade=? WHERE id=? AND user_id=?',
+                      (d.get('titulo'), d.get('tipo'), vi, va, rent, id, uid))
+    return jsonify({'msg': 'OK'})
+
+@app.route('/insights', methods=['GET'])
+@jwt_required()
+def get_insights():
+    uid = int(get_jwt_identity())
+    insights = []
+    r = fetch_one('SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=?', (uid,))['t']
+    d = fetch_one('SELECT COALESCE(SUM(valor),0) as t FROM contas WHERE user_id=?', (uid,))['t']
+    if float(d) > float(r) and float(r) > 0:
+        insights.append({'msg': f'Suas despesas (R${float(d):.2f}) estão maiores que suas receitas. Hora de revisar os gastos!'})
+    if float(r) > 0 and float(d) > 0:
+        economia = ((float(r)-float(d))/float(r))*100
+        if economia > 20:
+            insights.append({'msg': f'Parabéns! Você está economizando {economia:.0f}% da sua renda.'})
+    if not insights:
+        insights.append({'msg': 'Continue registrando seus lançamentos para receber insights personalizados.'})
+    return jsonify(insights)
+
+@app.route('/forgot-password', methods=['POST'])
+def forgot_password():
+    d = request.json or {}
+    email = d.get('email')
+    u = fetch_one('SELECT * FROM users WHERE email = ?', (email,))
+    if not u:
+        return jsonify({'msg': 'Email não encontrado'}), 404
+    return jsonify({'msg': 'Email encontrado. Defina sua nova senha.', 'email': email})
+
+@app.route('/reset-password', methods=['POST'])
+def reset_password():
+    d = request.json or {}
+    email = d.get('email')
+    password = d.get('password')
+    if not email or not password:
+        return jsonify({'msg': 'Email e senha são obrigatórios'}), 400
+    u = fetch_one('SELECT * FROM users WHERE email = ?', (email,))
+    if not u:
+        return jsonify({'msg': 'Email não encontrado'}), 404
+    h = generate_password_hash(password)
+    execute_query('UPDATE users SET senha = ? WHERE email = ?', (h, email))
+    return jsonify({'msg': 'Senha alterada com sucesso!'})
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

@@ -17,35 +17,26 @@ export default function MobileDrawer({ isOpen, onClose }) {
 
   return (
     <div className='fixed inset-0 z-50 lg:hidden'>
-      {/* Backdrop */}
       <div className='absolute inset-0 bg-black/60 backdrop-blur-sm' onClick={onClose} />
-
-      {/* Drawer */}
-      <div className='absolute right-0 top-0 bottom-0 w-[280px] bg-[#0b1728] border-l border-gray-800 flex flex-col animate-[slideInRight_0.25s_ease-out]'>
-        {/* Header */}
-        <div className='p-5 border-b border-gray-800 flex items-center justify-between'>
+      <div className='absolute right-0 top-0 bottom-0 w-[280px] border-l flex flex-col animate-[slideInRight_0.25s_ease-out]' style={{ background: 'var(--bg-sidebar)', borderColor: 'var(--border-color)' }}>
+        <div className='p-5 border-b flex items-center justify-between' style={{ borderColor: 'var(--border-color)' }}>
           <div>
-            <h2 className='text-lg font-bold text-green-400'>Menu</h2>
-            {user && <p className='text-gray-500 text-xs mt-1'>{user.nome}</p>}
+            <h2 className='text-lg font-bold text-green-500'>Menu</h2>
+            {user && <p style={{ color: 'var(--text-muted)' }} className='text-xs mt-1'>{user.nome}</p>}
           </div>
-          <button onClick={onClose} className='text-gray-400 hover:text-white text-2xl leading-none'>✕</button>
+          <button onClick={onClose} className='text-2xl leading-none' style={{ color: 'var(--text-muted)' }}>✕</button>
         </div>
 
-        {/* Menu items */}
         <nav className='flex-1 overflow-y-auto hide-scrollbar p-3 space-y-1'>
           {menu.map((item) => (
             <NavLink
-              key={item.path}
-              to={item.path}
-              end={item.path === '/'}
-              onClick={onClose}
+              key={item.path} to={item.path} end={item.path === '/'} onClick={onClose}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm ${
-                  isActive
-                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                    : 'text-gray-300 hover:bg-gray-800'
+                  isActive ? 'bg-green-500/20 text-green-500 border border-green-500/30' : 'hover:bg-green-500/10'
                 }`
               }
+              style={({ isActive }) => !isActive ? { color: 'var(--text-main)' } : {}}
             >
               <span className='text-base'>{item.icon}</span>
               <span>{item.label}</span>
@@ -53,12 +44,9 @@ export default function MobileDrawer({ isOpen, onClose }) {
           ))}
         </nav>
 
-        {/* Footer */}
-        <div className='p-4 border-t border-gray-800'>
-          <button
-            onClick={() => { logout(); onClose(); }}
-            className='w-full rounded-xl bg-red-500/10 px-4 py-3 text-red-400 text-sm transition hover:bg-red-500/20 text-center font-semibold'
-          >
+        <div className='p-4 border-t' style={{ borderColor: 'var(--border-color)' }}>
+          <button onClick={() => { logout(); onClose(); }}
+            className='w-full rounded-xl bg-red-500/10 px-4 py-3 text-red-500 text-sm transition hover:bg-red-500/20 text-center font-semibold'>
             🚪 Sair da Conta
           </button>
         </div>

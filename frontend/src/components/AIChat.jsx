@@ -13,9 +13,7 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
   const scrollRef = useRef(null)
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [messages])
 
   const handleSend = async () => {
@@ -24,68 +22,44 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
     setInput('')
     setMessages(prev => [...prev, { role: 'user', text: userMsg }])
     setLoading(true)
-
     try {
-      if (userMsg.toLowerCase() === '/debug') {
-        const res = await api.get('/test-ai')
-        setMessages(prev => [...prev, { role: 'ai', text: `DEBUG: Modelos: ${res.data.modelos_disponiveis?.join(', ') || 'Nenhum'}` }])
-        return
-      }
       const res = await api.post('/chat', { message: userMsg })
       setMessages(prev => [...prev, { role: 'ai', text: res.data.response }])
     } catch (err) {
-      console.error(err)
-      const errorMsg = err.response?.data?.response || 'Erro de conexão com o servidor. Verifique se o backend está rodando.'
-      setMessages(prev => [...prev, { role: 'ai', text: `ERRO: ${errorMsg}` }])
-    } finally {
-      setLoading(false)
-    }
+      const errorMsg = err.response?.data?.response || 'Erro de conexão com o servidor.'
+      setMessages(prev => [...prev, { role: 'ai', text: `${errorMsg}` }])
+    } finally { setLoading(false) }
   }
+
+  const actionBtnStyle = { background: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }
 
   return (
     <div className='fixed bottom-10 right-10 z-50 flex flex-col items-end gap-4 pointer-events-none'>
-      {/* Backdrop para fechar ao clicar fora */}
       {(isMenuOpen || isOpen) && (
-        <div 
-          className='fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[-1] pointer-events-auto' 
-          onClick={() => { setIsMenuOpen(false); setIsOpen(false); }}
-        />
+        <div className='fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[-1] pointer-events-auto'
+          onClick={() => { setIsMenuOpen(false); setIsOpen(false) }} />
       )}
 
-      {/* Menu de Ações Rápidas */}
       {isMenuOpen && !isOpen && (
-        <div className='flex flex-col items-end gap-3 mb-2 animate-in slide-in-from-bottom-4 fade-in duration-200 pointer-events-auto'>
-          <button 
-            onClick={() => { navigate('/carteira?tab=receitas'); setIsMenuOpen(false); }}
-            className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 hover:bg-gray-800 transition-all font-bold text-sm w-max min-w-[220px] justify-between group active:scale-95'
-          >
-            Novo Ganho <span className='group-hover:rotate-12 transition-transform'>💰</span>
-          </button>
-          <button 
-            onClick={() => { navigate('/carteira?tab=contas'); setIsMenuOpen(false); }}
-            className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 hover:bg-gray-800 transition-all font-bold text-sm w-max min-w-[220px] justify-between group active:scale-95'
-          >
-            Nova Despesa <span className='group-hover:rotate-12 transition-transform'>💸</span>
-          </button>
-          <button 
-            onClick={() => { navigate('/carteira?tab=cartoes'); setIsMenuOpen(false); }}
-            className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 hover:bg-gray-800 transition-all font-bold text-sm w-max min-w-[220px] justify-between group active:scale-95'
-          >
-            Compra no Cartão <span className='group-hover:rotate-12 transition-transform'>💳</span>
-          </button>
-          <button 
-            onClick={() => { setIsOpen(true); setIsMenuOpen(false); }}
-            className='bg-[#0d1a2d] border border-gray-800 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 hover:bg-gray-800 transition-all font-bold text-sm w-max min-w-[220px] justify-between group active:scale-95'
-          >
-            Falar com IA <span className='group-hover:rotate-12 transition-transform'>🤖</span>
-          </button>
+        <div className='flex flex-col items-end gap-3 mb-2 pointer-events-auto'>
+          {[
+            { label: 'Novo Ganho', icon: '💰', action: () => { navigate('/carteira?tab=receitas'); setIsMenuOpen(false) } },
+            { label: 'Nova Despesa', icon: '💸', action: () => { navigate('/carteira?tab=contas'); setIsMenuOpen(false) } },
+            { label: 'Compra no Cartão', icon: '💳', action: () => { navigate('/carteira?tab=compras'); setIsMenuOpen(false) } },
+            { label: 'Falar com IA', icon: '🤖', action: () => { setIsOpen(true); setIsMenuOpen(false) } },
+          ].map((item, i) => (
+            <button key={i} onClick={item.action}
+              className='border px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 hover:opacity-80 transition-all font-bold text-sm w-max min-w-[220px] justify-between active:scale-95'
+              style={actionBtnStyle}>
+              {item.label} <span>{item.icon}</span>
+            </button>
+          ))}
         </div>
       )}
 
-      {/* Janela de Chat Glassmorphism */}
       {isOpen && (
-        <div className='absolute bottom-20 right-0 w-[320px] md:w-[450px] h-[650px] bg-[#0b1728]/80 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-500 pointer-events-auto'>
-          {/* Header */}
+        <div className='absolute bottom-20 right-0 w-[320px] md:w-[450px] h-[650px] backdrop-blur-2xl border rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden pointer-events-auto'
+          style={{ background: 'var(--bg-sidebar)', borderColor: 'var(--border-color)' }}>
           <div className='bg-gradient-to-r from-green-500 to-emerald-600 p-6 flex justify-between items-center shadow-lg'>
             <div className='flex items-center gap-3'>
               <div className='w-10 h-10 bg-black/20 rounded-xl flex items-center justify-center text-xl'>🤖</div>
@@ -97,49 +71,39 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
             <button onClick={() => setIsOpen(false)} className='text-black/60 hover:text-black transition text-2xl'>✕</button>
           </div>
 
-          {/* Messages */}
           <div ref={scrollRef} className='flex-1 overflow-y-auto p-6 space-y-4 scroll-smooth'>
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] p-4 rounded-2xl text-sm font-medium leading-relaxed ${
-                  m.role === 'user' 
-                    ? 'bg-green-500 text-black rounded-tr-none' 
-                    : 'bg-[#15253d] text-gray-200 border border-white/5 rounded-tl-none'
-                }`}>
+                  m.role === 'user'
+                    ? 'bg-green-500 text-black rounded-tr-none'
+                    : 'border rounded-tl-none'
+                }`} style={m.role !== 'user' ? { background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' } : {}}>
                   {m.text}
                 </div>
               </div>
             ))}
             {loading && (
               <div className='flex justify-start'>
-                <div className='bg-[#15253d] p-4 rounded-2xl text-gray-400 text-xs animate-pulse'>Digitando...</div>
+                <div className='p-4 rounded-2xl text-xs animate-pulse' style={{ background: 'var(--bg-input)', color: 'var(--text-muted)' }}>Digitando...</div>
               </div>
             )}
           </div>
 
-          {/* Input */}
-          <div className='p-6 bg-[#0d1a2d] border-t border-gray-800'>
+          <div className='p-6 border-t' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
             <div className='flex gap-2'>
-              <input
-                type='text'
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSend()}
-                placeholder='Pergunte algo...'
-                className='flex-1 bg-[#15253d] border border-gray-700 rounded-2xl px-5 py-3 text-sm text-white outline-none focus:border-green-500 transition-all'
-              />
-              <button
-                onClick={handleSend}
-                disabled={loading}
-                className='bg-green-500 hover:bg-green-400 text-black p-4 rounded-2xl transition shadow-lg shadow-green-500/20 disabled:opacity-50'
-              >
+              <input type='text' value={input} onChange={e => setInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSend()} placeholder='Pergunte algo...'
+                className='flex-1 border rounded-2xl px-5 py-3 text-sm outline-none focus:border-green-500 transition-all'
+                style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }} />
+              <button onClick={handleSend} disabled={loading}
+                className='bg-green-500 hover:bg-green-400 text-black p-4 rounded-2xl transition shadow-lg disabled:opacity-50'>
                 🚀
               </button>
             </div>
           </div>
         </div>
       )}
-
     </div>
   )
 }

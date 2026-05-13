@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import api from '../utils/api'
 import {
   XAxis, Tooltip, ResponsiveContainer,
@@ -29,38 +29,55 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdate, setLastUpdate] = useState(null)
   const [patrimonioData, setPatrimonioData] = useState({
-    patrimonio_liquido: 0,
-    ativos: 0,
-    passivos: 0,
-    conquistas: []
+    patrimonio_liquido: 0, ativos: 0, passivos: 0, conquistas: []
   })
   const [insights, setInsights] = useState([])
   const [activeTab, setActiveTab] = useState('resumo')
   const [showFilters, setShowFilters] = useState(false)
+  const filterRef = useRef(null)
+
+  // Fechar filtro ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (filterRef.current && !filterRef.current.contains(e.target)) {
+        setShowFilters(false)
+      }
+    }
+    if (showFilters) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showFilters])
 
   const carregarDashboard = useCallback(async (opt = {}) => {
     if (opt.showLoading) setLoading(true)
     setRefreshing(true)
     try {
-      const [res, pat, ins] = await Promise.all([
+      const [res, pat] = await Promise.all([
         api.get(`/resumo-mensal?mes=${mesSelecionado + 1}&ano=${anoSelecionado}&mes_fim=${mesFim + 1}&ano_fim=${anoFim}`),
         api.get('/patrimonio'),
-        api.get('/insights')
       ])
-      
+
       const newData = res.data
       const newPat = pat.data
-      const newIns = ins.data
 
       if (newData) setData(newData)
       if (newPat) setPatrimonioData(newPat)
-      if (newIns) setInsights(newIns)
-      
-      // Salvar no cache local
+
       if (newData) localStorage.setItem('dash_cache_data', JSON.stringify(newData))
       if (newPat) localStorage.setItem('dash_cache_pat', JSON.stringify(newPat))
-      if (newIns) localStorage.setItem('dash_cache_ins', JSON.stringify(newIns))
-      
+
+      // Insights separado para não bloquear o dashboard
+      try {
+        const ins = await api.get('/insights')
+        if (ins.data) {
+          setInsights(ins.data)
+          localStorage.setItem('dash_cache_ins', JSON.stringify(ins.data))
+        }
+      } catch (e) {
+        console.warn('Insights indisponível:', e)
+      }
+
       setLastUpdate(new Date())
     } catch (e) {
       console.error('Erro ao carregar dashboard:', e)
@@ -71,7 +88,6 @@ export default function Dashboard() {
   }, [mesSelecionado, anoSelecionado, mesFim, anoFim])
 
   useEffect(() => {
-    // Carregamento Inicial + Cache
     const cData = localStorage.getItem('dash_cache_data')
     const cPat = localStorage.getItem('dash_cache_pat')
     const cIns = localStorage.getItem('dash_cache_ins')
@@ -101,17 +117,17 @@ export default function Dashboard() {
   const conquistas = patrimonioData?.conquistas || []
 
   const cards = [
-    { titulo: 'Receitas', valor: fmt(data?.receitas), cor: 'bg-green-500/10 text-green-500', icone: '💰' },
-    { titulo: 'Despesas', valor: fmt(data?.despesas), cor: 'bg-red-500/10 text-red-500', icone: '💸' },
-    { titulo: 'Saldo', valor: fmt(data?.saldo), cor: 'bg-blue-500/10 text-blue-500', icone: '📊' },
-    { titulo: 'Economia', valor: `${Math.round(data?.meta_economia || 0)}%`, cor: 'bg-purple-500/10 text-purple-500', icone: '🎯' },
+    { titulo: 'Receitas', valor: fmt(data?.receitas), cor: '#22c55e', bg: 'rgba(34,197,94,0.1)', icone: '💰' },
+    { titulo: 'Despesas', valor: fmt(data?.despesas), cor: '#ef4444', bg: 'rgba(239,68,68,0.1)', icone: '💸' },
+    { titulo: 'Saldo', valor: fmt(data?.saldo), cor: '#3b82f6', bg: 'rgba(59,130,246,0.1)', icone: '📊' },
+    { titulo: 'Economia', valor: `${Math.round(data?.meta_economia || 0)}%`, cor: '#a855f7', bg: 'rgba(168,85,247,0.1)', icone: '🎯' },
   ]
 
   if (loading && !data.receitas) {
     return (
       <div className='flex flex-col items-center justify-center min-h-[60vh] gap-4'>
         <div className='w-12 h-12 border-4 border-green-500/20 border-t-green-500 rounded-full animate-spin'></div>
-        <p className='text-gray-500 font-black uppercase tracking-widest text-[10px] animate-pulse'>Iniciando Cockpit...</p>
+        <p style={{ color: 'var(--text-muted)' }} className='font-black uppercase tracking-widest text-[10px] animate-pulse'>Iniciando Cockpit...</p>
       </div>
     )
   }
@@ -121,52 +137,53 @@ export default function Dashboard() {
       {/* Header */}
       <div className='flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12'>
         <div>
-          <h1 className='text-4xl md:text-6xl font-black text-white tracking-tighter uppercase'>Cockpit</h1>
+          <h1 className='text-4xl md:text-6xl font-black tracking-tighter uppercase' style={{ color: 'var(--text-main)' }}>Cockpit</h1>
           <div className='flex items-center gap-3 mt-2'>
             <div className={`w-2 h-2 rounded-full ${refreshing ? 'bg-yellow-500 animate-pulse' : 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]'}`}></div>
-            <p className='text-gray-500 font-bold text-[10px] uppercase tracking-widest'>
+            <p style={{ color: 'var(--text-muted)' }} className='font-bold text-[10px] uppercase tracking-widest'>
               {refreshing ? 'Sincronizando...' : lastUpdate ? `Atualizado ${lastUpdate.toLocaleTimeString()}` : 'Pronto'}
             </p>
           </div>
         </div>
 
-        <div className='relative'>
-          <button 
+        <div className='relative' ref={filterRef}>
+          <button
             onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center gap-2 px-8 py-4 rounded-2xl border transition-all font-black text-xs uppercase tracking-widest ${
-              showFilters ? 'bg-green-500 text-black border-green-500 shadow-xl' : 'bg-[#1e293b] border-gray-800 text-gray-400'
+              showFilters ? 'bg-green-500 text-black border-green-500 shadow-xl' : 'border-[var(--border-color)]'
             }`}
+            style={!showFilters ? { background: 'var(--bg-card)', color: 'var(--text-muted)' } : {}}
           >
             {showFilters ? '✕ Fechar' : '🔍 Filtrar Período'}
           </button>
 
           {showFilters && (
-            <div className='absolute top-20 right-0 z-50 min-w-[320px] bg-[#0d1a2d] border border-gray-800 p-6 rounded-[2rem] shadow-2xl animate-in fade-in slide-in-from-top-4'>
+            <div className='absolute top-20 right-0 z-50 min-w-[320px] border p-6 rounded-[2rem] shadow-2xl' style={{ background: 'var(--bg-sidebar)', borderColor: 'var(--border-color)' }}>
               <div className='grid grid-cols-2 gap-4 mb-6'>
                 <div className='space-y-2'>
-                  <span className='text-[10px] text-gray-500 font-black uppercase tracking-widest'>Início</span>
-                  <div className='bg-[#111f34] p-3 rounded-2xl border border-gray-700/30'>
-                    <select value={mesSelecionado} onChange={e => setMesSelecionado(Number(e.target.value))} className='bg-transparent text-white text-xs outline-none w-full font-bold'>
+                  <span style={{ color: 'var(--text-muted)' }} className='text-[10px] font-black uppercase tracking-widest'>Início</span>
+                  <div className='p-3 rounded-2xl border' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)' }}>
+                    <select value={mesSelecionado} onChange={e => setMesSelecionado(Number(e.target.value))} className='bg-transparent text-xs outline-none w-full font-bold' style={{ color: 'var(--text-main)' }}>
                       {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
                     </select>
-                    <select value={anoSelecionado} onChange={e => setAnoSelecionado(Number(e.target.value))} className='bg-transparent text-white text-xs outline-none w-full font-bold mt-2'>
+                    <select value={anoSelecionado} onChange={e => setAnoSelecionado(Number(e.target.value))} className='bg-transparent text-xs outline-none w-full font-bold mt-2' style={{ color: 'var(--text-main)' }}>
                       {[2024, 2025, 2026].map(a => <option key={a} value={a}>{a}</option>)}
                     </select>
                   </div>
                 </div>
                 <div className='space-y-2'>
-                  <span className='text-[10px] text-gray-500 font-black uppercase tracking-widest'>Fim</span>
-                  <div className='bg-[#111f34] p-3 rounded-2xl border border-gray-700/30'>
-                    <select value={mesFim} onChange={e => setMesFim(Number(e.target.value))} className='bg-transparent text-white text-xs outline-none w-full font-bold'>
+                  <span style={{ color: 'var(--text-muted)' }} className='text-[10px] font-black uppercase tracking-widest'>Fim</span>
+                  <div className='p-3 rounded-2xl border' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)' }}>
+                    <select value={mesFim} onChange={e => setMesFim(Number(e.target.value))} className='bg-transparent text-xs outline-none w-full font-bold' style={{ color: 'var(--text-main)' }}>
                       {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
                     </select>
-                    <select value={anoFim} onChange={e => setAnoFim(Number(e.target.value))} className='bg-transparent text-white text-xs outline-none w-full font-bold mt-2'>
+                    <select value={anoFim} onChange={e => setAnoFim(Number(e.target.value))} className='bg-transparent text-xs outline-none w-full font-bold mt-2' style={{ color: 'var(--text-main)' }}>
                       {[2024, 2025, 2026].map(a => <option key={a} value={a}>{a}</option>)}
                     </select>
                   </div>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => { carregarDashboard(); setShowFilters(false); }}
                 className='w-full bg-green-500 text-black font-black py-4 rounded-xl shadow-lg shadow-green-500/20'
               >
@@ -178,7 +195,7 @@ export default function Dashboard() {
       </div>
 
       {/* Navegação */}
-      <div className='flex gap-1.5 bg-[#1e293b] p-2 rounded-[2.5rem] border border-gray-800 mb-12 max-w-lg'>
+      <div className='flex gap-1.5 p-2 rounded-[2.5rem] border mb-12 max-w-lg' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         {[
           { id: 'resumo', label: 'Resumo', icon: '📊' },
           { id: 'ia', label: 'Análise', icon: '🤖' },
@@ -188,10 +205,11 @@ export default function Dashboard() {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-wider transition-all ${
-              activeTab === tab.id ? 'bg-green-500 text-black shadow-lg' : 'text-gray-500 hover:bg-white/5'
+              activeTab === tab.id ? 'bg-green-500 text-black shadow-lg' : 'hover:bg-green-500/10'
             }`}
+            style={activeTab !== tab.id ? { color: 'var(--text-muted)' } : {}}
           >
-            <span className='text-xl'>{tab.icon}</span> 
+            <span className='text-xl'>{tab.icon}</span>
             <span className='hidden sm:inline'>{tab.label}</span>
           </button>
         ))}
@@ -199,38 +217,38 @@ export default function Dashboard() {
 
       {/* Grid Principal */}
       {activeTab === 'resumo' && (
-        <div className='space-y-10 animate-in fade-in duration-500'>
+        <div className='space-y-10'>
           {/* Cards */}
           <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6'>
             {cards.map((card, i) => (
-              <div key={i} className='bg-[#1e293b] rounded-[3rem] p-8 border border-gray-800 hover:border-green-500/30 transition-all shadow-2xl flex flex-col items-center text-center'>
-                <div className={`w-16 h-16 rounded-[1.8rem] ${card.cor.split(' ')[0]} mb-6 flex items-center justify-center text-3xl ${card.cor.split(' ')[1]}`}>
+              <div key={i} className='rounded-[3rem] p-8 border hover:border-green-500/30 transition-all shadow-lg flex flex-col items-center text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                <div className='w-16 h-16 rounded-[1.8rem] mb-6 flex items-center justify-center text-3xl' style={{ background: card.bg, color: card.cor }}>
                   {card.icone}
                 </div>
-                <p className='text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mb-2'>{card.titulo}</p>
-                <h3 className='text-2xl md:text-3xl font-black text-white'>{card.valor}</h3>
+                <p style={{ color: 'var(--text-muted)' }} className='text-[10px] font-black uppercase tracking-[0.2em] mb-2'>{card.titulo}</p>
+                <h3 className='text-2xl md:text-3xl font-black' style={{ color: 'var(--text-main)' }}>{card.valor}</h3>
               </div>
             ))}
           </div>
 
           {/* Patrimônio */}
           <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
-            <div className='lg:col-span-2 bg-gradient-to-br from-[#1e293b] to-[#080f1e] border border-gray-800 p-10 rounded-[3rem] shadow-2xl relative overflow-hidden'>
+            <div className='lg:col-span-2 border p-10 rounded-[3rem] shadow-lg relative overflow-hidden' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
               <div className='relative z-10'>
                 <span className='text-[10px] text-green-400 font-black tracking-[0.3em] uppercase mb-4 block'>Patrimônio Líquido</span>
                 <div className='flex items-baseline gap-4 mb-10'>
-                  <span className='text-3xl text-gray-500 font-light'>R$</span>
-                  <h2 className='text-5xl md:text-8xl font-black text-white tracking-tighter'>
+                  <span className='text-3xl font-light' style={{ color: 'var(--text-muted)' }}>R$</span>
+                  <h2 className='text-5xl md:text-8xl font-black tracking-tighter' style={{ color: 'var(--text-main)' }}>
                     {fmt(patrimonioData?.patrimonio_liquido).replace('R$', '').trim()}
                   </h2>
                 </div>
-                <div className='grid grid-cols-2 gap-10 border-t border-gray-800/50 pt-10 max-w-md'>
+                <div className='grid grid-cols-2 gap-10 border-t pt-10 max-w-md' style={{ borderColor: 'var(--border-color)' }}>
                   <div>
-                    <span className='text-[10px] text-gray-500 font-black uppercase tracking-widest block mb-2'>Ativos</span>
-                    <p className='text-2xl text-white font-black'>{fmt(patrimonioData?.ativos)}</p>
+                    <span style={{ color: 'var(--text-muted)' }} className='text-[10px] font-black uppercase tracking-widest block mb-2'>Ativos</span>
+                    <p className='text-2xl font-black' style={{ color: 'var(--text-main)' }}>{fmt(patrimonioData?.ativos)}</p>
                   </div>
                   <div>
-                    <span className='text-[10px] text-gray-500 font-black uppercase tracking-widest block mb-2'>Dívidas</span>
+                    <span style={{ color: 'var(--text-muted)' }} className='text-[10px] font-black uppercase tracking-widest block mb-2'>Dívidas</span>
                     <p className='text-2xl text-red-400 font-black'>{fmt(patrimonioData?.passivos)}</p>
                   </div>
                 </div>
@@ -238,24 +256,24 @@ export default function Dashboard() {
               <div className='absolute -right-10 -bottom-10 opacity-5 text-[15rem]'>🏦</div>
             </div>
 
-            <div className='bg-[#0d1a2d] border border-gray-800 p-10 rounded-[3rem] shadow-2xl flex flex-col items-center justify-center text-center'>
+            <div className='border p-10 rounded-[3rem] shadow-lg flex flex-col items-center justify-center text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
                <span className='text-[10px] text-purple-400 font-black tracking-[0.3em] uppercase mb-8 block'>Economia Mensal</span>
                <div className='relative w-48 h-48 flex items-center justify-center'>
-                  <svg className='w-full h-full transform -rotate-90'>
-                    <circle cx='96' cy='96' r='88' stroke='currentColor' strokeWidth='12' fill='transparent' className='text-gray-800' />
-                    <circle cx='96' cy='96' r='88' stroke='currentColor' strokeWidth='12' fill='transparent' strokeDasharray={552.92} strokeDashoffset={552.92 - (552.92 * (data?.meta_economia || 10)) / 100} className='text-green-500' />
-                  </svg>
-                  <div className='absolute inset-0 flex flex-col items-center justify-center'>
-                     <span className='text-5xl font-black text-white'>{Math.round(data?.meta_economia || 0)}%</span>
-                  </div>
+                 <svg className='w-full h-full transform -rotate-90'>
+                   <circle cx='96' cy='96' r='88' stroke='var(--border-color)' strokeWidth='12' fill='transparent' />
+                   <circle cx='96' cy='96' r='88' stroke='#22c55e' strokeWidth='12' fill='transparent' strokeDasharray={552.92} strokeDashoffset={552.92 - (552.92 * (data?.meta_economia || 10)) / 100} />
+                 </svg>
+                 <div className='absolute inset-0 flex flex-col items-center justify-center'>
+                    <span className='text-5xl font-black' style={{ color: 'var(--text-main)' }}>{Math.round(data?.meta_economia || 0)}%</span>
+                 </div>
                </div>
             </div>
           </div>
 
           {/* Gráficos */}
           <div className='grid grid-cols-1 xl:grid-cols-3 gap-8'>
-             <div className='xl:col-span-2 bg-[#0d1a2d] rounded-[3rem] p-8 border border-gray-800 shadow-2xl'>
-                <h3 className='text-2xl font-black text-white mb-8'>Fluxo de Caixa</h3>
+             <div className='xl:col-span-2 rounded-[3rem] p-8 border shadow-lg' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                <h3 className='text-2xl font-black mb-8' style={{ color: 'var(--text-main)' }}>Fluxo de Caixa</h3>
                 <div className='h-80 w-full'>
                    <ResponsiveContainer width='100%' height='100%'>
                     <AreaChart data={chartData}>
@@ -269,8 +287,8 @@ export default function Dashboard() {
                           <stop offset='95%' stopColor='#ef4444' stopOpacity={0}/>
                         </linearGradient>
                       </defs>
-                      <XAxis dataKey='name' stroke='#4b5563' fontSize={12} tickLine={false} axisLine={false} />
-                      <Tooltip contentStyle={{ backgroundColor: '#0d1a2d', border: 'none', borderRadius: '20px' }} />
+                      <XAxis dataKey='name' stroke='var(--text-muted)' fontSize={12} tickLine={false} axisLine={false} />
+                      <Tooltip contentStyle={{ backgroundColor: 'var(--bg-sidebar)', border: '1px solid var(--border-color)', borderRadius: '20px', color: 'var(--text-main)' }} />
                       <Area type='monotone' dataKey='receitas' stroke='#22c55e' strokeWidth={4} fill='url(#colorRec)' />
                       <Area type='monotone' dataKey='despesas' stroke='#ef4444' strokeWidth={4} fill='url(#colorDes)' />
                     </AreaChart>
@@ -278,8 +296,8 @@ export default function Dashboard() {
                 </div>
              </div>
 
-             <div className='bg-[#0d1a2d] rounded-[3rem] p-8 border border-gray-800 shadow-2xl flex flex-col items-center justify-center'>
-                <h3 className='text-2xl font-black text-white mb-8'>Categorias</h3>
+             <div className='rounded-[3rem] p-8 border shadow-lg flex flex-col items-center justify-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                <h3 className='text-2xl font-black mb-8' style={{ color: 'var(--text-main)' }}>Categorias</h3>
                 <div className='h-64 w-full relative'>
                    <ResponsiveContainer width='100%' height='100%'>
                     <PieChart>
@@ -296,31 +314,31 @@ export default function Dashboard() {
       )}
 
       {activeTab === 'ia' && (
-        <div className='bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/20 rounded-[3rem] p-10 animate-in fade-in'>
-           <h2 className='text-3xl font-black text-white mb-10'>Insights de IA</h2>
+        <div className='border rounded-[3rem] p-10' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+           <h2 className='text-3xl font-black mb-10' style={{ color: 'var(--text-main)' }}>Insights de IA</h2>
            <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
               {insights.map((ins, i) => (
-                <div key={i} className='bg-[#0b1728] p-8 rounded-[2rem] border border-white/5'>
+                <div key={i} className='p-8 rounded-[2rem] border' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)' }}>
                   <span className='text-4xl block mb-4'>💡</span>
-                  <p className='text-lg text-gray-200'>{ins.msg}</p>
+                  <p className='text-lg' style={{ color: 'var(--text-main)' }}>{ins.msg}</p>
                 </div>
               ))}
-              {insights.length === 0 && <p className='text-gray-500 italic'>Sua IA está processando os dados...</p>}
+              {insights.length === 0 && <p style={{ color: 'var(--text-muted)' }} className='italic'>Sua IA está processando os dados...</p>}
            </div>
         </div>
       )}
 
       {activeTab === 'conquistas' && (
-        <div className='bg-[#0d1a2d] border border-gray-800 rounded-[3rem] p-10 animate-in fade-in'>
-           <h2 className='text-3xl font-black text-white mb-10'>Troféus</h2>
+        <div className='border rounded-[3rem] p-10' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+           <h2 className='text-3xl font-black mb-10' style={{ color: 'var(--text-main)' }}>Troféus</h2>
            <div className='grid grid-cols-2 md:grid-cols-4 gap-8'>
               {conquistas.map((c, i) => (
-                <div key={i} className='p-8 rounded-[2.5rem] border border-gray-800 bg-gray-900/50 flex flex-col items-center text-center opacity-30'>
+                <div key={i} className='p-8 rounded-[2.5rem] border flex flex-col items-center text-center opacity-30' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)' }}>
                    <span className='text-5xl mb-4'>🏆</span>
-                   <h4 className='font-black text-white text-xs uppercase'>{c.titulo || 'Conquista'}</h4>
+                   <h4 className='font-black text-xs uppercase' style={{ color: 'var(--text-main)' }}>{c.titulo || 'Conquista'}</h4>
                 </div>
               ))}
-              {conquistas.length === 0 && <p className='text-gray-500 italic'>Continue poupando para ganhar troféus!</p>}
+              {conquistas.length === 0 && <p style={{ color: 'var(--text-muted)' }} className='italic'>Continue poupando para ganhar troféus!</p>}
            </div>
         </div>
       )}
