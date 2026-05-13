@@ -19,7 +19,10 @@ export default function Sidebar() {
   const [showNotif, setShowNotif] = useState(false)
 
   const carregarDados = () => {
-    api.get('/resumo')
+    const now = new Date()
+    const mes = now.getMonth() + 1
+    const ano = now.getFullYear()
+    api.get(`/resumo-mensal?mes=${mes}&ano=${ano}&mes_fim=${mes}&ano_fim=${ano}`)
       .then(r => setSaldo(r.data.saldo))
       .catch(() => setSaldo(0))
     

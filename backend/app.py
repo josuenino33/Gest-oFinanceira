@@ -406,7 +406,13 @@ def get_patrimonio():
     if total_contas >= 1 and contas_pendentes == 0:
         conquistas.append({'titulo': 'Sem Dívidas', 'icone': '✨', 'desc': 'Todas as contas estão pagas!', 'desbloqueado': True})
 
-    return jsonify({'ativos': ativos, 'passivos': passivos, 'patrimonio_liquido': ativos - passivos, 'conquistas': conquistas})
+    return jsonify({
+        'ativos': ativos,
+        'passivos': passivos,
+        'investimentos': float(inv),
+        'patrimonio_liquido': ativos - passivos,
+        'conquistas': conquistas
+    })
 
 @app.route('/notificacoes', methods=['GET'])
 @jwt_required()

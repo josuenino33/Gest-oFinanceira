@@ -120,7 +120,6 @@ export default function Dashboard() {
     { titulo: 'Receitas', valor: fmt(data?.receitas), cor: '#22c55e', bg: 'rgba(34,197,94,0.1)', icone: '💰' },
     { titulo: 'Despesas', valor: fmt(data?.despesas), cor: '#ef4444', bg: 'rgba(239,68,68,0.1)', icone: '💸' },
     { titulo: 'Saldo', valor: fmt(data?.saldo), cor: '#3b82f6', bg: 'rgba(59,130,246,0.1)', icone: '📊' },
-    { titulo: 'Economia', valor: `${Math.round(data?.meta_economia || 0)}%`, cor: '#a855f7', bg: 'rgba(168,85,247,0.1)', icone: '🎯' },
   ]
 
   if (loading && !data.receitas) {
@@ -219,7 +218,7 @@ export default function Dashboard() {
       {activeTab === 'resumo' && (
         <div className='space-y-10'>
           {/* Cards */}
-          <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6'>
+          <div className='grid grid-cols-1 sm:grid-cols-3 gap-6'>
             {cards.map((card, i) => (
               <div key={i} className='rounded-[3rem] p-8 border hover:border-green-500/30 transition-all shadow-lg flex flex-col items-center text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
                 <div className='w-16 h-16 rounded-[1.8rem] mb-6 flex items-center justify-center text-3xl' style={{ background: card.bg, color: card.cor }}>
@@ -231,42 +230,54 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Patrimônio */}
+          {/* Patrimônio + Economia */}
           <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
             <div className='lg:col-span-2 border p-10 rounded-[3rem] shadow-lg relative overflow-hidden' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
               <div className='relative z-10'>
-                <span className='text-[10px] font-black tracking-[0.3em] uppercase mb-4 block' style={{ color: 'var(--accent)' }}>Patrimônio Líquido</span>
+                <span className='text-[10px] font-black tracking-[0.3em] uppercase mb-1 block' style={{ color: 'var(--accent)' }}>Patrimônio Acumulado</span>
+                <p className='text-xs mb-6' style={{ color: 'var(--text-muted)' }}>Visão total — todos os períodos</p>
                 <div className='flex items-baseline gap-4 mb-10'>
                   <span className='text-3xl font-light' style={{ color: 'var(--text-muted)' }}>R$</span>
-                  <h2 className='text-5xl md:text-8xl font-black tracking-tighter' style={{ color: 'var(--text-main)' }}>
+                  <h2 className='text-5xl md:text-7xl font-black tracking-tighter' style={{ color: 'var(--text-main)' }}>
                     {fmt(patrimonioData?.patrimonio_liquido).replace('R$', '').trim()}
                   </h2>
                 </div>
-                <div className='grid grid-cols-2 gap-10 border-t pt-10 max-w-md' style={{ borderColor: 'var(--border-color)' }}>
+                <div className='grid grid-cols-2 gap-8 border-t pt-8 max-w-md' style={{ borderColor: 'var(--border-color)' }}>
                   <div>
-                    <span style={{ color: 'var(--text-muted)' }} className='text-[10px] font-black uppercase tracking-widest block mb-2'>Ativos</span>
-                    <p className='text-2xl font-black' style={{ color: 'var(--text-main)' }}>{fmt(patrimonioData?.ativos)}</p>
+                    <span style={{ color: 'var(--text-muted)' }} className='text-[10px] font-black uppercase tracking-widest block mb-2'>📈 Investimentos</span>
+                    <p className='text-xl font-black' style={{ color: (patrimonioData?.investimentos || 0) > 0 ? '#22c55e' : 'var(--text-main)' }}>
+                      {fmt(patrimonioData?.investimentos || 0)}
+                    </p>
                   </div>
                   <div>
-                    <span style={{ color: 'var(--text-muted)' }} className='text-[10px] font-black uppercase tracking-widest block mb-2'>Dívidas</span>
-                    <p className='text-2xl text-red-400 font-black'>{fmt(patrimonioData?.passivos)}</p>
+                    <span style={{ color: 'var(--text-muted)' }} className='text-[10px] font-black uppercase tracking-widest block mb-2'>🏅 Conquistas</span>
+                    <p className='text-xl font-black' style={{ color: conquistas.length > 0 ? '#f59e0b' : 'var(--text-main)' }}>
+                      {conquistas.length} troféu{conquistas.length !== 1 ? 's' : ''}
+                    </p>
                   </div>
                 </div>
               </div>
-              <div className='absolute -right-10 -bottom-10 opacity-5 text-[15rem]'>🏦</div>
+              <div className='absolute -right-10 -bottom-10 opacity-5 text-[15rem]'>📈</div>
             </div>
 
             <div className='border p-10 rounded-[3rem] shadow-lg flex flex-col items-center justify-center text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-               <span className='text-[10px] font-black tracking-[0.3em] uppercase mb-8 block' style={{ color: '#a855f7' }}>Economia Mensal</span>
-               <div className='relative w-48 h-48 flex items-center justify-center'>
+               <span className='text-[10px] font-black tracking-[0.3em] uppercase mb-2 block' style={{ color: '#a855f7' }}>Taxa de Poupança</span>
+               <p className='text-xs mb-6' style={{ color: 'var(--text-muted)' }}>do período filtrado</p>
+               <div className='relative w-44 h-44 flex items-center justify-center'>
                  <svg className='w-full h-full transform -rotate-90'>
-                   <circle cx='96' cy='96' r='88' stroke='var(--border-color)' strokeWidth='12' fill='transparent' />
-                   <circle cx='96' cy='96' r='88' stroke='#22c55e' strokeWidth='12' fill='transparent' strokeDasharray={552.92} strokeDashoffset={552.92 - (552.92 * (data?.meta_economia || 10)) / 100} />
+                   <circle cx='88' cy='88' r='80' stroke='var(--border-color)' strokeWidth='12' fill='transparent' />
+                   <circle cx='88' cy='88' r='80' stroke='#22c55e' strokeWidth='12' fill='transparent'
+                     strokeDasharray={502.65}
+                     strokeDashoffset={502.65 - (502.65 * Math.min(100, Math.max(0, data?.meta_economia || 0))) / 100} />
                  </svg>
                  <div className='absolute inset-0 flex flex-col items-center justify-center'>
-                    <span className='text-5xl font-black' style={{ color: 'var(--text-main)' }}>{Math.round(data?.meta_economia || 0)}%</span>
+                    <span className='text-4xl font-black' style={{ color: 'var(--text-main)' }}>{Math.round(data?.meta_economia || 0)}%</span>
+                    <span className='text-[10px] font-bold mt-1' style={{ color: 'var(--text-muted)' }}>economizado</span>
                  </div>
                </div>
+               <p className='text-xs mt-6 font-semibold' style={{ color: (data?.meta_economia || 0) >= 20 ? '#22c55e' : '#f59e0b' }}>
+                 {(data?.meta_economia || 0) >= 30 ? 'Excelente ritmo! 🚀' : (data?.meta_economia || 0) >= 20 ? 'Ótima poupança! 👍' : (data?.meta_economia || 0) > 0 ? 'Pode melhorar ⚡' : 'Sem receitas no período'}
+               </p>
             </div>
           </div>
 
