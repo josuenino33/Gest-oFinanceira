@@ -508,6 +508,17 @@ def rota_compras_cartao():
     rows = fetch_all('SELECT cc.*, c.nome as cartao_nome, c.bandeira FROM compras_cartao cc LEFT JOIN cartoes c ON c.id=cc.cartao_id WHERE cc.user_id=? ORDER BY cc.id DESC', (uid,))
     return jsonify(rows)
 
+@app.route('/compras-cartao/grupo', methods=['DELETE'])
+@jwt_required()
+def excluir_grupo_compra():
+    uid = int(get_jwt_identity())
+    descricao = request.args.get('descricao', '')
+    cartao_id = request.args.get('cartao_id', type=int)
+    if not descricao or not cartao_id:
+        return jsonify({'msg': 'Parâmetros inválidos'}), 400
+    execute_query('DELETE FROM compras_cartao WHERE user_id=? AND descricao=? AND cartao_id=?', (uid, descricao, cartao_id))
+    return jsonify({'msg': 'OK'})
+
 @app.route('/compras-cartao/<int:id>', methods=['DELETE', 'PUT', 'PATCH'])
 @jwt_required()
 def acao_compra_cartao(id):

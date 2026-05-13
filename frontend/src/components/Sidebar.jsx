@@ -19,10 +19,7 @@ export default function Sidebar() {
   const [showNotif, setShowNotif] = useState(false)
 
   const carregarDados = () => {
-    const now = new Date()
-    const mes = now.getMonth() + 1
-    const ano = now.getFullYear()
-    api.get(`/resumo-mensal?mes=${mes}&ano=${ano}&mes_fim=${mes}&ano_fim=${ano}`)
+    api.get('/resumo')
       .then(r => setSaldo(r.data.saldo))
       .catch(() => setSaldo(0))
     
@@ -129,7 +126,7 @@ export default function Sidebar() {
       {/* Footer - sempre visível */}
       <div className='p-4 space-y-3 border-t border-[var(--border-color)]'>
         <div className='bg-[var(--bg-input)] rounded-2xl p-4 border border-[var(--border-color)]'>
-          <p className='text-[var(--text-muted)] text-xs'>Saldo disponível</p>
+          <p className='text-[var(--text-muted)] text-xs'>Saldo Total Acumulado</p>
           <h2 className='text-2xl font-bold mt-1' style={{ color: 'var(--accent)' }}>
             {saldo !== null
               ? `R$ ${saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`

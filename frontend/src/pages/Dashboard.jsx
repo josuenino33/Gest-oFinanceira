@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import api from '../utils/api'
 import {
   XAxis, Tooltip, ResponsiveContainer,
@@ -33,21 +33,26 @@ export default function Dashboard() {
   })
   const [insights, setInsights] = useState([])
   const [activeTab, setActiveTab] = useState('resumo')
-  const [showFilters, setShowFilters] = useState(false)
-  const filterRef = useRef(null)
+  const [activePreset, setActivePreset] = useState('mes')
+  const [showCustom, setShowCustom] = useState(false)
 
-  // Fechar filtro ao clicar fora
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (filterRef.current && !filterRef.current.contains(e.target)) {
-        setShowFilters(false)
-      }
+  const aplicarPreset = (preset) => {
+    const n = new Date()
+    const m = n.getMonth(), a = n.getFullYear()
+    setActivePreset(preset)
+    setShowCustom(preset === 'custom')
+    if (preset === 'mes') {
+      setMesSelecionado(m); setAnoSelecionado(a); setMesFim(m); setAnoFim(a)
+    } else if (preset === '3m') {
+      const s = new Date(a, m - 2, 1)
+      setMesSelecionado(s.getMonth()); setAnoSelecionado(s.getFullYear()); setMesFim(m); setAnoFim(a)
+    } else if (preset === '6m') {
+      const s = new Date(a, m - 5, 1)
+      setMesSelecionado(s.getMonth()); setAnoSelecionado(s.getFullYear()); setMesFim(m); setAnoFim(a)
+    } else if (preset === 'ano') {
+      setMesSelecionado(0); setAnoSelecionado(a); setMesFim(11); setAnoFim(a)
     }
-    if (showFilters) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showFilters])
+  }
 
   const carregarDashboard = useCallback(async (opt = {}) => {
     if (opt.showLoading) setLoading(true)
@@ -131,62 +136,80 @@ export default function Dashboard() {
     )
   }
 
+  const presets = [
+    { id: 'mes', label: 'Este Mês' },
+    { id: '3m', label: 'Últimos 3M' },
+    { id: '6m', label: 'Últimos 6M' },
+    { id: 'ano', label: 'Este Ano' },
+    { id: 'custom', label: 'Personalizado' },
+  ]
+
+  const periodoLabel = activePreset === 'mes'
+    ? mesesNomes[mesFim]
+    : activePreset === 'ano'
+    ? `${anoSelecionado}`
+    : `${mesesNomes[mesSelecionado].slice(0,3)} – ${mesesNomes[mesFim].slice(0,3)} ${anoFim}`
+
   return (
     <div className='max-w-7xl mx-auto pb-20 px-4 md:px-0'>
       {/* Header */}
-      <div className='flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12'>
-        <div>
-          <h1 className='text-4xl md:text-6xl font-black tracking-tighter uppercase' style={{ color: 'var(--text-main)' }}>Cockpit</h1>
-          <div className='flex items-center gap-3 mt-2'>
-            <div className={`w-2 h-2 rounded-full ${refreshing ? 'bg-yellow-500 animate-pulse' : 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]'}`}></div>
-            <p style={{ color: 'var(--text-muted)' }} className='font-bold text-[10px] uppercase tracking-widest'>
-              {refreshing ? 'Sincronizando...' : lastUpdate ? `Atualizado ${lastUpdate.toLocaleTimeString()}` : 'Pronto'}
-            </p>
+      <div className='flex flex-col gap-6 mb-10'>
+        <div className='flex flex-col md:flex-row md:items-end justify-between gap-4'>
+          <div>
+            <h1 className='text-4xl md:text-6xl font-black tracking-tighter uppercase' style={{ color: 'var(--text-main)' }}>Cockpit</h1>
+            <div className='flex items-center gap-3 mt-2'>
+              <div className={`w-2 h-2 rounded-full ${refreshing ? 'bg-yellow-500 animate-pulse' : 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]'}`}></div>
+              <p style={{ color: 'var(--text-muted)' }} className='font-bold text-[10px] uppercase tracking-widest'>
+                {refreshing ? 'Sincronizando...' : lastUpdate ? `Atualizado ${lastUpdate.toLocaleTimeString()}` : 'Pronto'}
+              </p>
+            </div>
           </div>
+          <p className='text-sm font-semibold hidden md:block' style={{ color: 'var(--text-muted)' }}>
+            Período: <span style={{ color: 'var(--text-main)' }}>{periodoLabel}</span>
+          </p>
         </div>
 
-        <div className='relative' ref={filterRef}>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-8 py-4 rounded-2xl border transition-all font-black text-xs uppercase tracking-widest ${
-              showFilters ? 'bg-green-500 text-black border-green-500 shadow-xl' : 'border-[var(--border-color)]'
-            }`}
-            style={!showFilters ? { background: 'var(--bg-card)', color: 'var(--text-muted)' } : {}}
-          >
-            {showFilters ? '✕ Fechar' : '🔍 Filtrar Período'}
-          </button>
-
-          {showFilters && (
-            <div className='absolute top-20 right-0 z-50 min-w-[320px] border p-6 rounded-[2rem] shadow-2xl' style={{ background: 'var(--bg-sidebar)', borderColor: 'var(--border-color)' }}>
-              <div className='grid grid-cols-2 gap-4 mb-6'>
-                <div className='space-y-2'>
-                  <span style={{ color: 'var(--text-muted)' }} className='text-[10px] font-black uppercase tracking-widest'>Início</span>
-                  <div className='p-3 rounded-2xl border' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)' }}>
-                    <select value={mesSelecionado} onChange={e => setMesSelecionado(Number(e.target.value))} className='bg-transparent text-xs outline-none w-full font-bold' style={{ color: 'var(--text-main)' }}>
-                      {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                    </select>
-                    <select value={anoSelecionado} onChange={e => setAnoSelecionado(Number(e.target.value))} className='bg-transparent text-xs outline-none w-full font-bold mt-2' style={{ color: 'var(--text-main)' }}>
-                      {[2024, 2025, 2026].map(a => <option key={a} value={a}>{a}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className='space-y-2'>
-                  <span style={{ color: 'var(--text-muted)' }} className='text-[10px] font-black uppercase tracking-widest'>Fim</span>
-                  <div className='p-3 rounded-2xl border' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)' }}>
-                    <select value={mesFim} onChange={e => setMesFim(Number(e.target.value))} className='bg-transparent text-xs outline-none w-full font-bold' style={{ color: 'var(--text-main)' }}>
-                      {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                    </select>
-                    <select value={anoFim} onChange={e => setAnoFim(Number(e.target.value))} className='bg-transparent text-xs outline-none w-full font-bold mt-2' style={{ color: 'var(--text-main)' }}>
-                      {[2024, 2025, 2026].map(a => <option key={a} value={a}>{a}</option>)}
-                    </select>
-                  </div>
-                </div>
-              </div>
+        {/* Filtro em pills */}
+        <div className='flex flex-col gap-3'>
+          <div className='flex flex-wrap gap-2'>
+            {presets.map(p => (
               <button
-                onClick={() => { carregarDashboard(); setShowFilters(false); }}
-                className='w-full bg-green-500 text-black font-black py-4 rounded-xl shadow-lg shadow-green-500/20'
+                key={p.id}
+                onClick={() => aplicarPreset(p.id)}
+                className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider border transition-all ${
+                  activePreset === p.id
+                    ? 'bg-green-500 text-black border-green-500 shadow-lg shadow-green-500/20'
+                    : 'border-[var(--border-color)] hover:border-green-500/40'
+                }`}
+                style={activePreset !== p.id ? { background: 'var(--bg-card)', color: 'var(--text-muted)' } : {}}
               >
-                APLICAR FILTRO
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {showCustom && (
+            <div className='border rounded-[1.5rem] p-5 flex flex-wrap gap-4 items-end' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+              <div className='flex gap-2 items-center'>
+                <span className='text-[10px] font-black uppercase tracking-widest' style={{ color: 'var(--text-muted)' }}>De</span>
+                <select value={mesSelecionado} onChange={e => setMesSelecionado(Number(e.target.value))} className='border rounded-xl px-3 py-2 text-xs font-bold outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
+                  {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                </select>
+                <select value={anoSelecionado} onChange={e => setAnoSelecionado(Number(e.target.value))} className='border rounded-xl px-3 py-2 text-xs font-bold outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
+                  {[2024, 2025, 2026].map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+              <div className='flex gap-2 items-center'>
+                <span className='text-[10px] font-black uppercase tracking-widest' style={{ color: 'var(--text-muted)' }}>Até</span>
+                <select value={mesFim} onChange={e => setMesFim(Number(e.target.value))} className='border rounded-xl px-3 py-2 text-xs font-bold outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
+                  {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                </select>
+                <select value={anoFim} onChange={e => setAnoFim(Number(e.target.value))} className='border rounded-xl px-3 py-2 text-xs font-bold outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
+                  {[2024, 2025, 2026].map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+              <button onClick={() => carregarDashboard()} className='bg-green-500 text-black font-black px-6 py-2.5 rounded-xl text-xs uppercase tracking-wider shadow-lg shadow-green-500/20'>
+                Aplicar
               </button>
             </div>
           )}

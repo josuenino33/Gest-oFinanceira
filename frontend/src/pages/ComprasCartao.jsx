@@ -19,6 +19,7 @@ export default function ComprasCartao() {
   const [anoCompra, setAnoCompra] = useState(new Date().getFullYear())
   const [loading, setLoading] = useState(false)
   const [compraEditando, setCompraEditando] = useState(null)
+  const [confirmarExclusao, setConfirmarExclusao] = useState(null)
 
   const now = new Date()
   const [mesFiltro, setMesFiltro] = useState(now.getMonth())
@@ -55,7 +56,19 @@ export default function ComprasCartao() {
 
   const fecharModal = () => { setModalOpen(false); setCompraEditando(null); setCartaoId(''); setDescricao(''); setValor(''); setParcelas('1'); setMesCompra(mesFiltro); setAnoCompra(anoFiltro) }
   const abrirModalParaEditar = (c) => { setCompraEditando(c); setCartaoId(c.cartao_id); setDescricao(c.descricao); setValor(c.valor); setParcelas(c.parcelas); setModalOpen(true) }
-  const excluir = async (id) => { try { await api.delete(`/compras-cartao/${id}`); carregar() } catch (e) { alert('Erro ao excluir.') } }
+
+  const excluirUma = async (id) => {
+    try { await api.delete(`/compras-cartao/${id}`); carregar() } catch (e) { alert('Erro ao excluir.') }
+    setConfirmarExclusao(null)
+  }
+  const excluirTodas = async (c) => {
+    try {
+      await api.delete(`/compras-cartao/grupo?descricao=${encodeURIComponent(c.descricao)}&cartao_id=${c.cartao_id}`)
+      carregar()
+    } catch (e) { alert('Erro ao excluir parcelas.') }
+    setConfirmarExclusao(null)
+  }
+
   const marcarPaga = async (id) => { try { await api.patch(`/compras-cartao/${id}`); carregar() } catch (e) { alert('Erro ao marcar como paga.') } }
 
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
@@ -128,7 +141,7 @@ export default function ComprasCartao() {
                   <div className='flex gap-2 flex-col sm:flex-row'>
                     {!c.pago && <button onClick={() => marcarPaga(c.id)} className='text-green-500 hover:text-green-400 text-sm'>Pagar</button>}
                     <button onClick={() => abrirModalParaEditar(c)} className='text-blue-500 hover:text-blue-400 text-sm'>Editar</button>
-                    <button onClick={() => excluir(c.id)} className='text-red-500 hover:text-red-400 text-sm'>Excluir</button>
+                    <button onClick={() => setConfirmarExclusao(c)} className='text-red-500 hover:text-red-400 text-sm'>Excluir</button>
                   </div>
                 </td>
               </tr>
@@ -137,6 +150,41 @@ export default function ComprasCartao() {
         </table>
         {compras.length === 0 && <p style={{ color: 'var(--text-muted)' }} className='text-center py-8'>Nenhuma parcela em {mesesNomes[mesFiltro]} {anoFiltro}</p>}
       </div>
+
+      {/* Diálogo de confirmação de exclusão */}
+      {confirmarExclusao && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center'>
+          <div className='absolute inset-0 bg-black/60 backdrop-blur-sm' onClick={() => setConfirmarExclusao(null)} />
+          <div className='relative border rounded-2xl p-8 w-full max-w-md mx-4 shadow-2xl' style={{ background: 'var(--bg-sidebar)', borderColor: 'var(--border-color)' }}>
+            <h2 className='text-xl font-bold mb-2' style={{ color: 'var(--text-main)' }}>Excluir compra</h2>
+            <p className='text-sm mb-1' style={{ color: 'var(--text-muted)' }}>
+              <span className='font-semibold' style={{ color: 'var(--text-main)' }}>{confirmarExclusao.descricao}</span> — parcela {confirmarExclusao.parcela_atual}/{confirmarExclusao.parcelas}x
+            </p>
+            <p className='text-xs mb-6' style={{ color: 'var(--text-muted)' }}>
+              {confirmarExclusao.parcelas > 1
+                ? 'Deseja excluir apenas esta parcela ou todas as parcelas desta compra?'
+                : 'Confirma a exclusão desta compra?'}
+            </p>
+            <div className='flex flex-col gap-3'>
+              <button onClick={() => excluirUma(confirmarExclusao.id)}
+                className='w-full border rounded-xl py-3 text-sm font-semibold transition hover:bg-red-500/10'
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
+                Excluir só esta parcela ({confirmarExclusao.parcela_atual}/{confirmarExclusao.parcelas}x)
+              </button>
+              {confirmarExclusao.parcelas > 1 && (
+                <button onClick={() => excluirTodas(confirmarExclusao)}
+                  className='w-full bg-red-500 text-white rounded-xl py-3 text-sm font-bold hover:bg-red-600 transition'>
+                  Excluir todas as {confirmarExclusao.parcelas} parcelas
+                </button>
+              )}
+              <button onClick={() => setConfirmarExclusao(null)}
+                className='text-xs font-semibold transition' style={{ color: 'var(--text-muted)' }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Modal isOpen={modalOpen} onClose={fecharModal} title={compraEditando ? 'Editar Compra' : 'Nova Compra no Cartão'}>
         <div className='space-y-4'>
