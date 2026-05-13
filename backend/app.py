@@ -128,7 +128,7 @@ def ensure_postgres_schema(cursor):
 
     for table, columns in migrations.items():
         cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name = %s", (table,))
-        existing = {row['column_name'] for row in cursor.fetchall()}
+        existing = {row[0] for row in cursor.fetchall()}
         for col, definition in columns:
             if col not in existing:
                 try:
