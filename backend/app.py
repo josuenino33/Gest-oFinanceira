@@ -108,67 +108,26 @@ def fetch_one(query, params=()):
         release_db(conn)
 
 def ensure_postgres_schema(cursor):
-    # Migrações para Postgres
     migrations = {
-        'categorias': [
-            ('user_id', 'INTEGER'),
-            ('cor', "TEXT DEFAULT '#22c55e'"),
-        ],
-        'receitas': [
-            ('user_id', 'INTEGER'),
-            ('categoria_id', 'INTEGER'),
-        ],
-        'contas': [
-            ('user_id', 'INTEGER'),
-            ('categoria_id', 'INTEGER'),
-            ('pago', 'INTEGER DEFAULT 0'),
-        ],
-        'cartoes': [
-            ('user_id', 'INTEGER'),
-            ('bandeira', 'TEXT'),
-            ('limite', 'REAL DEFAULT 0'),
-        ],
-        'compras_cartao': [
-            ('user_id', 'INTEGER'),
-            ('pago', 'INTEGER DEFAULT 0'),
-            ('parcela_atual', 'INTEGER DEFAULT 1'),
-        ],
-        'metas': [
-            ('user_id', 'INTEGER'),
-            ('valor_alvo', 'REAL DEFAULT 0'),
-            ('valor_atual', 'REAL DEFAULT 0'),
-            ('progresso', 'INTEGER DEFAULT 0'),
-        ],
-        'investimentos': [
-            ('user_id', 'INTEGER'),
-            ('rentabilidade', 'REAL DEFAULT 0'),
-        ],
-        'planejamento': [
-            ('user_id', 'INTEGER'),
-        ],
+        'users': [('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
+        'categorias': [('user_id', 'INTEGER'), ('cor', "TEXT DEFAULT '#22c55e'"), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
+        'receitas': [('user_id', 'INTEGER'), ('categoria_id', 'INTEGER'), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
+        'contas': [('user_id', 'INTEGER'), ('categoria_id', 'INTEGER'), ('pago', 'INTEGER DEFAULT 0'), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
+        'cartoes': [('user_id', 'INTEGER'), ('bandeira', 'TEXT'), ('limite', 'REAL DEFAULT 0'), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
+        'compras_cartao': [('user_id', 'INTEGER'), ('pago', 'INTEGER DEFAULT 0'), ('parcela_atual', 'INTEGER DEFAULT 1'), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
+        'metas': [('user_id', 'INTEGER'), ('valor_alvo', 'REAL DEFAULT 0'), ('valor_atual', 'REAL DEFAULT 0'), ('progresso', 'INTEGER DEFAULT 0'), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
+        'investimentos': [('user_id', 'INTEGER'), ('rentabilidade', 'REAL DEFAULT 0'), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
+        'planejamento': [('user_id', 'INTEGER'), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')]
     }
 
-migrations = {
-    'users': [('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
-    'categorias': [('cor', "TEXT DEFAULT '#22c55e'"), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
-    'receitas': [('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
-    'contas': [('pago', 'INTEGER DEFAULT 0'), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
-    'metas': [('valor_atual', 'REAL DEFAULT 0'), ('progresso', 'INTEGER DEFAULT 0')],
-    'investimentos': [('rentabilidade', 'REAL DEFAULT 0')]
-}
-
-def ensure_postgres_schema(cursor):
     for table, columns in migrations.items():
-        cursor.execute(
-            "SELECT column_name FROM information_schema.columns WHERE table_name = %s",
-            (table,)
-        )
-        existing_columns = {row['column_name'] for row in cursor.fetchall()}
-        for column_name, definition in columns:
-            if column_name not in existing_columns:
+        cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name = %s", (table,))
+        existing = {row['column_name'] for row in cursor.fetchall()}
+        for col, definition in columns:
+            if col not in existing:
                 try:
-                    cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column_name} {definition}")
-                except Exception:
+                    cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {definition}")
+                except:
                     pass
 
 def ensure_sqlite_schema(cursor):
