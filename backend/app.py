@@ -8,7 +8,7 @@ load_dotenv(Path(__file__).parent / '.env')
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
-import google.generativeai as genai
+from google import genai as google_genai
 
 app = Flask(__name__)
 CORS(app)
@@ -19,12 +19,12 @@ app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=30)
 jwt = JWTManager(app)
 
 # IA Gemini
-model = None
+gemini_client = None
+GEMINI_MODEL = 'gemini-flash-lite-latest'
 try:
     api_key = os.environ.get('GEMINI_API_KEY')
     if api_key:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        gemini_client = google_genai.Client(api_key=api_key)
         print('IA Gemini configurada com sucesso.')
     else:
         print('GEMINI_API_KEY não configurada. IA desabilitada.')
@@ -554,7 +554,7 @@ def update_perfil():
 
 @app.route('/test-ai', methods=['GET'])
 def test_ai():
-    return jsonify({'modelos_disponiveis': ['gemini-1.5-flash'] if model else []})
+    return jsonify({'modelos_disponiveis': [GEMINI_MODEL] if gemini_client else []})
 
 @app.route('/chat', methods=['POST'])
 @jwt_required()
@@ -562,7 +562,7 @@ def chat():
     uid = int(get_jwt_identity())
     d = request.json
     msg = d.get('message', '')
-    if not model:
+    if not gemini_client:
         return jsonify({'response': 'IA não configurada no momento.'})
     try:
         resumo = fetch_one('SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=?', (uid,))
@@ -577,7 +577,7 @@ def chat():
             f"- Investimentos (valor atual): R$ {iv:,.2f}\n"
             f"Responda de forma clara e objetiva em português.\n\nUsuário: {msg}"
         )
-        res = model.generate_content(context)
+        res = gemini_client.models.generate_content(model=GEMINI_MODEL, contents=context)
         return jsonify({'response': res.text})
     except Exception as e:
         return jsonify({'response': f'Erro na IA: {str(e)}'}), 500
@@ -587,7 +587,7 @@ def chat():
 def auto_categorize():
     uid = int(get_jwt_identity())
     descricao = request.json.get('descricao', '')
-    if not model or not descricao:
+    if not gemini_client or not descricao:
         return jsonify({'categoria_id': None})
     try:
         cats = fetch_all('SELECT id, nome FROM categorias WHERE user_id IS NULL OR user_id = ?', (uid,))
@@ -598,7 +598,7 @@ def auto_categorize():
             f"Responda APENAS com o número do id da categoria mais adequada. "
             f"Se nenhuma se encaixar, responda 0."
         )
-        res = model.generate_content(prompt)
+        res = gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
         cat_id = int(''.join(filter(str.isdigit, res.text.strip())) or '0')
         valid_ids = {c['id'] for c in cats}
         return jsonify({'categoria_id': cat_id if cat_id in valid_ids else None})
