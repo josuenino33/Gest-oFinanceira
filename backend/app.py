@@ -231,8 +231,11 @@ def resumo():
     uid = int(get_jwt_identity())
     r = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM receitas WHERE user_id = ?', (uid,))['t']
     d = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM contas WHERE user_id = ?', (uid,))['t']
+    inv = fetch_one('SELECT COALESCE(SUM(valor_investido), 0) as t FROM investimentos WHERE user_id = ?', (uid,))['t']
     m = fetch_one('SELECT COALESCE(AVG(progresso), 0) as p FROM metas WHERE user_id = ?', (uid,))['p']
-    return jsonify({'receitas': float(r), 'despesas': float(d), 'saldo': float(r-d), 'meta': float(m)})
+    # Saldo = receitas - despesas - o que foi alocado em investimentos
+    saldo = float(r) - float(d) - float(inv)
+    return jsonify({'receitas': float(r), 'despesas': float(d), 'saldo': saldo, 'meta': float(m)})
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -371,10 +374,16 @@ def resumo_mensal():
 def get_patrimonio():
     uid = int(get_jwt_identity())
     r = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM receitas WHERE user_id = ?', (uid,))['t']
-    inv = fetch_one('SELECT COALESCE(SUM(valor_atual), 0) as t FROM investimentos WHERE user_id = ?', (uid,))['t']
     d = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM contas WHERE user_id = ?', (uid,))['t']
-    ativos = float(r) + float(inv)
-    passivos = float(d)
+    inv_aplicado = fetch_one('SELECT COALESCE(SUM(valor_investido), 0) as t FROM investimentos WHERE user_id = ?', (uid,))['t']
+    inv_atual = fetch_one('SELECT COALESCE(SUM(valor_atual), 0) as t FROM investimentos WHERE user_id = ?', (uid,))['t']
+
+    # Caixa = receitas − despesas − o que foi alocado em investimentos
+    saldo_caixa = float(r) - float(d) - float(inv_aplicado)
+    # Rendimento = valorização ou desvalorização dos investimentos
+    rendimento = float(inv_atual) - float(inv_aplicado)
+    # Patrimônio = caixa disponível + valor atual dos investimentos
+    patrimonio_liquido = saldo_caixa + float(inv_atual)
 
     # Trofeus
     conquistas = []
@@ -407,10 +416,11 @@ def get_patrimonio():
         conquistas.append({'titulo': 'Sem Dívidas', 'icone': '✨', 'desc': 'Todas as contas estão pagas!', 'desbloqueado': True})
 
     return jsonify({
-        'ativos': ativos,
-        'passivos': passivos,
-        'investimentos': float(inv),
-        'patrimonio_liquido': ativos - passivos,
+        'saldo_caixa': saldo_caixa,
+        'investimentos_aplicados': float(inv_aplicado),
+        'investimentos': float(inv_atual),
+        'rendimento': rendimento,
+        'patrimonio_liquido': patrimonio_liquido,
         'conquistas': conquistas
     })
 

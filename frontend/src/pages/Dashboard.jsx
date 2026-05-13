@@ -257,25 +257,31 @@ export default function Dashboard() {
           <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
             <div className='lg:col-span-2 border p-10 rounded-[3rem] shadow-lg relative overflow-hidden' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
               <div className='relative z-10'>
-                <span className='text-[10px] font-black tracking-[0.3em] uppercase mb-1 block' style={{ color: 'var(--accent)' }}>Patrimônio Acumulado</span>
-                <p className='text-xs mb-6' style={{ color: 'var(--text-muted)' }}>Visão total — todos os períodos</p>
+                <span className='text-[10px] font-black tracking-[0.3em] uppercase mb-1 block' style={{ color: 'var(--accent)' }}>Patrimônio Total</span>
+                <p className='text-xs mb-6' style={{ color: 'var(--text-muted)' }}>Caixa + investimentos — todos os períodos</p>
                 <div className='flex items-baseline gap-4 mb-10'>
                   <span className='text-3xl font-light' style={{ color: 'var(--text-muted)' }}>R$</span>
                   <h2 className='text-5xl md:text-7xl font-black tracking-tighter' style={{ color: 'var(--text-main)' }}>
                     {fmt(patrimonioData?.patrimonio_liquido).replace('R$', '').trim()}
                   </h2>
                 </div>
-                <div className='grid grid-cols-2 gap-8 border-t pt-8 max-w-md' style={{ borderColor: 'var(--border-color)' }}>
+                <div className='grid grid-cols-3 gap-6 border-t pt-8' style={{ borderColor: 'var(--border-color)' }}>
                   <div>
-                    <span style={{ color: 'var(--text-muted)' }} className='text-[10px] font-black uppercase tracking-widest block mb-2'>📈 Investimentos</span>
-                    <p className='text-xl font-black' style={{ color: (patrimonioData?.investimentos || 0) > 0 ? '#22c55e' : 'var(--text-main)' }}>
+                    <span style={{ color: 'var(--text-muted)' }} className='text-[10px] font-black uppercase tracking-widest block mb-2'>💵 Em Caixa</span>
+                    <p className='text-lg font-black' style={{ color: (patrimonioData?.saldo_caixa || 0) >= 0 ? 'var(--text-main)' : '#ef4444' }}>
+                      {fmt(patrimonioData?.saldo_caixa || 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }} className='text-[10px] font-black uppercase tracking-widest block mb-2'>📈 Investido</span>
+                    <p className='text-lg font-black' style={{ color: 'var(--text-main)' }}>
                       {fmt(patrimonioData?.investimentos || 0)}
                     </p>
                   </div>
                   <div>
-                    <span style={{ color: 'var(--text-muted)' }} className='text-[10px] font-black uppercase tracking-widest block mb-2'>🏅 Conquistas</span>
-                    <p className='text-xl font-black' style={{ color: conquistas.length > 0 ? '#f59e0b' : 'var(--text-main)' }}>
-                      {conquistas.length} troféu{conquistas.length !== 1 ? 's' : ''}
+                    <span style={{ color: 'var(--text-muted)' }} className='text-[10px] font-black uppercase tracking-widest block mb-2'>🔥 Rendimento</span>
+                    <p className='text-lg font-black' style={{ color: (patrimonioData?.rendimento || 0) >= 0 ? '#22c55e' : '#ef4444' }}>
+                      {(patrimonioData?.rendimento || 0) >= 0 ? '+' : ''}{fmt(patrimonioData?.rendimento || 0)}
                     </p>
                   </div>
                 </div>
