@@ -359,8 +359,10 @@ def resumo_mensal():
         k = f"{ai}-{mi + 1:02d}"
         historico.append({'name': meses_label[mi], 'receitas': rm.get(k, 0), 'despesas': dm.get(k, 0)})
 
+    economia = round(((float(r) - float(d)) / float(r)) * 100, 1) if float(r) > 0 else 0
     return jsonify({
         'receitas': float(r), 'despesas': float(d), 'saldo': float(r-d),
+        'meta_economia': economia,
         'categorias': cats, 'historico': historico
     })
 
@@ -369,9 +371,42 @@ def resumo_mensal():
 def get_patrimonio():
     uid = int(get_jwt_identity())
     r = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM receitas WHERE user_id = ?', (uid,))['t']
-    i = fetch_one('SELECT COALESCE(SUM(valor_atual), 0) as t FROM investimentos WHERE user_id = ?', (uid,))['t']
-    c = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM contas WHERE user_id = ? AND pago = 0', (uid,))['t']
-    return jsonify({'ativos': float(r+i), 'passivos': float(c), 'patrimonio_liquido': float(r+i-c)})
+    inv = fetch_one('SELECT COALESCE(SUM(valor_atual), 0) as t FROM investimentos WHERE user_id = ?', (uid,))['t']
+    d = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM contas WHERE user_id = ?', (uid,))['t']
+    ativos = float(r) + float(inv)
+    passivos = float(d)
+
+    # Trofeus
+    conquistas = []
+    total_rec = fetch_one('SELECT COUNT(*) as c FROM receitas WHERE user_id=?', (uid,))['c']
+    total_contas = fetch_one('SELECT COUNT(*) as c FROM contas WHERE user_id=?', (uid,))['c']
+    total_inv = fetch_one('SELECT COUNT(*) as c FROM investimentos WHERE user_id=?', (uid,))['c']
+    total_cartoes = fetch_one('SELECT COUNT(*) as c FROM cartoes WHERE user_id=?', (uid,))['c']
+    total_metas = fetch_one('SELECT COUNT(*) as c FROM metas WHERE user_id=?', (uid,))['c']
+    metas_100 = fetch_one('SELECT COUNT(*) as c FROM metas WHERE user_id=? AND progresso >= 100', (uid,))['c']
+    contas_pendentes = fetch_one('SELECT COUNT(*) as c FROM contas WHERE user_id=? AND pago=0', (uid,))['c']
+    economia_pct = round(((float(r) - float(d)) / float(r)) * 100, 1) if float(r) > 0 else 0
+
+    if total_rec >= 1:
+        conquistas.append({'titulo': 'Primeiro Passo', 'icone': '🌱', 'desc': 'Registrou sua primeira receita', 'desbloqueado': True})
+    if economia_pct >= 20:
+        conquistas.append({'titulo': 'Poupador', 'icone': '💰', 'desc': f'Economizando {economia_pct:.0f}% da renda', 'desbloqueado': True})
+    if economia_pct >= 50:
+        conquistas.append({'titulo': 'Grande Poupador', 'icone': '🏆', 'desc': 'Economizando mais de 50%!', 'desbloqueado': True})
+    if total_inv >= 1:
+        conquistas.append({'titulo': 'Investidor', 'icone': '📈', 'desc': 'Tem pelo menos 1 investimento', 'desbloqueado': True})
+    if (total_rec + total_contas) >= 10:
+        conquistas.append({'titulo': 'Organizado', 'icone': '📋', 'desc': 'Mais de 10 lançamentos registrados', 'desbloqueado': True})
+    if total_cartoes >= 1:
+        conquistas.append({'titulo': 'Carteira Completa', 'icone': '💳', 'desc': 'Cadastrou um cartão de crédito', 'desbloqueado': True})
+    if total_metas >= 1:
+        conquistas.append({'titulo': 'Sonhador', 'icone': '🌟', 'desc': 'Criou sua primeira meta', 'desbloqueado': True})
+    if metas_100 >= 1:
+        conquistas.append({'titulo': 'Meta Atingida', 'icone': '🎯', 'desc': 'Concluiu uma meta com sucesso!', 'desbloqueado': True})
+    if total_contas >= 1 and contas_pendentes == 0:
+        conquistas.append({'titulo': 'Sem Dívidas', 'icone': '✨', 'desc': 'Todas as contas estão pagas!', 'desbloqueado': True})
+
+    return jsonify({'ativos': ativos, 'passivos': passivos, 'patrimonio_liquido': ativos - passivos, 'conquistas': conquistas})
 
 @app.route('/notificacoes', methods=['GET'])
 @jwt_required()
@@ -453,7 +488,7 @@ def rota_compras_cartao():
             ano_compra = int(d.get('ano_compra', datetime.now().year))
             valor_parcela = valor_total / parcelas
             for i in range(parcelas):
-                m = mes_compra + i
+                m = mes_compra + 1 + i  # +1: fatura começa no mês seguinte à compra
                 a = ano_compra
                 while m > 12:
                     m -= 12

@@ -2,17 +2,17 @@
 
 /* ===== Paleta Modo Claro ===== */
 :root {
-  --bg-main: #f1f5f9;
-  --bg-sidebar: #ffffff;
+  --bg-main: #eef2f7;
+  --bg-sidebar: #f8fafc;
   --bg-card: #ffffff;
-  --bg-input: #f8fafc;
-  --text-main: #1e293b;
-  --text-muted: #64748b;
-  --border-color: #e2e8f0;
+  --bg-input: #eef2f7;
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --border-color: #cbd5e1;
   --accent: #16a34a;
-  --accent-glow: rgba(22, 163, 74, 0.15);
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --accent-glow: rgba(22, 163, 74, 0.18);
+  --shadow-card: 0 2px 8px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.05);
+  --shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.1);
 }
 
 /* ===== Paleta Modo Escuro ===== */

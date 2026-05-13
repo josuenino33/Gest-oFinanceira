@@ -34,7 +34,7 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
   const actionBtnStyle = { background: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }
 
   return (
-    <div className='fixed bottom-10 right-10 z-50 flex flex-col items-end gap-4 pointer-events-none'>
+    <div className='fixed bottom-6 right-4 md:bottom-10 md:right-10 z-50 flex flex-col items-end gap-4 pointer-events-none'>
       {(isMenuOpen || isOpen) && (
         <div className='fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[-1] pointer-events-auto'
           onClick={() => { setIsMenuOpen(false); setIsOpen(false) }} />
@@ -58,7 +58,7 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
       )}
 
       {isOpen && (
-        <div className='absolute bottom-20 right-0 w-[320px] md:w-[450px] h-[650px] backdrop-blur-2xl border rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden pointer-events-auto'
+        <div className='absolute bottom-16 right-0 w-[90vw] max-w-[340px] md:max-w-[420px] h-[70vh] max-h-[600px] backdrop-blur-2xl border rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden pointer-events-auto'
           style={{ background: 'var(--bg-sidebar)', borderColor: 'var(--border-color)' }}>
           <div className='bg-gradient-to-r from-green-500 to-emerald-600 p-6 flex justify-between items-center shadow-lg'>
             <div className='flex items-center gap-3'>

@@ -235,7 +235,7 @@ export default function Dashboard() {
           <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
             <div className='lg:col-span-2 border p-10 rounded-[3rem] shadow-lg relative overflow-hidden' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
               <div className='relative z-10'>
-                <span className='text-[10px] text-green-400 font-black tracking-[0.3em] uppercase mb-4 block'>Patrimônio Líquido</span>
+                <span className='text-[10px] font-black tracking-[0.3em] uppercase mb-4 block' style={{ color: 'var(--accent)' }}>Patrimônio Líquido</span>
                 <div className='flex items-baseline gap-4 mb-10'>
                   <span className='text-3xl font-light' style={{ color: 'var(--text-muted)' }}>R$</span>
                   <h2 className='text-5xl md:text-8xl font-black tracking-tighter' style={{ color: 'var(--text-main)' }}>
@@ -257,7 +257,7 @@ export default function Dashboard() {
             </div>
 
             <div className='border p-10 rounded-[3rem] shadow-lg flex flex-col items-center justify-center text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-               <span className='text-[10px] text-purple-400 font-black tracking-[0.3em] uppercase mb-8 block'>Economia Mensal</span>
+               <span className='text-[10px] font-black tracking-[0.3em] uppercase mb-8 block' style={{ color: '#a855f7' }}>Economia Mensal</span>
                <div className='relative w-48 h-48 flex items-center justify-center'>
                  <svg className='w-full h-full transform -rotate-90'>
                    <circle cx='96' cy='96' r='88' stroke='var(--border-color)' strokeWidth='12' fill='transparent' />
@@ -314,32 +314,110 @@ export default function Dashboard() {
       )}
 
       {activeTab === 'ia' && (
-        <div className='border rounded-[3rem] p-10' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-           <h2 className='text-3xl font-black mb-10' style={{ color: 'var(--text-main)' }}>Insights de IA</h2>
-           <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-              {insights.map((ins, i) => (
-                <div key={i} className='p-8 rounded-[2rem] border' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)' }}>
-                  <span className='text-4xl block mb-4'>💡</span>
-                  <p className='text-lg' style={{ color: 'var(--text-main)' }}>{ins.msg}</p>
+        <div className='space-y-8'>
+          <div className='flex items-center justify-between'>
+            <div>
+              <h2 className='text-3xl font-black' style={{ color: 'var(--text-main)' }}>Análise Financeira</h2>
+              <p className='text-sm mt-1' style={{ color: 'var(--text-muted)' }}>Baseada nos seus dados do período</p>
+            </div>
+          </div>
+
+          {/* Barra de saúde financeira */}
+          <div className='border rounded-[2.5rem] p-8' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            <div className='flex items-center justify-between mb-4'>
+              <span className='font-black text-xs uppercase tracking-widest' style={{ color: 'var(--text-muted)' }}>Saúde Financeira</span>
+              <span className='font-black text-lg' style={{ color: data?.meta_economia >= 20 ? '#22c55e' : data?.meta_economia > 0 ? '#f59e0b' : '#ef4444' }}>
+                {data?.meta_economia >= 30 ? 'Excelente 🏆' : data?.meta_economia >= 20 ? 'Ótimo 😊' : data?.meta_economia > 0 ? 'Atenção ⚠️' : 'Crítico 🚨'}
+              </span>
+            </div>
+            <div className='w-full h-4 rounded-full overflow-hidden' style={{ background: 'var(--bg-input)' }}>
+              <div className='h-full rounded-full transition-all duration-700'
+                style={{ width: `${Math.min(100, Math.max(0, data?.meta_economia || 0))}%`, background: data?.meta_economia >= 20 ? 'linear-gradient(90deg, #22c55e, #16a34a)' : data?.meta_economia > 0 ? 'linear-gradient(90deg, #f59e0b, #d97706)' : '#ef4444' }} />
+            </div>
+            <div className='flex justify-between mt-2 text-xs font-bold' style={{ color: 'var(--text-muted)' }}>
+              <span>Crítico</span><span>Estável</span><span>Excelente</span>
+            </div>
+          </div>
+
+          {/* Stats rápidos */}
+          <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
+            {[
+              { label: 'Taxa de economia', valor: `${Math.round(data?.meta_economia || 0)}%`, icon: '💰', ok: (data?.meta_economia || 0) >= 20 },
+              { label: 'Saldo do período', valor: fmt(data?.saldo), icon: '📊', ok: (data?.saldo || 0) >= 0 },
+              { label: 'Total receitas', valor: fmt(data?.receitas), icon: '📈', ok: true },
+              { label: 'Total despesas', valor: fmt(data?.despesas), icon: '📉', ok: (data?.despesas || 0) <= (data?.receitas || 0) },
+            ].map((s, i) => (
+              <div key={i} className='border rounded-[2rem] p-6 flex flex-col gap-2' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                <span className='text-2xl'>{s.icon}</span>
+                <p className='text-[10px] font-black uppercase tracking-widest' style={{ color: 'var(--text-muted)' }}>{s.label}</p>
+                <p className='text-xl font-black' style={{ color: s.ok ? 'var(--text-main)' : '#ef4444' }}>{s.valor}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Insights */}
+          <div className='grid grid-cols-1 md:grid-cols-2 gap-5'>
+            {insights.map((ins, i) => {
+              const isWarn = ins.msg.toLowerCase().includes('maior') || ins.msg.toLowerCase().includes('revis')
+              const isGood = ins.msg.toLowerCase().includes('parabén') || ins.msg.toLowerCase().includes('economiz')
+              const icon = isWarn ? '⚠️' : isGood ? '🎉' : '💡'
+              const accent = isWarn ? '#f59e0b' : isGood ? '#22c55e' : '#3b82f6'
+              return (
+                <div key={i} className='rounded-[2rem] p-6 border-l-4 border flex gap-4 items-start'
+                  style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', borderLeftColor: accent }}>
+                  <span className='text-3xl shrink-0'>{icon}</span>
+                  <div>
+                    <p className='font-black text-sm mb-1' style={{ color: accent }}>
+                      {isWarn ? 'Atenção' : isGood ? 'Parabéns!' : 'Dica'}
+                    </p>
+                    <p className='text-sm leading-relaxed' style={{ color: 'var(--text-main)' }}>{ins.msg}</p>
+                  </div>
                 </div>
-              ))}
-              {insights.length === 0 && <p style={{ color: 'var(--text-muted)' }} className='italic'>Sua IA está processando os dados...</p>}
-           </div>
+              )
+            })}
+            {insights.length === 0 && (
+              <div className='col-span-2 text-center py-12' style={{ color: 'var(--text-muted)' }}>
+                <span className='text-5xl block mb-4'>🔍</span>
+                <p>Registre mais lançamentos para receber análises personalizadas.</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       {activeTab === 'conquistas' && (
-        <div className='border rounded-[3rem] p-10' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-           <h2 className='text-3xl font-black mb-10' style={{ color: 'var(--text-main)' }}>Troféus</h2>
-           <div className='grid grid-cols-2 md:grid-cols-4 gap-8'>
+        <div className='space-y-8'>
+          <div>
+            <h2 className='text-3xl font-black' style={{ color: 'var(--text-main)' }}>Troféus</h2>
+            <p className='text-sm mt-1' style={{ color: 'var(--text-muted)' }}>
+              {conquistas.length} troféu{conquistas.length !== 1 ? 's' : ''} desbloqueado{conquistas.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+
+          {conquistas.length === 0 ? (
+            <div className='border rounded-[3rem] p-16 flex flex-col items-center text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+              <span className='text-7xl mb-6'>🔒</span>
+              <h3 className='text-2xl font-black mb-3' style={{ color: 'var(--text-main)' }}>Nenhum troféu ainda</h3>
+              <p style={{ color: 'var(--text-muted)' }} className='max-w-sm'>Registre receitas, despesas e metas para desbloquear conquistas!</p>
+            </div>
+          ) : (
+            <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6'>
               {conquistas.map((c, i) => (
-                <div key={i} className='p-8 rounded-[2.5rem] border flex flex-col items-center text-center opacity-30' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)' }}>
-                   <span className='text-5xl mb-4'>🏆</span>
-                   <h4 className='font-black text-xs uppercase' style={{ color: 'var(--text-main)' }}>{c.titulo || 'Conquista'}</h4>
+                <div key={i} className='border rounded-[2.5rem] p-6 flex flex-col items-center text-center hover:scale-105 transition-transform shadow-lg'
+                  style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', boxShadow: '0 0 20px rgba(34,197,94,0.08)' }}>
+                  <div className='w-16 h-16 rounded-[1.5rem] mb-4 flex items-center justify-center text-3xl' style={{ background: 'rgba(34,197,94,0.12)' }}>
+                    {c.icone}
+                  </div>
+                  <h4 className='font-black text-sm mb-2' style={{ color: 'var(--text-main)' }}>{c.titulo}</h4>
+                  <p className='text-[10px] leading-relaxed' style={{ color: 'var(--text-muted)' }}>{c.desc}</p>
+                  <div className='mt-3 flex items-center gap-1'>
+                    <div className='w-2 h-2 rounded-full bg-green-500'></div>
+                    <span className='text-[9px] font-black text-green-500 uppercase tracking-widest'>Desbloqueado</span>
+                  </div>
                 </div>
               ))}
-              {conquistas.length === 0 && <p style={{ color: 'var(--text-muted)' }} className='italic'>Continue poupando para ganhar troféus!</p>}
-           </div>
+            </div>
+          )}
         </div>
       )}
     </div>

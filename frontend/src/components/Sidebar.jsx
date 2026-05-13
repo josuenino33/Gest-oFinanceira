@@ -30,8 +30,16 @@ export default function Sidebar() {
 
   useEffect(() => {
     carregarDados()
-    const interval = setInterval(carregarDados, 300000) // 5 min
-    return () => clearInterval(interval)
+    const interval = setInterval(carregarDados, 60000) // 1 min
+    const onFocus = () => carregarDados()
+    const onVisibility = () => { if (document.visibilityState === 'visible') carregarDados() }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [])
 
   return (
@@ -39,7 +47,7 @@ export default function Sidebar() {
       {/* Header */}
       <div className='p-6 pb-4'>
         <div className='flex justify-between items-center mb-2'>
-          <h1 className='text-2xl font-bold text-green-400 leading-tight'>Minhas Finanças</h1>
+          <h1 className='text-2xl font-bold leading-tight' style={{ color: 'var(--accent)' }}>Minhas Finanças</h1>
           <div className='flex gap-1'>
             <button 
               onClick={toggleTheme}
@@ -98,11 +106,15 @@ export default function Sidebar() {
             to={item.path}
             end={item.path === '/'}
             className={({ isActive }) =>
-              `w-full flex items-center gap-3 text-left px-4 py-2.5 rounded-xl transition-all duration-300 hover:bg-green-500/20 hover:text-green-400 text-sm ${
+              `w-full flex items-center gap-3 text-left px-4 py-2.5 rounded-xl transition-all duration-300 text-sm ${
                 isActive
-                  ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                  : 'text-[var(--text-main)] opacity-80 hover:opacity-100'
+                  ? 'border border-green-500/30'
+                  : 'opacity-80 hover:opacity-100 hover:bg-green-500/10'
               }`
+            }
+            style={({ isActive }) => isActive
+              ? { background: 'var(--accent-glow)', color: 'var(--accent)' }
+              : { color: 'var(--text-main)' }
             }
           >
             <span className='text-base'>{item.icon}</span>
@@ -115,7 +127,7 @@ export default function Sidebar() {
       <div className='p-4 space-y-3 border-t border-[var(--border-color)]'>
         <div className='bg-[var(--bg-input)] rounded-2xl p-4 border border-[var(--border-color)]'>
           <p className='text-[var(--text-muted)] text-xs'>Saldo disponível</p>
-          <h2 className='text-2xl font-bold text-green-400 mt-1'>
+          <h2 className='text-2xl font-bold mt-1' style={{ color: 'var(--accent)' }}>
             {saldo !== null
               ? `R$ ${saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
               : '...'}

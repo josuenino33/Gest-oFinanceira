@@ -68,7 +68,7 @@ export default function ComprasCartao() {
     const parcVal = val / num
     const items = []
     for (let i = 0; i < num; i++) {
-      let m = mesCompra + i; let a = anoCompra
+      let m = mesCompra + 1 + i; let a = anoCompra  // +1: fatura começa no mês seguinte
       while (m > 11) { m -= 12; a += 1 }
       items.push({ mes: mesesNomes[m], ano: a, parcela: i + 1, valor: parcVal })
     }
