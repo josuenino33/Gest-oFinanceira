@@ -5,8 +5,14 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem('finance-dashboard-token'))
   const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem('finance-dashboard-user')
-    return stored ? JSON.parse(stored) : null
+    try {
+      const stored = localStorage.getItem('finance-dashboard-user')
+      return stored ? JSON.parse(stored) : null
+    } catch (e) {
+      console.error('Erro ao carregar usuário do localStorage:', e)
+      localStorage.removeItem('finance-dashboard-user')
+      return null
+    }
   })
 
   useEffect(() => {

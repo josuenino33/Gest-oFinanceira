@@ -39,7 +39,7 @@ export default function Dashboard() {
   const [showFilters, setShowFilters] = useState(false)
 
   const carregarDashboard = useCallback(async (opt = {}) => {
-    if (opt.showLoading && !data.receitas) setLoading(true)
+    if (opt.showLoading) setLoading(true)
     setRefreshing(true)
     try {
       const [res, pat, ins] = await Promise.all([
@@ -48,18 +48,18 @@ export default function Dashboard() {
         api.get('/insights')
       ])
       
-      const newData = res.data || data
-      const newPat = pat.data || patrimonioData
-      const newIns = ins.data || insights
+      const newData = res.data
+      const newPat = pat.data
+      const newIns = ins.data
 
-      setData(newData)
-      setPatrimonioData(newPat)
-      setInsights(newIns)
+      if (newData) setData(newData)
+      if (newPat) setPatrimonioData(newPat)
+      if (newIns) setInsights(newIns)
       
       // Salvar no cache local
-      localStorage.setItem('dash_cache_data', JSON.stringify(newData))
-      localStorage.setItem('dash_cache_pat', JSON.stringify(newPat))
-      localStorage.setItem('dash_cache_ins', JSON.stringify(newIns))
+      if (newData) localStorage.setItem('dash_cache_data', JSON.stringify(newData))
+      if (newPat) localStorage.setItem('dash_cache_pat', JSON.stringify(newPat))
+      if (newIns) localStorage.setItem('dash_cache_ins', JSON.stringify(newIns))
       
       setLastUpdate(new Date())
     } catch (e) {
@@ -68,7 +68,7 @@ export default function Dashboard() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [mesSelecionado, anoSelecionado, mesFim, anoFim, data, patrimonioData, insights])
+  }, [mesSelecionado, anoSelecionado, mesFim, anoFim])
 
   useEffect(() => {
     // Carregamento Inicial + Cache

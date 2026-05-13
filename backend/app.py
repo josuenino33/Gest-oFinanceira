@@ -26,7 +26,7 @@ except:
 # Banco de Dados
 DATABASE_URL = os.environ.get('DATABASE_URL')
 IS_POSTGRES = DATABASE_URL is not None
-DB_PATH = 'gestao_financeira.db'
+DB_PATH = 'financeiro.db'
 
 # Configuração de Pooling (Dica do Gemini)
 db_pool = None
@@ -368,10 +368,40 @@ def get_patrimonio():
     c = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM contas WHERE user_id = ? AND pago = 0', (uid,))['t']
     return jsonify({'ativos': float(r+i), 'passivos': float(c), 'patrimonio_liquido': float(r+i-c)})
 
-@app.route('/insights', methods=['GET'])
+@app.route('/notificacoes', methods=['GET'])
 @jwt_required()
-def get_insights():
-    return jsonify([{'msg': 'Seu planejamento está em dia!', 'tipo': 'sucesso'}])
+def get_notificacoes():
+    return jsonify([])
+
+@app.route('/perfil', methods=['PUT'])
+@jwt_required()
+def update_perfil():
+    uid = int(get_jwt_identity())
+    d = request.json
+    execute_query('UPDATE users SET nome = ?, email = ? WHERE id = ?', (d.get('nome'), d.get('email'), uid))
+    return jsonify({'msg': 'OK'})
+
+@app.route('/test-ai', methods=['GET'])
+def test_ai():
+    return jsonify({'modelos_disponiveis': ['gemini-1.5-flash'] if model else []})
+
+@app.route('/chat', methods=['POST'])
+@jwt_required()
+def chat():
+    d = request.json
+    msg = d.get('message', '')
+    if not model:
+        return jsonify({'response': 'IA não configurada no momento.'})
+    try:
+        res = model.generate_content(msg)
+        return jsonify({'response': res.text})
+    except Exception as e:
+        return jsonify({'response': f'Erro na IA: {str(e)}'}), 500
+
+@app.route('/auto-categorize', methods=['POST'])
+@jwt_required()
+def auto_categorize():
+    return jsonify({'categoria_id': None})
 
 try:
     init_db()
