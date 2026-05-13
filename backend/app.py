@@ -1,7 +1,7 @@
 import os
 import sqlite3
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from dotenv import load_dotenv
 from pathlib import Path
 load_dotenv(Path(__file__).parent / '.env')
@@ -9,6 +9,7 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
 from google import genai as google_genai
+from google.genai import types as genai_types
 
 app = Flask(__name__)
 CORS(app)
@@ -21,6 +22,7 @@ jwt = JWTManager(app)
 # IA Gemini
 gemini_client = None
 GEMINI_MODEL = 'gemini-flash-lite-latest'
+GEMINI_TTS_MODEL = 'gemini-2.5-flash-preview-tts'
 try:
     api_key = os.environ.get('GEMINI_API_KEY')
     if api_key:
@@ -607,6 +609,39 @@ def chat():
         return jsonify({'response': res.text})
     except Exception as e:
         return jsonify({'response': f'Erro na IA: {str(e)}'}), 500
+
+@app.route('/tts', methods=['POST'])
+@jwt_required()
+def text_to_speech():
+    if not gemini_client:
+        return jsonify({'error': 'IA não configurada'}), 503
+    d = request.json or {}
+    text = (d.get('text') or '').strip()
+    if not text:
+        return jsonify({'error': 'Texto vazio'}), 400
+    try:
+        response = gemini_client.models.generate_content(
+            model=GEMINI_TTS_MODEL,
+            contents=text,
+            config=genai_types.GenerateContentConfig(
+                response_modalities=['AUDIO'],
+                speech_config=genai_types.SpeechConfig(
+                    voice_config=genai_types.VoiceConfig(
+                        prebuilt_voice_config=genai_types.PrebuiltVoiceConfig(
+                            voice_name='Aoede'
+                        )
+                    )
+                )
+            )
+        )
+        audio_data = response.candidates[0].content.parts[0].inline_data.data
+        if isinstance(audio_data, str):
+            import base64
+            audio_data = base64.b64decode(audio_data)
+        return Response(audio_data, mimetype='audio/wav')
+    except Exception as e:
+        print(f'TTS error: {e}')
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/auto-categorize', methods=['POST'])
 @jwt_required()

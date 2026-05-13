@@ -30,14 +30,50 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
     if (!isOpen && voiceMode) stopVoiceMode()
   }, [isOpen])
 
-  const speak = (text, onEnd) => {
+  // Remove markdown e formata números para soar natural no TTS
+  const cleanForSpeech = (text) => text
+    .replace(/\*\*(.+?)\*\*/gs, '$1')
+    .replace(/\*(.+?)\*/gs, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/`(.+?)`/gs, '$1')
+    .replace(/(\d)\.(\d{3})/g, '$1$2')   // 2.000 → 2000 (separador de milhar pt-BR)
+    .replace(/\n{2,}/g, '. ')
+    .replace(/\n/g, ', ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+
+  const speakBrowser = (text, onEnd) => {
     if (!window.speechSynthesis) { onEnd?.(); return }
     window.speechSynthesis.cancel()
     const utter = new SpeechSynthesisUtterance(text)
     utter.lang = 'pt-BR'
     utter.rate = 1.05
+    const voices = window.speechSynthesis.getVoices()
+    const preferred = [
+      'Microsoft Francisca Online (Natural) - Portuguese (Brazil)',
+      'Microsoft Luciana Online (Natural) - Portuguese (Brazil)',
+      'Google português do Brasil',
+      'Microsoft Maria - Portuguese (Brazil)',
+    ]
+    const best = preferred.map(n => voices.find(v => v.name === n)).find(Boolean)
+      || voices.find(v => v.lang?.startsWith('pt-BR'))
+    if (best) utter.voice = best
     utter.onend = () => onEnd?.()
     window.speechSynthesis.speak(utter)
+  }
+
+  const speak = (text, onEnd) => {
+    const clean = cleanForSpeech(text)
+    // Tenta Gemini TTS primeiro, cai no browser se falhar
+    api.post('/tts', { text: clean }, { responseType: 'blob' })
+      .then(res => {
+        const url = URL.createObjectURL(res.data)
+        const audio = new Audio(url)
+        audio.onended = () => { URL.revokeObjectURL(url); onEnd?.() }
+        audio.onerror  = () => { URL.revokeObjectURL(url); speakBrowser(clean, onEnd) }
+        audio.play().catch(() => { URL.revokeObjectURL(url); speakBrowser(clean, onEnd) })
+      })
+      .catch(() => speakBrowser(clean, onEnd))
   }
 
   // Defined via ref so recognition callbacks always call the latest version
