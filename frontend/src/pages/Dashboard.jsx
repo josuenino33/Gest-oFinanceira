@@ -196,7 +196,7 @@ export default function Dashboard() {
                   {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
                 </select>
                 <select value={anoSelecionado} onChange={e => setAnoSelecionado(Number(e.target.value))} className='border rounded-xl px-3 py-2 text-xs font-bold outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
-                  {[2024, 2025, 2026].map(a => <option key={a} value={a}>{a}</option>)}
+                  {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
               </div>
               <div className='flex gap-2 items-center'>
@@ -205,7 +205,7 @@ export default function Dashboard() {
                   {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
                 </select>
                 <select value={anoFim} onChange={e => setAnoFim(Number(e.target.value))} className='border rounded-xl px-3 py-2 text-xs font-bold outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
-                  {[2024, 2025, 2026].map(a => <option key={a} value={a}>{a}</option>)}
+                  {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
               </div>
               <button onClick={() => carregarDashboard()} className='bg-green-500 text-black font-black px-6 py-2.5 rounded-xl text-xs uppercase tracking-wider shadow-lg shadow-green-500/20'>

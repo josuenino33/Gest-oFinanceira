@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
 import Modal from '../components/Modal'
+import { useToast } from '../context/ToastContext'
 
 const mesesNomes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
 export default function Receitas() {
+  const toast = useToast()
   const [listaCompleta, setListaCompleta] = useState([])
   const [categorias, setCategorias] = useState([])
   const [descricao, setDescricao] = useState('')
@@ -39,7 +41,7 @@ export default function Receitas() {
   })
 
   const salvar = async () => {
-    if (!descricao.trim() || !valor) { alert('Informe a descrição e o valor.'); return }
+    if (!descricao.trim() || !valor) { toast('Informe a descrição e o valor.', 'warning'); return }
     const valorNum = Number(String(valor).replace(',', '.'))
     const payload = { descricao, valor: valorNum, categoria_id: categoriaId || null, criado_em: `${anoFiltro}-${String(mesFiltro + 1).padStart(2, '0')}-15 12:00:00` }
     const tempId = Date.now()
@@ -64,7 +66,7 @@ export default function Receitas() {
   const excluir = async (id) => {
     const backup = [...listaCompleta]
     setListaCompleta(prev => prev.filter(item => item.id !== id))
-    try { await api.delete(`/receitas/${id}`) } catch (e) { setListaCompleta(backup); alert('Erro ao excluir.') }
+    try { await api.delete(`/receitas/${id}`) } catch (e) { setListaCompleta(backup); toast('Erro ao excluir.', 'error') }
   }
 
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
@@ -84,7 +86,7 @@ export default function Receitas() {
               {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
             </select>
             <select value={anoFiltro} onChange={e => setAnoFiltro(Number(e.target.value))} className='border px-3 py-2 rounded-xl cursor-pointer outline-none text-xs md:text-sm' style={inputStyle}>
-              {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a}>{a}</option>)}
+              {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
           <button onClick={() => setModalOpen(true)} className='w-full sm:w-auto bg-green-500 text-black px-6 py-3 rounded-xl font-semibold hover:bg-green-400 transition'>+ Nova Receita</button>

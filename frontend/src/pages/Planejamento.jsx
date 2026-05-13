@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
 import Modal from '../components/Modal'
+import { useToast } from '../context/ToastContext'
 
 export default function Planejamento() {
+  const toast = useToast()
   const [planos, setPlanos] = useState([])
   const [categorias, setCategorias] = useState([])
   const [modalOpen, setModalOpen] = useState(false)
@@ -31,7 +33,7 @@ export default function Planejamento() {
   }
 
   const excluir = async (id) => {
-    try { await api.delete(`/planejamento/${id}`); carregar() } catch (e) { alert('Erro ao excluir.') }
+    try { await api.delete(`/planejamento/${id}`); carregar() } catch (e) { toast('Erro ao excluir.', 'error') }
   }
 
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`

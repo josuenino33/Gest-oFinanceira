@@ -8,6 +8,7 @@ const menu = [
   { label: 'Dashboard', path: '/', icon: '📊' },
   { label: 'Minha Carteira', path: '/carteira', icon: '💼' },
   { label: 'Metas & Sonhos', path: '/metas', icon: '🎯' },
+  { label: 'Recorrências', path: '/recorrencias', icon: '🔄' },
   { label: 'Configurações', path: '/configuracoes', icon: '⚙️' },
 ]
 

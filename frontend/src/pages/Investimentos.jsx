@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
 import Modal from '../components/Modal'
+import { useToast } from '../context/ToastContext'
 
 export default function Investimentos() {
+  const toast = useToast()
   const [lista, setLista] = useState([])
   const [modalOpen, setModalOpen] = useState(false)
   const [titulo, setTitulo] = useState('')
@@ -23,13 +25,13 @@ export default function Investimentos() {
       if (investimentoEditando) await api.put(`/investimentos/${investimentoEditando.id}`, payload)
       else await api.post('/investimentos', payload)
       fecharModal(); carregar()
-    } catch (e) { console.error(e); alert('Erro ao salvar investimento') }
+    } catch (e) { console.error(e); toast('Erro ao salvar investimento.', 'error') }
     finally { setLoading(false) }
   }
 
   const fecharModal = () => { setModalOpen(false); setInvestimentoEditando(null); setTitulo(''); setTipo(''); setValorInvestido(''); setValorAtual('') }
   const abrirModalParaEditar = (inv) => { setInvestimentoEditando(inv); setTitulo(inv.titulo); setTipo(inv.tipo); setValorInvestido(inv.valor_investido); setValorAtual(inv.valor_atual); setModalOpen(true) }
-  const excluir = async (id) => { try { await api.delete(`/investimentos/${id}`); carregar() } catch (e) { alert('Erro ao excluir.') } }
+  const excluir = async (id) => { try { await api.delete(`/investimentos/${id}`); carregar() } catch (e) { toast('Erro ao excluir.', 'error') } }
 
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
   const totalInvestido = lista.reduce((s, i) => s + Number(i.valor_investido), 0)

@@ -163,7 +163,8 @@ def init_db():
             f"CREATE TABLE IF NOT EXISTS compras_cartao (id {pk}, user_id INTEGER, cartao_id INTEGER NOT NULL, descricao TEXT NOT NULL, valor REAL NOT NULL, parcelas INTEGER DEFAULT 1, parcela_atual INTEGER DEFAULT 1, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS metas (id {pk}, user_id INTEGER, titulo TEXT NOT NULL, descricao TEXT DEFAULT '', valor_alvo REAL DEFAULT 0, valor_atual REAL DEFAULT 0, progresso INTEGER DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS investimentos (id {pk}, user_id INTEGER, titulo TEXT NOT NULL, tipo TEXT NOT NULL, valor_investido REAL NOT NULL, valor_atual REAL NOT NULL, rentabilidade REAL DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
-            f"CREATE TABLE IF NOT EXISTS planejamento (id {pk}, user_id INTEGER, categoria_id INTEGER, valor_planejado REAL NOT NULL, mes INTEGER NOT NULL, ano INTEGER NOT NULL, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
+            f"CREATE TABLE IF NOT EXISTS planejamento (id {pk}, user_id INTEGER, categoria_id INTEGER, valor_planejado REAL NOT NULL, mes INTEGER NOT NULL, ano INTEGER NOT NULL, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+            f"CREATE TABLE IF NOT EXISTS recorrencias (id {pk}, user_id INTEGER, tipo TEXT NOT NULL, descricao TEXT NOT NULL, valor REAL NOT NULL, categoria_id INTEGER, dia INTEGER DEFAULT 1, ativo INTEGER DEFAULT 1, ultima_geracao TEXT, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
         ]
 
         for sql in tables:
@@ -322,6 +323,50 @@ def rota_categorias():
         return jsonify({'msg': 'OK'})
     return jsonify(fetch_all('SELECT * FROM categorias WHERE user_id IS NULL OR user_id = ? ORDER BY nome', (uid,)))
 
+@app.route('/categorias/<int:id>', methods=['PUT', 'DELETE'])
+@jwt_required()
+def rota_categoria_id(id):
+    uid = int(get_jwt_identity())
+    if request.method == 'DELETE':
+        execute_query('DELETE FROM categorias WHERE id = ? AND user_id = ?', (id, uid))
+        return jsonify({'msg': 'OK'})
+    d = request.json
+    execute_query('UPDATE categorias SET nome = ?, cor = ? WHERE id = ? AND user_id = ?', (d.get('nome'), d.get('cor'), id, uid))
+    return jsonify({'msg': 'OK'})
+
+@app.route('/planejamento', methods=['GET', 'POST'])
+@jwt_required()
+def rota_planejamento():
+    uid = int(get_jwt_identity())
+    if request.method == 'POST':
+        d = request.json
+        execute_query('INSERT INTO planejamento (user_id, categoria_id, valor_planejado, mes, ano) VALUES (?, ?, ?, ?, ?)',
+                      (uid, d.get('categoria_id'), d.get('valor_planejado'), d.get('mes'), d.get('ano')))
+        return jsonify({'msg': 'OK'})
+    mes = datetime.now().month
+    ano = datetime.now().year
+    start = f"{ano}-{mes:02d}-01 00:00:00"
+    end = f"{ano}-{mes+1:02d}-01 00:00:00" if mes < 12 else f"{ano+1}-01-01 00:00:00"
+    rows = fetch_all('''
+        SELECT p.id, p.valor_planejado, p.mes, p.ano,
+               c.nome as categoria_nome, c.cor,
+               COALESCE((SELECT SUM(valor) FROM contas
+                         WHERE user_id = ? AND categoria_id = p.categoria_id
+                         AND criado_em >= ? AND criado_em < ?), 0) as valor_gasto
+        FROM planejamento p
+        LEFT JOIN categorias c ON c.id = p.categoria_id
+        WHERE p.user_id = ? AND p.mes = ? AND p.ano = ?
+        ORDER BY p.id DESC
+    ''', (uid, start, end, uid, mes, ano))
+    return jsonify(rows)
+
+@app.route('/planejamento/<int:id>', methods=['DELETE'])
+@jwt_required()
+def excluir_planejamento(id):
+    uid = int(get_jwt_identity())
+    execute_query('DELETE FROM planejamento WHERE id = ? AND user_id = ?', (id, uid))
+    return jsonify({'msg': 'OK'})
+
 @app.route('/resumo-mensal', methods=['GET'])
 @jwt_required()
 def resumo_mensal():
@@ -427,7 +472,74 @@ def get_patrimonio():
 @app.route('/notificacoes', methods=['GET'])
 @jwt_required()
 def get_notificacoes():
-    return jsonify([])
+    uid = int(get_jwt_identity())
+    now = datetime.now()
+    mes, ano = now.month, now.year
+    start = f"{ano}-{mes:02d}-01 00:00:00"
+    end = f"{ano}-{mes+1:02d}-01 00:00:00" if mes < 12 else f"{ano+1}-01-01 00:00:00"
+    notifs = []
+    overdue = fetch_all("SELECT descricao, valor FROM contas WHERE user_id=? AND pago=0 AND criado_em < ?", (uid, start))
+    for c in overdue:
+        notifs.append({'msg': f'Atrasada: {c["descricao"]}', 'valor': float(c['valor']), 'tipo': 'urgente'})
+    pending = fetch_all("SELECT descricao, valor FROM contas WHERE user_id=? AND pago=0 AND criado_em >= ? AND criado_em < ?", (uid, start, end))
+    for c in pending:
+        notifs.append({'msg': f'Pendente: {c["descricao"]}', 'valor': float(c['valor']), 'tipo': 'alerta'})
+    return jsonify(notifs[:10])
+
+@app.route('/recorrencias', methods=['GET', 'POST'])
+@jwt_required()
+def rota_recorrencias():
+    uid = int(get_jwt_identity())
+    if request.method == 'POST':
+        d = request.json
+        execute_query(
+            'INSERT INTO recorrencias (user_id, tipo, descricao, valor, categoria_id, dia, ativo) VALUES (?, ?, ?, ?, ?, ?, 1)',
+            (uid, d.get('tipo'), d.get('descricao'), d.get('valor'), d.get('categoria_id'), d.get('dia', 1))
+        )
+        return jsonify({'msg': 'OK'})
+    rows = fetch_all('''
+        SELECT r.*, c.nome as categoria_nome FROM recorrencias r
+        LEFT JOIN categorias c ON c.id = r.categoria_id
+        WHERE r.user_id = ? ORDER BY r.id DESC
+    ''', (uid,))
+    return jsonify(rows)
+
+@app.route('/recorrencias/<int:id>', methods=['DELETE', 'PATCH'])
+@jwt_required()
+def rota_recorrencia_id(id):
+    uid = int(get_jwt_identity())
+    if request.method == 'DELETE':
+        execute_query('DELETE FROM recorrencias WHERE id = ? AND user_id = ?', (id, uid))
+        return jsonify({'msg': 'OK'})
+    rec = fetch_one('SELECT ativo FROM recorrencias WHERE id = ? AND user_id = ?', (id, uid))
+    if not rec:
+        return jsonify({'msg': 'Not found'}), 404
+    execute_query('UPDATE recorrencias SET ativo = ? WHERE id = ? AND user_id = ?', (0 if rec['ativo'] else 1, id, uid))
+    return jsonify({'msg': 'OK'})
+
+@app.route('/recorrencias/gerar', methods=['POST'])
+@jwt_required()
+def gerar_recorrencias():
+    uid = int(get_jwt_identity())
+    now = datetime.now()
+    mes, ano = now.month, now.year
+    chave = f"{ano}-{mes:02d}"
+    rows = fetch_all('SELECT * FROM recorrencias WHERE user_id = ? AND ativo = 1', (uid,))
+    geradas = 0
+    for r in rows:
+        if r.get('ultima_geracao') == chave:
+            continue
+        dia = min(int(r['dia']), 28)
+        data = f"{ano}-{mes:02d}-{dia:02d} 12:00:00"
+        if r['tipo'] == 'receita':
+            execute_query('INSERT INTO receitas (user_id, descricao, valor, categoria_id, criado_em) VALUES (?, ?, ?, ?, ?)',
+                          (uid, r['descricao'], r['valor'], r['categoria_id'], data))
+        else:
+            execute_query('INSERT INTO contas (user_id, descricao, valor, categoria_id, pago, criado_em) VALUES (?, ?, ?, ?, 0, ?)',
+                          (uid, r['descricao'], r['valor'], r['categoria_id'], data))
+        execute_query("UPDATE recorrencias SET ultima_geracao = ? WHERE id = ?", (chave, r['id']))
+        geradas += 1
+    return jsonify({'msg': f'{geradas} transações geradas para {mes:02d}/{ano}', 'geradas': geradas})
 
 @app.route('/perfil', methods=['PUT'])
 @jwt_required()
@@ -444,12 +556,25 @@ def test_ai():
 @app.route('/chat', methods=['POST'])
 @jwt_required()
 def chat():
+    uid = int(get_jwt_identity())
     d = request.json
     msg = d.get('message', '')
     if not model:
         return jsonify({'response': 'IA não configurada no momento.'})
     try:
-        res = model.generate_content(msg)
+        resumo = fetch_one('SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=?', (uid,))
+        desp = fetch_one('SELECT COALESCE(SUM(valor),0) as t FROM contas WHERE user_id=?', (uid,))
+        inv = fetch_one('SELECT COALESCE(SUM(valor_atual),0) as t FROM investimentos WHERE user_id=?', (uid,))
+        r, de, iv = float(resumo['t']), float(desp['t']), float(inv['t'])
+        context = (
+            f"Você é um assistente financeiro pessoal. Dados do usuário:\n"
+            f"- Receitas acumuladas: R$ {r:,.2f}\n"
+            f"- Despesas acumuladas: R$ {de:,.2f}\n"
+            f"- Saldo disponível: R$ {r-de:,.2f}\n"
+            f"- Investimentos (valor atual): R$ {iv:,.2f}\n"
+            f"Responda de forma clara e objetiva em português.\n\nUsuário: {msg}"
+        )
+        res = model.generate_content(context)
         return jsonify({'response': res.text})
     except Exception as e:
         return jsonify({'response': f'Erro na IA: {str(e)}'}), 500
@@ -457,7 +582,26 @@ def chat():
 @app.route('/auto-categorize', methods=['POST'])
 @jwt_required()
 def auto_categorize():
-    return jsonify({'categoria_id': None})
+    uid = int(get_jwt_identity())
+    descricao = request.json.get('descricao', '')
+    if not model or not descricao:
+        return jsonify({'categoria_id': None})
+    try:
+        cats = fetch_all('SELECT id, nome FROM categorias WHERE user_id IS NULL OR user_id = ?', (uid,))
+        lista = ', '.join([f"{c['id']}:{c['nome']}" for c in cats])
+        prompt = (
+            f"Categorize esta transação financeira: '{descricao}'\n"
+            f"Categorias disponíveis (id:nome): {lista}\n"
+            f"Responda APENAS com o número do id da categoria mais adequada. "
+            f"Se nenhuma se encaixar, responda 0."
+        )
+        res = model.generate_content(prompt)
+        cat_id = int(''.join(filter(str.isdigit, res.text.strip())) or '0')
+        valid_ids = {c['id'] for c in cats}
+        return jsonify({'categoria_id': cat_id if cat_id in valid_ids else None})
+    except Exception as e:
+        print(f'auto-categorize error: {e}')
+        return jsonify({'categoria_id': None})
 
 @app.route('/cartoes', methods=['GET', 'POST'])
 @jwt_required()

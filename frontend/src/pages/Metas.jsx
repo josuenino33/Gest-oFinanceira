@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
 import Modal from '../components/Modal'
+import { useToast } from '../context/ToastContext'
 
 export default function Metas() {
+  const toast = useToast()
   const [metas, setMetas] = useState([])
   const [modalOpen, setModalOpen] = useState(false)
   const [titulo, setTitulo] = useState('')
@@ -25,13 +27,13 @@ export default function Metas() {
       if (metaEditando) await api.put(`/metas/${metaEditando.id}`, payload)
       else await api.post('/metas', payload)
       fecharModal(); carregar()
-    } catch (e) { console.error(e); alert('Erro ao salvar meta') }
+    } catch (e) { console.error(e); toast('Erro ao salvar meta.', 'error') }
     finally { setLoading(false) }
   }
 
   const fecharModal = () => { setModalOpen(false); setMetaEditando(null); setTitulo(''); setDescricao(''); setValorAlvo(''); setValorAtual('') }
   const abrirModalParaEditar = (m) => { setMetaEditando(m); setTitulo(m.titulo); setDescricao(m.descricao); setValorAlvo(m.valor_alvo); setValorAtual(m.valor_atual); setModalOpen(true) }
-  const excluir = async (id) => { try { await api.delete(`/metas/${id}`); carregar() } catch (e) { alert('Erro ao excluir.') } }
+  const excluir = async (id) => { try { await api.delete(`/metas/${id}`); carregar() } catch (e) { toast('Erro ao excluir.', 'error') } }
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
   const inputStyle = { background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }
 

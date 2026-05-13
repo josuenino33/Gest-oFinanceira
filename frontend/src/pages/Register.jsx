@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../utils/api'
+import { useToast } from '../context/ToastContext'
 
 export default function Register() {
+  const toast = useToast()
   const navigate = useNavigate()
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
@@ -17,7 +19,7 @@ export default function Register() {
 
     try {
       await api.post('/register', { nome, email, password })
-      alert('Conta criada com sucesso! Faça login para continuar.')
+      toast('Conta criada com sucesso! Faça login para continuar.')
       navigate('/login')
     } catch (err) {
       setError(err.response?.data?.msg || 'Erro ao criar conta')

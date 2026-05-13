@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
 import Modal from '../components/Modal'
+import { useToast } from '../context/ToastContext'
 
 const mesesNomes = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -8,6 +9,7 @@ const mesesNomes = [
 ]
 
 export default function ComprasCartao() {
+  const toast = useToast()
   const [comprasCompletas, setComprasCompletas] = useState([])
   const [cartoes, setCartoes] = useState([])
   const [modalOpen, setModalOpen] = useState(false)
@@ -38,10 +40,10 @@ export default function ComprasCartao() {
   })
 
   const salvar = async () => {
-    if (!cartaoId || !descricao.trim() || !valor) { alert('Preencha todos os campos.'); return }
+    if (!cartaoId || !descricao.trim() || !valor) { toast('Preencha todos os campos.', 'warning'); return }
     const valorNum = Number(String(valor).replace(',', '.'))
     const parcelasNum = Number(parcelas)
-    if (!Number.isFinite(valorNum) || valorNum <= 0 || !Number.isInteger(parcelasNum) || parcelasNum <= 0) { alert('Valores inválidos.'); return }
+    if (!Number.isFinite(valorNum) || valorNum <= 0 || !Number.isInteger(parcelasNum) || parcelasNum <= 0) { toast('Valores inválidos.', 'warning'); return }
     setLoading(true)
     try {
       if (compraEditando) {
@@ -50,7 +52,7 @@ export default function ComprasCartao() {
         await api.post('/compras-cartao', { cartao_id: Number(cartaoId), descricao, valor: valorNum, parcelas: parcelasNum, mes_compra: mesCompra + 1, ano_compra: anoCompra })
       }
       fecharModal(); carregar()
-    } catch (e) { console.error(e); alert('Erro ao salvar compra.') }
+    } catch (e) { console.error(e); toast('Erro ao salvar compra.', 'error') }
     finally { setLoading(false) }
   }
 
@@ -58,18 +60,18 @@ export default function ComprasCartao() {
   const abrirModalParaEditar = (c) => { setCompraEditando(c); setCartaoId(c.cartao_id); setDescricao(c.descricao); setValor(c.valor); setParcelas(c.parcelas); setModalOpen(true) }
 
   const excluirUma = async (id) => {
-    try { await api.delete(`/compras-cartao/${id}`); carregar() } catch (e) { alert('Erro ao excluir.') }
+    try { await api.delete(`/compras-cartao/${id}`); carregar() } catch (e) { toast('Erro ao excluir.', 'error') }
     setConfirmarExclusao(null)
   }
   const excluirTodas = async (c) => {
     try {
       await api.delete(`/compras-cartao/grupo?descricao=${encodeURIComponent(c.descricao)}&cartao_id=${c.cartao_id}`)
       carregar()
-    } catch (e) { alert('Erro ao excluir parcelas.') }
+    } catch (e) { toast('Erro ao excluir parcelas.', 'error') }
     setConfirmarExclusao(null)
   }
 
-  const marcarPaga = async (id) => { try { await api.patch(`/compras-cartao/${id}`); carregar() } catch (e) { alert('Erro ao marcar como paga.') } }
+  const marcarPaga = async (id) => { try { await api.patch(`/compras-cartao/${id}`); carregar() } catch (e) { toast('Erro ao marcar como paga.', 'error') } }
 
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
   const totalMes = compras.reduce((s, c) => s + Number(c.valor), 0)
@@ -103,7 +105,7 @@ export default function ComprasCartao() {
               {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
             </select>
             <select value={anoFiltro} onChange={e => setAnoFiltro(Number(e.target.value))} className='border px-3 py-2 rounded-xl cursor-pointer outline-none text-xs md:text-sm' style={inputStyle}>
-              {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a}>{a}</option>)}
+              {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
           <button onClick={() => { setMesCompra(mesFiltro); setAnoCompra(anoFiltro); setModalOpen(true) }} className='w-full sm:w-auto bg-green-500 text-black px-6 py-3 rounded-xl font-semibold hover:bg-green-400 transition'>+ Nova Compra</button>
@@ -208,7 +210,7 @@ export default function ComprasCartao() {
                 <div className='flex-1'>
                   <label className='text-xs mb-1 block' style={{ color: 'var(--text-muted)' }}>Ano</label>
                   <select value={anoCompra} onChange={e => setAnoCompra(Number(e.target.value))} className='w-full rounded-xl p-4 border outline-none focus:border-green-400' style={inputStyle}>
-                    {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a}>{a}</option>)}
+                    {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(a => <option key={a} value={a}>{a}</option>)}
                   </select>
                 </div>
               </div>

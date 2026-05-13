@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
 import Modal from '../components/Modal'
+import { useToast } from '../context/ToastContext'
 
 export default function Cartoes() {
+  const toast = useToast()
   const [cartoes, setCartoes] = useState([])
   const [modalOpen, setModalOpen] = useState(false)
   const [nome, setNome] = useState('')
@@ -15,22 +17,22 @@ export default function Cartoes() {
   useEffect(() => { carregar() }, [])
 
   const salvar = async () => {
-    if (!nome.trim() || !bandeira || !limite) { alert('Informe todos os campos.'); return }
+    if (!nome.trim() || !bandeira || !limite) { toast('Informe todos os campos.', 'warning'); return }
     const limiteNum = Number(String(limite).replace(',', '.'))
-    if (!Number.isFinite(limiteNum) || limiteNum <= 0) { alert('Limite inválido.'); return }
+    if (!Number.isFinite(limiteNum) || limiteNum <= 0) { toast('Limite inválido.', 'warning'); return }
     setLoading(true)
     try {
       const payload = { nome, bandeira, limite: limiteNum }
       if (cartaoEditando) await api.put(`/cartoes/${cartaoEditando.id}`, payload)
       else await api.post('/cartoes', payload)
       fecharModal(); carregar()
-    } catch (e) { console.error(e); alert('Erro ao salvar cartão') }
+    } catch (e) { console.error(e); toast('Erro ao salvar cartão.', 'error') }
     finally { setLoading(false) }
   }
 
   const fecharModal = () => { setModalOpen(false); setCartaoEditando(null); setNome(''); setBandeira(''); setLimite('') }
   const abrirModalParaEditar = (c) => { setCartaoEditando(c); setNome(c.nome); setBandeira(c.bandeira); setLimite(c.limite); setModalOpen(true) }
-  const excluir = async (id) => { try { await api.delete(`/cartoes/${id}`); carregar() } catch (e) { alert('Erro ao excluir.') } }
+  const excluir = async (id) => { try { await api.delete(`/cartoes/${id}`); carregar() } catch (e) { toast('Erro ao excluir.', 'error') } }
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 
   return (

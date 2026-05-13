@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
 import Modal from '../components/Modal'
+import { useToast } from '../context/ToastContext'
 
 const mesesNomes = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -8,6 +9,7 @@ const mesesNomes = [
 ]
 
 export default function Contas() {
+  const toast = useToast()
   const [contasCompletas, setContasCompletas] = useState([])
   const [categorias, setCategorias] = useState([])
   const [descricao, setDescricao] = useState('')
@@ -48,7 +50,7 @@ export default function Contas() {
   })
 
   const salvar = async () => {
-    if (!descricao.trim() || !valor) { alert('Informe a descrição e o valor.'); return }
+    if (!descricao.trim() || !valor) { toast('Informe a descrição e o valor.', 'warning'); return }
     const valorNumerico = Number(String(valor).replace(',', '.'))
     const payload = {
       descricao, valor: valorNumerico, categoria_id: categoriaId || null,
@@ -80,14 +82,14 @@ export default function Contas() {
     const backup = [...contasCompletas]
     setContasCompletas(prev => prev.filter(item => item.id !== id))
     try { await api.delete(`/contas/${id}`) }
-    catch (e) { setContasCompletas(backup); alert('Erro ao excluir.') }
+    catch (e) { setContasCompletas(backup); toast('Erro ao excluir.', 'error') }
   }
 
   const marcarPaga = async (id) => {
     const backup = [...contasCompletas]
     setContasCompletas(prev => prev.map(item => item.id === id ? { ...item, pago: 1 } : item))
     try { await api.patch(`/contas/${id}`) }
-    catch (e) { setContasCompletas(backup); alert('Erro ao marcar como paga.') }
+    catch (e) { setContasCompletas(backup); toast('Erro ao marcar como paga.', 'error') }
   }
 
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
@@ -109,7 +111,7 @@ export default function Contas() {
             </select>
             <select value={anoFiltro} onChange={e => setAnoFiltro(Number(e.target.value))}
               className='border px-3 py-2 rounded-xl cursor-pointer outline-none focus:border-green-500/50 text-xs md:text-sm' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
-              {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a}>{a}</option>)}
+              {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
           <button onClick={() => setModalOpen(true)} className='w-full sm:w-auto bg-green-500 text-black px-6 py-3 rounded-xl font-semibold hover:bg-green-400 transition'>+ Nova Conta</button>

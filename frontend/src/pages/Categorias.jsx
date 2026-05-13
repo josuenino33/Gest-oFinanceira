@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
 import Modal from '../components/Modal'
+import { useToast } from '../context/ToastContext'
 
 export default function Categorias() {
+  const toast = useToast()
   const [categorias, setCategorias] = useState([])
   const [modalOpen, setModalOpen] = useState(false)
   const [nome, setNome] = useState('')
@@ -14,26 +16,26 @@ export default function Categorias() {
   useEffect(() => { carregar() }, [])
 
   const salvar = async () => {
-    if (!nome.trim()) { alert('Informe o nome da categoria.'); return }
+    if (!nome.trim()) { toast('Informe o nome da categoria.', 'warning'); return }
     setLoading(true)
     try {
       const payload = { nome, cor }
       if (categoriaEditando) await api.put(`/categorias/${categoriaEditando.id}`, payload)
       else await api.post('/categorias', payload)
       fecharModal(); carregar()
-    } catch (e) { console.error(e); alert('Erro ao salvar categoria.') }
+    } catch (e) { console.error(e); toast('Erro ao salvar categoria.', 'error') }
     finally { setLoading(false) }
   }
 
   const fecharModal = () => { setModalOpen(false); setCategoriaEditando(null); setNome(''); setCor('#22c55e') }
   const abrirModalParaEditar = (cat) => {
-    if (cat.user_id === null || cat.user_id === undefined) { alert('Categorias padrão não podem ser editadas.'); return }
+    if (cat.user_id === null || cat.user_id === undefined) { toast('Categorias padrão não podem ser editadas.', 'warning'); return }
     setCategoriaEditando(cat); setNome(cat.nome); setCor(cat.cor || '#22c55e'); setModalOpen(true)
   }
   const excluir = async (id) => {
     const cat = categorias.find(c => c.id === id)
-    if (cat?.user_id === null || cat?.user_id === undefined) { alert('Categorias padrão não podem ser excluídas.'); return }
-    try { await api.delete(`/categorias/${id}`); carregar() } catch (e) { alert('Erro ao excluir.') }
+    if (cat?.user_id === null || cat?.user_id === undefined) { toast('Categorias padrão não podem ser excluídas.', 'warning'); return }
+    try { await api.delete(`/categorias/${id}`); carregar() } catch (e) { toast('Erro ao excluir.', 'error') }
   }
 
   const cores = ['#22c55e', '#3b82f6', '#ef4444', '#f97316', '#8b5cf6', '#06b6d4', '#eab308', '#ec4899', '#14b8a6', '#f43f5e']
