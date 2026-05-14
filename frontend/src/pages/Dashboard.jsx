@@ -164,40 +164,41 @@ export default function Dashboard() {
   return (
     <div className='max-w-7xl mx-auto pb-20 px-4 md:px-0'>
       {/* Header */}
-      <div className='flex flex-col gap-6 mb-10'>
-        <div className='flex flex-col md:flex-row md:items-end justify-between gap-4'>
+      <div className='flex flex-col gap-4 mb-8'>
+
+        {/* Linha 1: título + PDF */}
+        <div className='flex items-center justify-between'>
           <div>
-            <h1 className='text-4xl md:text-6xl font-black tracking-tighter uppercase' style={{ color: 'var(--text-main)' }}>Cockpit</h1>
-            <div className='flex items-center gap-3 mt-2'>
-              <div className={`w-2 h-2 rounded-full ${refreshing ? 'bg-yellow-500 animate-pulse' : 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]'}`}></div>
+            <h1 className='text-3xl md:text-6xl font-black tracking-tighter uppercase' style={{ color: 'var(--text-main)' }}>Cockpit</h1>
+            <div className='flex items-center gap-2 mt-1'>
+              <div className={`w-1.5 h-1.5 rounded-full ${refreshing ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`} />
               <p style={{ color: 'var(--text-muted)' }} className='font-bold text-[10px] uppercase tracking-widest'>
                 {refreshing ? 'Sincronizando...' : lastUpdate ? `Atualizado ${lastUpdate.toLocaleTimeString()}` : 'Pronto'}
               </p>
             </div>
           </div>
-          <div className='flex items-center gap-3'>
-            <p className='text-sm font-semibold hidden md:block' style={{ color: 'var(--text-muted)' }}>
+          <div className='flex items-center gap-2'>
+            <p className='text-xs font-semibold hidden md:block' style={{ color: 'var(--text-muted)' }}>
               Período: <span style={{ color: 'var(--text-main)' }}>{periodoLabel}</span>
             </p>
             <button
               onClick={() => gerarRelatorioPDF({ data, patrimonioData, periodoLabel })}
-              className='flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold uppercase tracking-wider transition hover:bg-green-500/10'
+              className='flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold uppercase tracking-wider transition hover:bg-green-500/10'
               style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}
-              title='Exportar PDF'
             >
-              📄 PDF
+              📄 <span className='hidden sm:inline'>PDF</span>
             </button>
           </div>
         </div>
 
-        {/* Filtro em pills — linha única com scroll horizontal no mobile */}
-        <div className='flex flex-col gap-3'>
-          <div className='flex gap-2 overflow-x-auto hide-scrollbar pb-1'>
+        {/* Linha 2: pills de período — scroll horizontal sem corte */}
+        <div className='-mx-4 md:mx-0'>
+          <div className='flex gap-2 overflow-x-auto hide-scrollbar px-4 md:px-0 pb-1'>
             {presets.map(p => (
               <button
                 key={p.id}
                 onClick={() => aplicarPreset(p.id)}
-                className={`flex-none px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider border transition-all ${
+                className={`flex-none px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider border transition-all ${
                   activePreset === p.id
                     ? 'bg-green-500 text-black border-green-500 shadow-lg shadow-green-500/20'
                     : 'border-[var(--border-color)] hover:border-green-500/40'
@@ -207,54 +208,53 @@ export default function Dashboard() {
                 {p.label}
               </button>
             ))}
+            {/* espaço extra no fim para não cortar o último pill */}
+            <div className='flex-none w-4 md:hidden' />
           </div>
+        </div>
 
-          {showCustom && (
-            <div ref={customRef} className='border rounded-[1.5rem] p-4 grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-              {/* De */}
-              <div className='flex flex-col gap-1.5'>
-                <span className='text-[10px] font-black uppercase tracking-widest' style={{ color: 'var(--text-muted)' }}>De</span>
-                <div className='flex gap-2'>
-                  <select value={mesSelecionado} onChange={e => setMesSelecionado(Number(e.target.value))}
-                    className='flex-1 border rounded-xl px-3 py-2.5 text-sm outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
-                    {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                  </select>
-                  <select value={anoSelecionado} onChange={e => setAnoSelecionado(Number(e.target.value))}
-                    className='w-24 border rounded-xl px-3 py-2.5 text-sm outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
-                    {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(a => <option key={a} value={a}>{a}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              {/* Até */}
-              <div className='flex flex-col gap-1.5'>
-                <span className='text-[10px] font-black uppercase tracking-widest' style={{ color: 'var(--text-muted)' }}>Até</span>
-                <div className='flex gap-2'>
-                  <select value={mesFim} onChange={e => setMesFim(Number(e.target.value))}
-                    className='flex-1 border rounded-xl px-3 py-2.5 text-sm outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
-                    {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                  </select>
-                  <select value={anoFim} onChange={e => setAnoFim(Number(e.target.value))}
-                    className='w-24 border rounded-xl px-3 py-2.5 text-sm outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
-                    {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(a => <option key={a} value={a}>{a}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              {/* Aplicar */}
-              <div className='flex flex-col justify-end'>
-                <button onClick={() => { carregarDashboard(); setShowCustom(false) }}
-                  className='w-full bg-green-500 text-black font-black px-6 py-2.5 rounded-xl text-sm uppercase tracking-wider shadow-lg shadow-green-500/20'>
-                  Aplicar
-                </button>
+        {/* Painel personalizado */}
+        {showCustom && (
+          <div ref={customRef} className='border rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            <div className='flex flex-col gap-1.5'>
+              <span className='text-[10px] font-black uppercase tracking-widest' style={{ color: 'var(--text-muted)' }}>De</span>
+              <div className='flex gap-2'>
+                <select value={mesSelecionado} onChange={e => setMesSelecionado(Number(e.target.value))}
+                  className='flex-1 min-w-0 border rounded-xl px-2 py-2.5 text-sm outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
+                  {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                </select>
+                <select value={anoSelecionado} onChange={e => setAnoSelecionado(Number(e.target.value))}
+                  className='w-20 border rounded-xl px-2 py-2.5 text-sm outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
+                  {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
               </div>
             </div>
-          )}
-        </div>
+            <div className='flex flex-col gap-1.5'>
+              <span className='text-[10px] font-black uppercase tracking-widest' style={{ color: 'var(--text-muted)' }}>Até</span>
+              <div className='flex gap-2'>
+                <select value={mesFim} onChange={e => setMesFim(Number(e.target.value))}
+                  className='flex-1 min-w-0 border rounded-xl px-2 py-2.5 text-sm outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
+                  {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                </select>
+                <select value={anoFim} onChange={e => setAnoFim(Number(e.target.value))}
+                  className='w-20 border rounded-xl px-2 py-2.5 text-sm outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
+                  {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className='flex flex-col justify-end'>
+              <button onClick={() => { carregarDashboard(); setShowCustom(false) }}
+                className='w-full bg-green-500 text-black font-black px-4 py-2.5 rounded-xl text-sm uppercase tracking-wider'>
+                Aplicar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Navegação */}
-      <div className='flex gap-1 p-1.5 rounded-[2.5rem] border mb-12 overflow-x-auto hide-scrollbar' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+      {/* Navegação — scroll horizontal no mobile */}
+      <div className='-mx-4 md:mx-0 mb-8'>
+      <div className='flex gap-1 p-1.5 mx-4 md:mx-0 rounded-[2.5rem] border overflow-x-auto hide-scrollbar' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         {[
           { id: 'resumo',    label: 'Resumo',   icon: '📊' },
           { id: 'evolucao',  label: 'Evolução',  icon: '📈' },
@@ -293,6 +293,7 @@ export default function Dashboard() {
             <span className='hidden sm:inline'>{tab.label}</span>
           </button>
         ))}
+      </div>
       </div>
 
       {/* Grid Principal */}
