@@ -190,14 +190,14 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Filtro em pills */}
+        {/* Filtro em pills — linha única com scroll horizontal no mobile */}
         <div className='flex flex-col gap-3'>
-          <div className='flex flex-wrap gap-2'>
+          <div className='flex gap-2 overflow-x-auto hide-scrollbar pb-1'>
             {presets.map(p => (
               <button
                 key={p.id}
                 onClick={() => aplicarPreset(p.id)}
-                className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider border transition-all ${
+                className={`flex-none px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider border transition-all ${
                   activePreset === p.id
                     ? 'bg-green-500 text-black border-green-500 shadow-lg shadow-green-500/20'
                     : 'border-[var(--border-color)] hover:border-green-500/40'
@@ -210,28 +210,44 @@ export default function Dashboard() {
           </div>
 
           {showCustom && (
-            <div ref={customRef} className='border rounded-[1.5rem] p-5 flex flex-wrap gap-4 items-end' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-              <div className='flex gap-2 items-center'>
+            <div ref={customRef} className='border rounded-[1.5rem] p-4 grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+              {/* De */}
+              <div className='flex flex-col gap-1.5'>
                 <span className='text-[10px] font-black uppercase tracking-widest' style={{ color: 'var(--text-muted)' }}>De</span>
-                <select value={mesSelecionado} onChange={e => setMesSelecionado(Number(e.target.value))} className='border rounded-xl px-3 py-2 text-xs font-bold outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
-                  {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                </select>
-                <select value={anoSelecionado} onChange={e => setAnoSelecionado(Number(e.target.value))} className='border rounded-xl px-3 py-2 text-xs font-bold outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
-                  {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(a => <option key={a} value={a}>{a}</option>)}
-                </select>
+                <div className='flex gap-2'>
+                  <select value={mesSelecionado} onChange={e => setMesSelecionado(Number(e.target.value))}
+                    className='flex-1 border rounded-xl px-3 py-2.5 text-sm outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
+                    {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                  </select>
+                  <select value={anoSelecionado} onChange={e => setAnoSelecionado(Number(e.target.value))}
+                    className='w-24 border rounded-xl px-3 py-2.5 text-sm outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
+                    {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
               </div>
-              <div className='flex gap-2 items-center'>
+
+              {/* Até */}
+              <div className='flex flex-col gap-1.5'>
                 <span className='text-[10px] font-black uppercase tracking-widest' style={{ color: 'var(--text-muted)' }}>Até</span>
-                <select value={mesFim} onChange={e => setMesFim(Number(e.target.value))} className='border rounded-xl px-3 py-2 text-xs font-bold outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
-                  {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                </select>
-                <select value={anoFim} onChange={e => setAnoFim(Number(e.target.value))} className='border rounded-xl px-3 py-2 text-xs font-bold outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
-                  {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(a => <option key={a} value={a}>{a}</option>)}
-                </select>
+                <div className='flex gap-2'>
+                  <select value={mesFim} onChange={e => setMesFim(Number(e.target.value))}
+                    className='flex-1 border rounded-xl px-3 py-2.5 text-sm outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
+                    {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                  </select>
+                  <select value={anoFim} onChange={e => setAnoFim(Number(e.target.value))}
+                    className='w-24 border rounded-xl px-3 py-2.5 text-sm outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
+                    {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
               </div>
-              <button onClick={() => carregarDashboard()} className='bg-green-500 text-black font-black px-6 py-2.5 rounded-xl text-xs uppercase tracking-wider shadow-lg shadow-green-500/20'>
-                Aplicar
-              </button>
+
+              {/* Aplicar */}
+              <div className='flex flex-col justify-end'>
+                <button onClick={() => { carregarDashboard(); setShowCustom(false) }}
+                  className='w-full bg-green-500 text-black font-black px-6 py-2.5 rounded-xl text-sm uppercase tracking-wider shadow-lg shadow-green-500/20'>
+                  Aplicar
+                </button>
+              </div>
             </div>
           )}
         </div>
