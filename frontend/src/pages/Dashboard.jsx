@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import api from '../utils/api'
 import { gerarRelatorioPDF } from '../utils/gerarPDF'
 import {
@@ -44,6 +44,14 @@ export default function Dashboard() {
   const [loadingAlertas, setLoadingAlertas] = useState(false)
   const [evolucao, setEvolucao] = useState(null)
   const [loadingEvolucao, setLoadingEvolucao] = useState(false)
+  const customRef = useRef(null)
+
+  useEffect(() => {
+    if (!showCustom) return
+    const handler = (e) => { if (customRef.current && !customRef.current.contains(e.target)) setShowCustom(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showCustom])
 
   const aplicarPreset = (preset) => {
     const n = new Date()
@@ -202,7 +210,7 @@ export default function Dashboard() {
           </div>
 
           {showCustom && (
-            <div className='border rounded-[1.5rem] p-5 flex flex-wrap gap-4 items-end' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            <div ref={customRef} className='border rounded-[1.5rem] p-5 flex flex-wrap gap-4 items-end' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
               <div className='flex gap-2 items-center'>
                 <span className='text-[10px] font-black uppercase tracking-widest' style={{ color: 'var(--text-muted)' }}>De</span>
                 <select value={mesSelecionado} onChange={e => setMesSelecionado(Number(e.target.value))} className='border rounded-xl px-3 py-2 text-xs font-bold outline-none' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>

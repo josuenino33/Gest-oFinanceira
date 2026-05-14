@@ -47,7 +47,7 @@ export default function Sidebar() {
   }, [])
 
   return (
-    <aside className='w-72 bg-[var(--bg-sidebar)] border-r border-[var(--border-color)] shrink-0 sticky top-0 h-screen flex flex-col transition-colors duration-300'>
+    <aside className='w-72 bg-[var(--bg-sidebar)] border-r border-[var(--border-color)] shrink-0 sticky top-0 h-screen flex flex-col transition-colors duration-300 z-30'>
       {/* Header */}
       <div className='p-6 pb-4'>
         <div className='flex justify-between items-center mb-2'>
@@ -75,8 +75,8 @@ export default function Sidebar() {
               
               {showNotif && (
                 <>
-                  <div className='fixed inset-0 z-40' onClick={() => setShowNotif(false)} />
-                  <div className='absolute left-0 mt-2 w-64 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl shadow-2xl z-50 p-3 max-h-80 overflow-y-auto'>
+                  <div className='fixed inset-0 z-[100]' onClick={() => setShowNotif(false)} />
+                  <div className='absolute left-0 mt-2 w-64 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl shadow-2xl z-[101] p-3 max-h-80 overflow-y-auto'>
                     <h3 className='text-xs font-bold text-gray-500 uppercase mb-3'>Alertas</h3>
                     {notificacoes.length === 0 ? (
                       <p className='text-[var(--text-muted)] text-sm'>Nenhuma pendência próxima.</p>
