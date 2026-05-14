@@ -31,9 +31,10 @@ export default function Carteira() {
         <p style={{ color: 'var(--text-muted)' }} className='font-medium'>Gerencie todos os seus lançamentos em um só lugar</p>
       </div>
 
-      <div className='-mx-4 md:mx-0 mb-10'>
-        <div className='flex overflow-x-auto hide-scrollbar mx-4 md:mx-0 rounded-[2rem] border md:gap-2'
-          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', scrollSnapType: 'x mandatory', padding: '8px' }}>
+      <div className='mb-10 rounded-[2rem] border p-2'
+        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <div className='flex overflow-x-auto hide-scrollbar md:gap-2'
+          style={{ scrollSnapType: 'x mandatory' }}>
           {abas.map((aba) => (
             <div key={aba.id} className='snap-item-3'>
               <button

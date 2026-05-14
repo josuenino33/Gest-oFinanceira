@@ -83,6 +83,7 @@ body {
 /* ===== Snap carousel: exatamente 3 itens por "página" no mobile ===== */
 .snap-item-3 {
   flex: 0 0 calc(100% / 3);
+  padding: 0 3px;
   scroll-snap-align: none;
 }
 .snap-item-3:nth-child(3n+1) {
@@ -91,6 +92,7 @@ body {
 @media (min-width: 768px) {
   .snap-item-3 {
     flex: 1;
+    padding: 0;
     scroll-snap-align: unset;
   }
 }
