@@ -45,6 +45,7 @@ export default function Dashboard() {
   const [evolucao, setEvolucao] = useState(null)
   const [loadingEvolucao, setLoadingEvolucao] = useState(false)
   const customRef = useRef(null)
+  const tabNavRef = useRef(null)
 
   useEffect(() => {
     if (!showCustom) return
@@ -52,6 +53,15 @@ export default function Dashboard() {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [showCustom])
+
+  // Auto-scroll tab nav para mostrar a aba ativa (página correta no carousel)
+  const TAB_ORDER = ['resumo', 'evolucao', 'projecao', 'saude', 'ia', 'conquistas']
+  useEffect(() => {
+    if (!tabNavRef.current) return
+    const idx = TAB_ORDER.indexOf(activeTab)
+    const page = Math.floor(idx / 3)
+    tabNavRef.current.scrollTo({ left: page * tabNavRef.current.clientWidth, behavior: 'smooth' })
+  }, [activeTab])
 
   const aplicarPreset = (preset) => {
     const n = new Date()
@@ -191,25 +201,26 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Linha 2: pills de período — scroll horizontal sem corte */}
-        <div className='-mx-4 md:mx-0'>
-          <div className='flex gap-2 overflow-x-auto hide-scrollbar px-4 md:px-0 pb-1'>
-            {presets.map(p => (
-              <button
-                key={p.id}
-                onClick={() => aplicarPreset(p.id)}
-                className={`flex-none px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider border transition-all ${
-                  activePreset === p.id
-                    ? 'bg-green-500 text-black border-green-500 shadow-lg shadow-green-500/20'
-                    : 'border-[var(--border-color)] hover:border-green-500/40'
-                }`}
-                style={activePreset !== p.id ? { background: 'var(--bg-card)', color: 'var(--text-muted)' } : {}}
-              >
-                {p.label}
-              </button>
+        {/* Linha 2: pills — 3 visíveis por vez no mobile, snap scroll */}
+        <div className='-mx-4 md:mx-0 overflow-hidden'>
+          <div className='flex overflow-x-auto hide-scrollbar px-4 md:px-0'
+            style={{ scrollSnapType: 'x mandatory' }}>
+            {presets.map((p, i) => (
+              <div key={p.id} className='flex-none w-1/3 md:w-auto px-1 md:px-0 md:mr-2 last:md:mr-0'
+                style={{ scrollSnapAlign: i % 3 === 0 ? 'start' : 'none' }}>
+                <button
+                  onClick={() => aplicarPreset(p.id)}
+                  className={`w-full py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-wider border transition-all ${
+                    activePreset === p.id
+                      ? 'bg-green-500 text-black border-green-500 shadow-lg shadow-green-500/20'
+                      : 'border-[var(--border-color)] hover:border-green-500/40'
+                  }`}
+                  style={activePreset !== p.id ? { background: 'var(--bg-card)', color: 'var(--text-muted)' } : {}}
+                >
+                  {p.label}
+                </button>
+              </div>
             ))}
-            {/* espaço extra no fim para não cortar o último pill */}
-            <div className='flex-none w-4 md:hidden' />
           </div>
         </div>
 
@@ -252,48 +263,52 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Navegação — scroll horizontal no mobile */}
+      {/* Navegação — 3 tabs visíveis por vez no mobile, snap scroll */}
       <div className='-mx-4 md:mx-0 mb-8'>
-      <div className='flex gap-1 p-1.5 mx-4 md:mx-0 rounded-[2.5rem] border overflow-x-auto hide-scrollbar' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        {[
-          { id: 'resumo',    label: 'Resumo',   icon: '📊' },
-          { id: 'evolucao',  label: 'Evolução',  icon: '📈' },
-          { id: 'projecao',  label: 'Projeção',  icon: '🔮' },
-          { id: 'saude',     label: 'Saúde',     icon: '❤️' },
-          { id: 'ia',        label: 'Alertas',   icon: '🤖' },
-          { id: 'conquistas',label: 'Troféus',   icon: '🏆' }
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => {
-              setActiveTab(tab.id)
-              if (tab.id === 'evolucao' && !evolucao && !loadingEvolucao) {
-                setLoadingEvolucao(true)
-                api.get('/historico-patrimonio?dias=90').then(r => setEvolucao(r.data)).catch(() => setEvolucao([])).finally(() => setLoadingEvolucao(false))
-              }
-              if (tab.id === 'projecao' && !projecao && !loadingProjecao) {
-                setLoadingProjecao(true)
-                api.get('/projecao?meses=6').then(r => setProjecao(r.data)).catch(() => setProjecao({})).finally(() => setLoadingProjecao(false))
-              }
-              if (tab.id === 'saude' && !saude && !loadingSaude) {
-                setLoadingSaude(true)
-                api.get(`/saude-financeira?mes=${now.getMonth()+1}&ano=${now.getFullYear()}`).then(r => setSaude(r.data)).catch(() => setSaude({})).finally(() => setLoadingSaude(false))
-              }
-              if (tab.id === 'ia' && !alertasIA && !loadingAlertas) {
-                setLoadingAlertas(true)
-                api.get('/alertas-ia').then(r => setAlertasIA(r.data)).catch(() => setAlertasIA([])).finally(() => setLoadingAlertas(false))
-              }
-            }}
-            className={`flex-1 min-w-[80px] flex items-center justify-center gap-1.5 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all ${
-              activeTab === tab.id ? 'bg-green-500 text-black shadow-lg' : 'hover:bg-green-500/10'
-            }`}
-            style={activeTab !== tab.id ? { color: 'var(--text-muted)' } : {}}
-          >
-            <span className='text-base'>{tab.icon}</span>
-            <span className='hidden sm:inline'>{tab.label}</span>
-          </button>
-        ))}
-      </div>
+        <div ref={tabNavRef}
+          className='flex overflow-x-auto hide-scrollbar p-1.5 mx-4 md:mx-0 rounded-[2.5rem] border'
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', scrollSnapType: 'x mandatory' }}>
+          {[
+            { id: 'resumo',    label: 'Resumo',   icon: '📊' },
+            { id: 'evolucao',  label: 'Evolução',  icon: '📈' },
+            { id: 'projecao',  label: 'Projeção',  icon: '🔮' },
+            { id: 'saude',     label: 'Saúde',     icon: '❤️' },
+            { id: 'ia',        label: 'Alertas',   icon: '🤖' },
+            { id: 'conquistas',label: 'Troféus',   icon: '🏆' }
+          ].map((tab, i) => (
+            <div key={tab.id} className='flex-none w-1/3 md:flex-1 md:w-auto'
+              style={{ scrollSnapAlign: i % 3 === 0 ? 'start' : 'none' }}>
+              <button
+                onClick={() => {
+                  setActiveTab(tab.id)
+                  if (tab.id === 'evolucao' && !evolucao && !loadingEvolucao) {
+                    setLoadingEvolucao(true)
+                    api.get('/historico-patrimonio?dias=90').then(r => setEvolucao(r.data)).catch(() => setEvolucao([])).finally(() => setLoadingEvolucao(false))
+                  }
+                  if (tab.id === 'projecao' && !projecao && !loadingProjecao) {
+                    setLoadingProjecao(true)
+                    api.get('/projecao?meses=6').then(r => setProjecao(r.data)).catch(() => setProjecao({})).finally(() => setLoadingProjecao(false))
+                  }
+                  if (tab.id === 'saude' && !saude && !loadingSaude) {
+                    setLoadingSaude(true)
+                    api.get(`/saude-financeira?mes=${now.getMonth()+1}&ano=${now.getFullYear()}`).then(r => setSaude(r.data)).catch(() => setSaude({})).finally(() => setLoadingSaude(false))
+                  }
+                  if (tab.id === 'ia' && !alertasIA && !loadingAlertas) {
+                    setLoadingAlertas(true)
+                    api.get('/alertas-ia').then(r => setAlertasIA(r.data)).catch(() => setAlertasIA([])).finally(() => setLoadingAlertas(false))
+                  }
+                }}
+                className={`w-full flex flex-col items-center justify-center gap-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                  activeTab === tab.id ? 'bg-green-500 text-black shadow-lg' : 'hover:bg-green-500/10'
+                }`}
+                style={activeTab !== tab.id ? { color: 'var(--text-muted)' } : {}}
+              >
+                <span className='text-lg'>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Grid Principal */}
