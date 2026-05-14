@@ -22,7 +22,12 @@ export default function Recorrencias() {
     api.get('/recorrencias').then(r => setLista(r.data)).catch(console.error)
     api.get('/categorias').then(r => setCategorias(r.data)).catch(() => {})
   }
-  useEffect(() => { carregar() }, [])
+
+  useEffect(() => {
+    carregar()
+    // Gera automaticamente o mês atual ao abrir a página (idempotente — não duplica)
+    api.post('/recorrencias/gerar').catch(() => {})
+  }, [])
 
   const salvar = async () => {
     if (!descricao.trim() || !valor) { toast('Preencha todos os campos.', 'warning'); return }

@@ -159,7 +159,7 @@ export default function Orcamentos() {
             <select value={catSel} onChange={e => setCatSel(e.target.value)}
               className='w-full rounded-xl p-4 border outline-none' style={inputStyle}>
               <option value=''>Selecione...</option>
-              {categorias.filter(c => c.user_id !== null).map(c => (
+              {categorias.map(c => (
                 <option key={c.id} value={c.id}>{c.nome}</option>
               ))}
             </select>
