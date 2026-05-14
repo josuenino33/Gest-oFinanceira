@@ -128,12 +128,13 @@ export default function Sidebar() {
       {/* Footer - sempre visível */}
       <div className='p-4 space-y-3 border-t border-[var(--border-color)]'>
         <div className='bg-[var(--bg-input)] rounded-2xl p-4 border border-[var(--border-color)]'>
-          <p className='text-[var(--text-muted)] text-xs'>Saldo Total Acumulado</p>
-          <h2 className='text-2xl font-bold mt-1' style={{ color: 'var(--accent)' }}>
+          <p className='text-[var(--text-muted)] text-xs'>Saldo Disponível</p>
+          <h2 className='text-2xl font-bold mt-1' style={{ color: saldo !== null && saldo < 0 ? '#ef4444' : 'var(--accent)' }}>
             {saldo !== null
               ? `R$ ${saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
               : '...'}
           </h2>
+          <p className='text-[var(--text-muted)] text-[10px] mt-1'>receitas − despesas</p>
           {user && <p className='text-[var(--text-muted)] text-xs mt-2'>{user.nome}</p>}
         </div>
 

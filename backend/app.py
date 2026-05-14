@@ -247,10 +247,9 @@ def resumo():
     uid = int(get_jwt_identity())
     r = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM receitas WHERE user_id = ?', (uid,))['t']
     d = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM contas WHERE user_id = ?', (uid,))['t']
-    inv = fetch_one('SELECT COALESCE(SUM(valor_investido), 0) as t FROM investimentos WHERE user_id = ?', (uid,))['t']
     m = fetch_one('SELECT COALESCE(AVG(progresso), 0) as p FROM metas WHERE user_id = ?', (uid,))['p']
-    # Saldo = receitas - despesas - o que foi alocado em investimentos
-    saldo = float(r) - float(d) - float(inv)
+    # Saldo = receitas - despesas (investimentos são ativos separados, não saem do saldo)
+    saldo = float(r) - float(d)
     return jsonify({'receitas': float(r), 'despesas': float(d), 'saldo': saldo, 'meta': float(m)})
 
 @app.route('/health', methods=['GET'])
@@ -441,12 +440,11 @@ def get_patrimonio():
     inv_atual    = fetch_one('SELECT COALESCE(SUM(valor_atual),    0) as t FROM investimentos WHERE user_id = ?', (uid,))['t']
 
     # Caixa = receitas recebidas − contas já pagas
-    # Investimentos são patrimônio separado — não saem do caixa
     saldo_caixa = float(r) - float(d_pagas)
     # Rendimento = valorização dos investimentos
     rendimento = float(inv_atual) - float(inv_aplicado)
-    # Patrimônio = caixa disponível + valor atual dos investimentos
-    patrimonio_liquido = saldo_caixa + float(inv_atual)
+    # Patrimônio Líquido = caixa + investimentos − pendências (o que realmente é seu)
+    patrimonio_liquido = saldo_caixa - float(d_pending) + float(inv_atual)
 
     # Trofeus
     conquistas = []

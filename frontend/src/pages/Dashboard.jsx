@@ -262,7 +262,7 @@ export default function Dashboard() {
             <div className='relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-8'>
               <div>
                 <span className='text-[10px] font-black tracking-[0.3em] uppercase block mb-1' style={{ color: 'var(--accent)' }}>Patrimônio Líquido</span>
-                <p className='text-xs mb-3' style={{ color: 'var(--text-muted)' }}>Sua riqueza total — todos os períodos</p>
+                <p className='text-xs mb-3' style={{ color: 'var(--text-muted)' }}>Em Caixa + Investido − A Pagar</p>
                 <div className='flex items-baseline gap-2'>
                   <span className='text-2xl font-light' style={{ color: 'var(--text-muted)' }}>R$</span>
                   <h2 className='text-5xl md:text-6xl font-black tracking-tighter' style={{ color: 'var(--text-main)' }}>
