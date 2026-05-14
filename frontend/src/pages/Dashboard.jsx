@@ -201,13 +201,12 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Linha 2: pills — 3 visíveis por vez no mobile, snap scroll */}
-        <div className='-mx-4 md:mx-0 overflow-hidden'>
-          <div className='flex overflow-x-auto hide-scrollbar px-4 md:px-0'
+        {/* Linha 2: pills — exatamente 3 visíveis por vez no mobile, snap scroll */}
+        <div className='-mx-4 md:mx-0'>
+          <div className='flex overflow-x-auto hide-scrollbar md:gap-2 px-4 md:px-0'
             style={{ scrollSnapType: 'x mandatory' }}>
-            {presets.map((p, i) => (
-              <div key={p.id} className='flex-none w-1/3 md:w-auto px-1 md:px-0 md:mr-2 last:md:mr-0'
-                style={{ scrollSnapAlign: i % 3 === 0 ? 'start' : 'none' }}>
+            {presets.map((p) => (
+              <div key={p.id} className='snap-item-3' style={{ padding: '0 4px' }}>
                 <button
                   onClick={() => aplicarPreset(p.id)}
                   className={`w-full py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-wider border transition-all ${
@@ -263,11 +262,11 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Navegação — 3 tabs visíveis por vez no mobile, snap scroll */}
+      {/* Navegação — exatamente 3 tabs visíveis por vez no mobile, snap scroll */}
       <div className='-mx-4 md:mx-0 mb-8'>
         <div ref={tabNavRef}
-          className='flex overflow-x-auto hide-scrollbar p-1.5 mx-4 md:mx-0 rounded-[2.5rem] border'
-          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', scrollSnapType: 'x mandatory' }}>
+          className='flex overflow-x-auto hide-scrollbar mx-4 md:mx-0 rounded-[2.5rem] border'
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', scrollSnapType: 'x mandatory', padding: '6px' }}>
           {[
             { id: 'resumo',    label: 'Resumo',   icon: '📊' },
             { id: 'evolucao',  label: 'Evolução',  icon: '📈' },
@@ -275,9 +274,8 @@ export default function Dashboard() {
             { id: 'saude',     label: 'Saúde',     icon: '❤️' },
             { id: 'ia',        label: 'Alertas',   icon: '🤖' },
             { id: 'conquistas',label: 'Troféus',   icon: '🏆' }
-          ].map((tab, i) => (
-            <div key={tab.id} className='flex-none w-1/3 md:flex-1 md:w-auto'
-              style={{ scrollSnapAlign: i % 3 === 0 ? 'start' : 'none' }}>
+          ].map((tab) => (
+            <div key={tab.id} className='snap-item-3'>
               <button
                 onClick={() => {
                   setActiveTab(tab.id)

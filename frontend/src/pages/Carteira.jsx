@@ -17,11 +17,11 @@ export default function Carteira() {
   }, [location])
 
   const abas = [
-    { id: 'contas', label: 'Contas a Pagar', icon: '💸' },
-    { id: 'receitas', label: 'Minhas Receitas', icon: '💰' },
+    { id: 'contas', label: 'A Pagar', icon: '💸' },
+    { id: 'receitas', label: 'Receitas', icon: '💰' },
     { id: 'cartoes', label: 'Cartões', icon: '💳' },
-    { id: 'compras', label: 'Compras Cartão', icon: '🛒' },
-    { id: 'investimentos', label: 'Investimentos', icon: '📈' }
+    { id: 'compras', label: 'Compras', icon: '🛒' },
+    { id: 'investimentos', label: 'Investir', icon: '📈' }
   ]
 
   return (
@@ -31,20 +31,24 @@ export default function Carteira() {
         <p style={{ color: 'var(--text-muted)' }} className='font-medium'>Gerencie todos os seus lançamentos em um só lugar</p>
       </div>
 
-      <div className='flex overflow-x-auto hide-scrollbar gap-2 p-2 rounded-[2rem] border mb-10' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        {abas.map((aba) => (
-          <button
-            key={aba.id}
-            onClick={() => setAbaAtiva(aba.id)}
-            className={`flex-1 min-w-[130px] flex items-center justify-center gap-3 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
-              abaAtiva === aba.id ? 'bg-green-500 text-black shadow-lg shadow-green-500/20' : 'hover:bg-green-500/10'
-            }`}
-            style={abaAtiva !== aba.id ? { color: 'var(--text-muted)' } : {}}
-          >
-            <span className='text-xl'>{aba.icon}</span>
-            <span className='whitespace-nowrap'>{aba.label}</span>
-          </button>
-        ))}
+      <div className='-mx-4 md:mx-0 mb-10'>
+        <div className='flex overflow-x-auto hide-scrollbar mx-4 md:mx-0 rounded-[2rem] border md:gap-2'
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', scrollSnapType: 'x mandatory', padding: '8px' }}>
+          {abas.map((aba) => (
+            <div key={aba.id} className='snap-item-3'>
+              <button
+                onClick={() => setAbaAtiva(aba.id)}
+                className={`w-full flex flex-col items-center justify-center gap-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                  abaAtiva === aba.id ? 'bg-green-500 text-black shadow-lg shadow-green-500/20' : 'hover:bg-green-500/10'
+                }`}
+                style={abaAtiva !== aba.id ? { color: 'var(--text-muted)' } : {}}
+              >
+                <span className='text-xl'>{aba.icon}</span>
+                <span className='leading-tight text-center'>{aba.label}</span>
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div>
