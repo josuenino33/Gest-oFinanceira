@@ -2,12 +2,17 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 const menu = [
-  { label: 'Dashboard', path: '/', icon: '📊' },
-  { label: 'Minha Carteira', path: '/carteira', icon: '💳' },
-  { label: 'Resumo Mensal', path: '/resumo', icon: '📋' },
-  { label: 'Metas', path: '/metas', icon: '🎯' },
-  { label: 'Investimentos', path: '/investimentos', icon: '📈' },
-  { label: 'Configurações', path: '/configuracoes', icon: '⚙️' },
+  { label: 'Dashboard',      path: '/',              icon: '📊' },
+  { label: 'Minha Carteira', path: '/carteira',      icon: '💼' },
+  { label: 'Orçamentos',     path: '/orcamentos',    icon: '🎯' },
+  { label: 'Envelopes',      path: '/envelopes',     icon: '✉️' },
+  { label: 'Desafios',       path: '/desafios',      icon: '🏅' },
+  { label: 'Metas & Sonhos', path: '/metas',         icon: '⭐' },
+  { label: 'Recorrências',   path: '/recorrencias',  icon: '🔄' },
+  { label: 'Investimentos',  path: '/investimentos', icon: '📈' },
+  { label: 'Categorias',     path: '/categorias',    icon: '🏷️' },
+  { label: 'Relatórios',     path: '/relatorios',    icon: '📋' },
+  { label: 'Configurações',  path: '/configuracoes', icon: '⚙️' },
 ]
 
 export default function MobileDrawer({ isOpen, onClose }) {
