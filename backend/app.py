@@ -433,13 +433,16 @@ def resumo_mensal():
 def get_patrimonio():
     uid = int(get_jwt_identity())
     r = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM receitas WHERE user_id = ?', (uid,))['t']
-    d = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM contas WHERE user_id = ?', (uid,))['t']
+    # Só contas PAGAS saem do caixa — pendentes são compromissos futuros
+    d_pagas   = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM contas WHERE user_id = ? AND pago = 1', (uid,))['t']
+    d_pending = fetch_one('SELECT COALESCE(SUM(valor), 0) as t FROM contas WHERE user_id = ? AND pago = 0', (uid,))['t']
     inv_aplicado = fetch_one('SELECT COALESCE(SUM(valor_investido), 0) as t FROM investimentos WHERE user_id = ?', (uid,))['t']
-    inv_atual = fetch_one('SELECT COALESCE(SUM(valor_atual), 0) as t FROM investimentos WHERE user_id = ?', (uid,))['t']
+    inv_atual    = fetch_one('SELECT COALESCE(SUM(valor_atual),    0) as t FROM investimentos WHERE user_id = ?', (uid,))['t']
 
-    # Caixa = receitas − despesas − o que foi alocado em investimentos
-    saldo_caixa = float(r) - float(d) - float(inv_aplicado)
-    # Rendimento = valorização ou desvalorização dos investimentos
+    # Caixa = receitas recebidas − contas já pagas
+    # Investimentos são patrimônio separado — não saem do caixa
+    saldo_caixa = float(r) - float(d_pagas)
+    # Rendimento = valorização dos investimentos
     rendimento = float(inv_atual) - float(inv_aplicado)
     # Patrimônio = caixa disponível + valor atual dos investimentos
     patrimonio_liquido = saldo_caixa + float(inv_atual)
@@ -453,7 +456,7 @@ def get_patrimonio():
     total_metas = fetch_one('SELECT COUNT(*) as c FROM metas WHERE user_id=?', (uid,))['c']
     metas_100 = fetch_one('SELECT COUNT(*) as c FROM metas WHERE user_id=? AND progresso >= 100', (uid,))['c']
     contas_pendentes = fetch_one('SELECT COUNT(*) as c FROM contas WHERE user_id=? AND pago=0', (uid,))['c']
-    economia_pct = round(((float(r) - float(d)) / float(r)) * 100, 1) if float(r) > 0 else 0
+    economia_pct = round(((float(r) - float(d_pagas)) / float(r)) * 100, 1) if float(r) > 0 else 0
 
     if total_rec >= 1:
         conquistas.append({'titulo': 'Primeiro Passo', 'icone': '🌱', 'desc': 'Registrou sua primeira receita', 'desbloqueado': True})
@@ -476,6 +479,7 @@ def get_patrimonio():
 
     return jsonify({
         'saldo_caixa': saldo_caixa,
+        'a_pagar': float(d_pending),
         'investimentos_aplicados': float(inv_aplicado),
         'investimentos': float(inv_atual),
         'rendimento': rendimento,

@@ -249,25 +249,44 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className='flex flex-wrap gap-6 md:gap-8'>
+                {/* Em Caixa: receitas - contas pagas */}
                 <div>
                   <span className='text-[10px] font-black uppercase tracking-widest block mb-1' style={{ color: 'var(--text-muted)' }}>💵 Em Caixa</span>
-                  <p className='text-xl font-black' style={{ color: (patrimonioData?.saldo_caixa || 0) >= 0 ? 'var(--text-main)' : '#ef4444' }}>
+                  <p className='text-xl font-black' style={{ color: (patrimonioData?.saldo_caixa || 0) >= 0 ? '#22c55e' : '#ef4444' }}>
                     {fmt(patrimonioData?.saldo_caixa || 0)}
                   </p>
+                  <p className='text-[10px] mt-0.5' style={{ color: 'var(--text-muted)' }}>disponível agora</p>
                 </div>
                 <div className='hidden md:block w-px self-stretch' style={{ background: 'var(--border-color)' }} />
+                {/* A Pagar: contas pendentes */}
+                {(patrimonioData?.a_pagar || 0) > 0 && (
+                  <>
+                    <div>
+                      <span className='text-[10px] font-black uppercase tracking-widest block mb-1' style={{ color: 'var(--text-muted)' }}>⚠️ A Pagar</span>
+                      <p className='text-xl font-black' style={{ color: '#f59e0b' }}>
+                        {fmt(patrimonioData?.a_pagar || 0)}
+                      </p>
+                      <p className='text-[10px] mt-0.5' style={{ color: 'var(--text-muted)' }}>contas pendentes</p>
+                    </div>
+                    <div className='hidden md:block w-px self-stretch' style={{ background: 'var(--border-color)' }} />
+                  </>
+                )}
+                {/* Investido: patrimônio separado */}
                 <div>
                   <span className='text-[10px] font-black uppercase tracking-widest block mb-1' style={{ color: 'var(--text-muted)' }}>📈 Investido</span>
                   <p className='text-xl font-black' style={{ color: '#3b82f6' }}>
                     {fmt(patrimonioData?.investimentos || 0)}
                   </p>
+                  <p className='text-[10px] mt-0.5' style={{ color: 'var(--text-muted)' }}>patrimônio separado</p>
                 </div>
                 <div className='hidden md:block w-px self-stretch' style={{ background: 'var(--border-color)' }} />
+                {/* Rendimento: valorização dos investimentos */}
                 <div>
                   <span className='text-[10px] font-black uppercase tracking-widest block mb-1' style={{ color: 'var(--text-muted)' }}>🔥 Rendimento</span>
                   <p className='text-xl font-black' style={{ color: (patrimonioData?.rendimento || 0) >= 0 ? '#22c55e' : '#ef4444' }}>
                     {(patrimonioData?.rendimento || 0) >= 0 ? '+' : ''}{fmt(patrimonioData?.rendimento || 0)}
                   </p>
+                  <p className='text-[10px] mt-0.5' style={{ color: 'var(--text-muted)' }}>valorização</p>
                 </div>
               </div>
             </div>
