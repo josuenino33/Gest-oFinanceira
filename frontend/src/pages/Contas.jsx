@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import api from '../utils/api'
 import Modal from '../components/Modal'
 import { useToast } from '../context/ToastContext'
+import TranscreverSMS from '../components/TranscreverSMS'
 
 const mesesNomes = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -78,6 +79,14 @@ export default function Contas() {
   const fecharModal = () => { setModalOpen(false); setContaEditando(null); setDescricao(''); setValor(''); setCategoriaId(''); setPago(false) }
   const abrirModalParaEditar = (conta) => { setContaEditando(conta); setDescricao(conta.descricao); setValor(conta.valor); setCategoriaId(conta.categoria_id || ''); setPago(!!conta.pago); setModalOpen(true) }
 
+  const aoExtrairSMS = (dados) => {
+    if (dados.tipo !== 'despesa') return
+    setDescricao(dados.descricao || '')
+    setValor(dados.valor ? String(dados.valor) : '')
+    if (dados.categoria_id) setCategoriaId(String(dados.categoria_id))
+    setModalOpen(true)
+  }
+
   const excluir = async (id) => {
     const backup = [...contasCompletas]
     setContasCompletas(prev => prev.filter(item => item.id !== id))
@@ -114,6 +123,7 @@ export default function Contas() {
               {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
+          <TranscreverSMS onExtrair={aoExtrairSMS} />
           <button onClick={() => setModalOpen(true)} className='w-full sm:w-auto bg-green-500 text-black px-6 py-3 rounded-xl font-semibold hover:bg-green-400 transition'>+ Nova Conta</button>
         </div>
       </div>

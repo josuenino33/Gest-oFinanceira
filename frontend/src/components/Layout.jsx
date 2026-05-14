@@ -1,14 +1,37 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import BottomNav from './BottomNav'
 import AIChat from './AIChat'
 import MobileDrawer from './MobileDrawer'
 import QuickAddExpense from './QuickAddExpense'
+import api from '../utils/api'
 
 export default function Layout() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+
+  useEffect(() => {
+    if (!('Notification' in window)) return
+    if (Notification.permission === 'default') Notification.requestPermission()
+
+    const checarContas = async () => {
+      if (Notification.permission !== 'granted') return
+      try {
+        const res = await api.get('/notificacoes')
+        const urgentes = res.data.filter(n => n.tipo === 'urgente')
+        if (urgentes.length > 0) {
+          new Notification('Minhas Finanças — Alerta!', {
+            body: urgentes.map(n => n.msg).join(' | '),
+            icon: '/favicon.svg',
+            tag: 'financas-urgente'
+          })
+        }
+      } catch {}
+    }
+
+    checarContas()
+  }, [])
 
   return (
     <div className='flex bg-[var(--bg-main)] text-[var(--text-main)] min-h-screen font-sans transition-colors duration-300'>

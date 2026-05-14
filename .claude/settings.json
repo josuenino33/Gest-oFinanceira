@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install *)",
+      "Bash(python -c \"from dotenv import load_dotenv; load_dotenv\\(\\); import os; key = os.environ.get\\('GEMINI_API_KEY',''\\); print\\('Chave configurada:', 'SIM' if key else 'NAO', '| Primeiros chars:', key[:8] if key else 'N/A'\\)\")"
+    ]
+  }
+}

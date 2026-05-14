@@ -1,0 +1,14 @@
+{
+  "name": "Minhas Finanças",
+  "short_name": "Finanças",
+  "description": "Controle total da sua vida financeira",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07111f",
+  "theme_color": "#22c55e",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "categories": ["finance", "productivity"]
+}

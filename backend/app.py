@@ -9,7 +9,7 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
 from google import genai as google_genai
-from google.genai import types as genai_types
+from google.genai import types as genai_types  # type: ignore
 
 app = Flask(__name__)
 CORS(app)
@@ -170,7 +170,10 @@ def init_db():
             f"CREATE TABLE IF NOT EXISTS investimentos (id {pk}, user_id INTEGER, titulo TEXT NOT NULL, tipo TEXT NOT NULL, valor_investido REAL NOT NULL, valor_atual REAL NOT NULL, rentabilidade REAL DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS planejamento (id {pk}, user_id INTEGER, categoria_id INTEGER, valor_planejado REAL NOT NULL, mes INTEGER NOT NULL, ano INTEGER NOT NULL, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS recorrencias (id {pk}, user_id INTEGER, tipo TEXT NOT NULL, descricao TEXT NOT NULL, valor REAL NOT NULL, categoria_id INTEGER, dia INTEGER DEFAULT 1, ativo INTEGER DEFAULT 1, ultima_geracao TEXT, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
-            f"CREATE TABLE IF NOT EXISTS orcamentos (id {pk}, user_id INTEGER NOT NULL, categoria_id INTEGER NOT NULL, limite REAL NOT NULL, mes INTEGER NOT NULL, ano INTEGER NOT NULL, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
+            f"CREATE TABLE IF NOT EXISTS orcamentos (id {pk}, user_id INTEGER NOT NULL, categoria_id INTEGER NOT NULL, limite REAL NOT NULL, mes INTEGER NOT NULL, ano INTEGER NOT NULL, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+            f"CREATE TABLE IF NOT EXISTS historico_patrimonio (id {pk}, user_id INTEGER NOT NULL, data TEXT NOT NULL, em_caixa REAL DEFAULT 0, a_pagar REAL DEFAULT 0, investido REAL DEFAULT 0, patrimonio_liquido REAL DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+            f"CREATE TABLE IF NOT EXISTS envelopes (id {pk}, user_id INTEGER NOT NULL, mes INTEGER NOT NULL, ano INTEGER NOT NULL, categoria_id INTEGER NOT NULL, alocado REAL NOT NULL DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+            f"CREATE TABLE IF NOT EXISTS desafios (id {pk}, user_id INTEGER NOT NULL, titulo TEXT NOT NULL, descricao TEXT DEFAULT '', meta_valor REAL NOT NULL, valor_atual REAL DEFAULT 0, data_inicio TEXT NOT NULL, data_fim TEXT NOT NULL, concluido INTEGER DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
         ]
 
         for sql in tables:
@@ -475,6 +478,12 @@ def get_patrimonio():
         conquistas.append({'titulo': 'Meta Atingida', 'icone': '🎯', 'desc': 'Concluiu uma meta com sucesso!', 'desbloqueado': True})
     if total_contas >= 1 and contas_pendentes == 0:
         conquistas.append({'titulo': 'Sem Dívidas', 'icone': '✨', 'desc': 'Todas as contas estão pagas!', 'desbloqueado': True})
+
+    # Salvar snapshot diário
+    try:
+        salvar_snapshot_patrimonio(uid, saldo_caixa, float(d_pending), float(inv_atual), patrimonio_liquido)
+    except:
+        pass
 
     return jsonify({
         'saldo_caixa': saldo_caixa,
@@ -1103,6 +1112,168 @@ Responda APENAS com JSON válido, sem texto extra:
     except Exception as e:
         print(f'alertas-ia error: {e}')
     return jsonify([])
+
+
+# ==================== HISTÓRICO DE PATRIMÔNIO ====================
+
+@app.route('/historico-patrimonio', methods=['GET'])
+@jwt_required()
+def historico_patrimonio():
+    uid = int(get_jwt_identity())
+    dias = int(request.args.get('dias', 90))
+    rows = fetch_all(
+        'SELECT data, em_caixa, a_pagar, investido, patrimonio_liquido FROM historico_patrimonio WHERE user_id = ? ORDER BY data ASC LIMIT ?',
+        (uid, dias)
+    )
+    return jsonify([dict(r) for r in rows])
+
+def salvar_snapshot_patrimonio(uid, em_caixa, a_pagar, investido, patrimonio_liquido):
+    hoje = datetime.now().strftime('%Y-%m-%d')
+    existing = fetch_one('SELECT id FROM historico_patrimonio WHERE user_id = ? AND data = ?', (uid, hoje))
+    if existing:
+        execute_query(
+            'UPDATE historico_patrimonio SET em_caixa=?, a_pagar=?, investido=?, patrimonio_liquido=? WHERE user_id=? AND data=?',
+            (em_caixa, a_pagar, investido, patrimonio_liquido, uid, hoje)
+        )
+    else:
+        execute_query(
+            'INSERT INTO historico_patrimonio (user_id, data, em_caixa, a_pagar, investido, patrimonio_liquido) VALUES (?,?,?,?,?,?)',
+            (uid, hoje, em_caixa, a_pagar, investido, patrimonio_liquido)
+        )
+
+# ==================== TRANSCRIÇÃO SMS/EXTRATO ====================
+
+@app.route('/ai/transcrever', methods=['POST'])
+@jwt_required()
+def transcrever_sms():
+    uid = int(get_jwt_identity())
+    if not gemini_client:
+        return jsonify({'error': 'IA não configurada'}), 503
+    d = request.json or {}
+    texto = (d.get('texto') or '').strip()
+    if not texto:
+        return jsonify({'error': 'Texto vazio'}), 400
+
+    categorias = fetch_all('SELECT id, nome FROM categorias WHERE user_id IS NULL OR user_id = ?', (uid,))
+    cats_str = ', '.join([f"{c['id']}:{c['nome']}" for c in categorias])
+
+    prompt = f"""Extraia os dados da transação financeira abaixo e retorne APENAS JSON válido, sem texto extra.
+
+Texto: "{texto}"
+
+Categorias disponíveis (id:nome): {cats_str}
+
+Retorne:
+{{"tipo": "receita" ou "despesa", "descricao": "nome curto da transação", "valor": número, "categoria_id": id mais adequado ou null, "data": "YYYY-MM-DD" ou null}}
+
+Se não conseguir extrair valor ou tipo, retorne {{"erro": "não reconhecido"}}"""
+
+    try:
+        resp = gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+        import json, re
+        match = re.search(r'\{.*?\}', resp.text, re.DOTALL)
+        if match:
+            return jsonify(json.loads(match.group()))
+    except Exception as e:
+        print(f'transcrever error: {e}')
+    return jsonify({'erro': 'Falha ao processar'}), 500
+
+# ==================== ENVELOPES ====================
+
+@app.route('/envelopes', methods=['GET', 'POST'])
+@jwt_required()
+def rota_envelopes():
+    uid = int(get_jwt_identity())
+    if request.method == 'GET':
+        mes = int(request.args.get('mes', datetime.now().month))
+        ano = int(request.args.get('ano', datetime.now().year))
+        ms = str(mes).zfill(2)
+        ys = str(ano)
+        rows = fetch_all('''
+            SELECT e.id, e.categoria_id, e.alocado, c.nome as categoria_nome, c.cor,
+                COALESCE((
+                    SELECT SUM(ct.valor) FROM contas ct
+                    WHERE ct.categoria_id = e.categoria_id AND ct.user_id = e.user_id
+                    AND strftime('%m', ct.criado_em) = ? AND strftime('%Y', ct.criado_em) = ?
+                ), 0) as gasto
+            FROM envelopes e
+            JOIN categorias c ON c.id = e.categoria_id
+            WHERE e.user_id = ? AND e.mes = ? AND e.ano = ?
+            ORDER BY e.alocado DESC
+        ''', (ms, ys, uid, mes, ano))
+        return jsonify([dict(r) for r in rows])
+
+    d = request.json or {}
+    categoria_id = d.get('categoria_id')
+    alocado = float(d.get('alocado', 0))
+    mes = int(d.get('mes', datetime.now().month))
+    ano = int(d.get('ano', datetime.now().year))
+    existing = fetch_one('SELECT id FROM envelopes WHERE user_id=? AND categoria_id=? AND mes=? AND ano=?', (uid, categoria_id, mes, ano))
+    if existing:
+        execute_query('UPDATE envelopes SET alocado=? WHERE id=?', (alocado, existing['id']))
+    else:
+        execute_query('INSERT INTO envelopes (user_id, categoria_id, alocado, mes, ano) VALUES (?,?,?,?,?)', (uid, categoria_id, alocado, mes, ano))
+    return jsonify({'ok': True})
+
+@app.route('/envelopes/<int:eid>', methods=['DELETE'])
+@jwt_required()
+def deletar_envelope(eid):
+    uid = int(get_jwt_identity())
+    execute_query('DELETE FROM envelopes WHERE id=? AND user_id=?', (eid, uid))
+    return jsonify({'ok': True})
+
+@app.route('/envelopes/renda', methods=['GET'])
+@jwt_required()
+def renda_envelopes():
+    uid = int(get_jwt_identity())
+    mes = int(request.args.get('mes', datetime.now().month))
+    ano = int(request.args.get('ano', datetime.now().year))
+    ms = str(mes).zfill(2)
+    ys = str(ano)
+    renda = fetch_one(
+        "SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=? AND strftime('%m',criado_em)=? AND strftime('%Y',criado_em)=?",
+        (uid, ms, ys)
+    )['t']
+    return jsonify({'renda': float(renda)})
+
+# ==================== DESAFIOS ====================
+
+@app.route('/desafios', methods=['GET', 'POST'])
+@jwt_required()
+def rota_desafios():
+    uid = int(get_jwt_identity())
+    if request.method == 'GET':
+        rows = fetch_all('SELECT * FROM desafios WHERE user_id=? ORDER BY concluido ASC, data_fim ASC', (uid,))
+        return jsonify([dict(r) for r in rows])
+    d = request.json or {}
+    titulo = (d.get('titulo') or '').strip()
+    descricao = (d.get('descricao') or '').strip()
+    meta_valor = float(d.get('meta_valor', 0))
+    data_inicio = d.get('data_inicio', datetime.now().strftime('%Y-%m-%d'))
+    data_fim = d.get('data_fim', '')
+    if not titulo or meta_valor <= 0 or not data_fim:
+        return jsonify({'msg': 'Dados inválidos'}), 400
+    execute_query(
+        'INSERT INTO desafios (user_id, titulo, descricao, meta_valor, data_inicio, data_fim) VALUES (?,?,?,?,?,?)',
+        (uid, titulo, descricao, meta_valor, data_inicio, data_fim)
+    )
+    return jsonify({'ok': True}), 201
+
+@app.route('/desafios/<int:did>', methods=['PATCH', 'DELETE'])
+@jwt_required()
+def atualizar_desafio(did):
+    uid = int(get_jwt_identity())
+    if request.method == 'DELETE':
+        execute_query('DELETE FROM desafios WHERE id=? AND user_id=?', (did, uid))
+        return jsonify({'ok': True})
+    d = request.json or {}
+    valor_atual = float(d.get('valor_atual', 0))
+    desafio = fetch_one('SELECT * FROM desafios WHERE id=? AND user_id=?', (did, uid))
+    if not desafio:
+        return jsonify({'msg': 'Não encontrado'}), 404
+    concluido = 1 if valor_atual >= desafio['meta_valor'] else 0
+    execute_query('UPDATE desafios SET valor_atual=?, concluido=? WHERE id=? AND user_id=?', (valor_atual, concluido, did, uid))
+    return jsonify({'ok': True, 'concluido': bool(concluido)})
 
 
 if __name__ == '__main__':

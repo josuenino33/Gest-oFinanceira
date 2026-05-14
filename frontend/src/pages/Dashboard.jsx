@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import api from '../utils/api'
+import { gerarRelatorioPDF } from '../utils/gerarPDF'
 import {
   XAxis, YAxis, Tooltip, ResponsiveContainer,
   AreaChart, Area, PieChart, Pie, Cell, LineChart, Line, ReferenceLine
@@ -41,6 +42,8 @@ export default function Dashboard() {
   const [loadingProjecao, setLoadingProjecao] = useState(false)
   const [loadingSaude, setLoadingSaude] = useState(false)
   const [loadingAlertas, setLoadingAlertas] = useState(false)
+  const [evolucao, setEvolucao] = useState(null)
+  const [loadingEvolucao, setLoadingEvolucao] = useState(false)
 
   const aplicarPreset = (preset) => {
     const n = new Date()
@@ -164,9 +167,19 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
-          <p className='text-sm font-semibold hidden md:block' style={{ color: 'var(--text-muted)' }}>
-            Período: <span style={{ color: 'var(--text-main)' }}>{periodoLabel}</span>
-          </p>
+          <div className='flex items-center gap-3'>
+            <p className='text-sm font-semibold hidden md:block' style={{ color: 'var(--text-muted)' }}>
+              Período: <span style={{ color: 'var(--text-main)' }}>{periodoLabel}</span>
+            </p>
+            <button
+              onClick={() => gerarRelatorioPDF({ data, patrimonioData, periodoLabel })}
+              className='flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold uppercase tracking-wider transition hover:bg-green-500/10'
+              style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}
+              title='Exportar PDF'
+            >
+              📄 PDF
+            </button>
+          </div>
         </div>
 
         {/* Filtro em pills */}
@@ -220,6 +233,7 @@ export default function Dashboard() {
       <div className='flex gap-1 p-1.5 rounded-[2.5rem] border mb-12 overflow-x-auto hide-scrollbar' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         {[
           { id: 'resumo',    label: 'Resumo',   icon: '📊' },
+          { id: 'evolucao',  label: 'Evolução',  icon: '📈' },
           { id: 'projecao',  label: 'Projeção',  icon: '🔮' },
           { id: 'saude',     label: 'Saúde',     icon: '❤️' },
           { id: 'ia',        label: 'Alertas',   icon: '🤖' },
@@ -229,6 +243,10 @@ export default function Dashboard() {
             key={tab.id}
             onClick={() => {
               setActiveTab(tab.id)
+              if (tab.id === 'evolucao' && !evolucao && !loadingEvolucao) {
+                setLoadingEvolucao(true)
+                api.get('/historico-patrimonio?dias=90').then(r => setEvolucao(r.data)).catch(() => setEvolucao([])).finally(() => setLoadingEvolucao(false))
+              }
               if (tab.id === 'projecao' && !projecao && !loadingProjecao) {
                 setLoadingProjecao(true)
                 api.get('/projecao?meses=6').then(r => setProjecao(r.data)).catch(() => setProjecao({})).finally(() => setLoadingProjecao(false))
@@ -418,6 +436,102 @@ export default function Dashboard() {
                 </div>
              </div>
           </div>
+        </div>
+      )}
+
+      {/* ── TAB: EVOLUÇÃO ─────────────────────────────────────────────── */}
+      {activeTab === 'evolucao' && (
+        <div className='space-y-8'>
+          <div>
+            <h2 className='text-3xl font-black' style={{ color: 'var(--text-main)' }}>📈 Evolução do Patrimônio</h2>
+            <p className='text-sm mt-1' style={{ color: 'var(--text-muted)' }}>Histórico dos últimos 90 dias — snapshot diário automático</p>
+          </div>
+
+          {loadingEvolucao && (
+            <div className='flex items-center justify-center py-20'>
+              <div className='w-8 h-8 border-4 border-green-500/30 border-t-green-500 rounded-full animate-spin' />
+            </div>
+          )}
+
+          {!loadingEvolucao && evolucao && evolucao.length === 0 && (
+            <div className='text-center py-20 rounded-2xl border' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+              <span className='text-5xl block mb-4'>📊</span>
+              <p className='font-bold mb-2' style={{ color: 'var(--text-main)' }}>Nenhum histórico ainda</p>
+              <p className='text-sm' style={{ color: 'var(--text-muted)' }}>O snapshot é salvo automaticamente ao abrir o Dashboard. Volte amanhã para ver a evolução!</p>
+            </div>
+          )}
+
+          {!loadingEvolucao && evolucao && evolucao.length > 0 && (() => {
+            const primeiro = evolucao[0]?.patrimonio_liquido || 0
+            const ultimo   = evolucao[evolucao.length - 1]?.patrimonio_liquido || 0
+            const variacao = ultimo - primeiro
+            const varPct   = primeiro > 0 ? ((variacao / Math.abs(primeiro)) * 100).toFixed(1) : 0
+            return (
+              <>
+                <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                  {[
+                    { label: 'Patrimônio Atual',   value: fmt(ultimo),   color: '#22c55e' },
+                    { label: 'Variação no Período', value: `${variacao >= 0 ? '+' : ''}${fmt(variacao)}`, color: variacao >= 0 ? '#22c55e' : '#ef4444' },
+                    { label: 'Crescimento %',       value: `${varPct >= 0 ? '+' : ''}${varPct}%`, color: varPct >= 0 ? '#22c55e' : '#ef4444' },
+                  ].map(c => (
+                    <div key={c.label} className='rounded-2xl p-6 border' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                      <p className='text-xs font-bold uppercase tracking-widest mb-2' style={{ color: 'var(--text-muted)' }}>{c.label}</p>
+                      <p className='text-2xl font-black' style={{ color: c.color }}>{c.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className='rounded-2xl p-6 border' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                  <p className='text-xs font-bold uppercase tracking-widest mb-6' style={{ color: 'var(--text-muted)' }}>Patrimônio Líquido</p>
+                  <ResponsiveContainer width='100%' height={280}>
+                    <AreaChart data={evolucao} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                      <defs>
+                        <linearGradient id='gradPat' x1='0' y1='0' x2='0' y2='1'>
+                          <stop offset='5%' stopColor='#22c55e' stopOpacity={0.3} />
+                          <stop offset='95%' stopColor='#22c55e' stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id='gradInv' x1='0' y1='0' x2='0' y2='1'>
+                          <stop offset='5%' stopColor='#3b82f6' stopOpacity={0.2} />
+                          <stop offset='95%' stopColor='#3b82f6' stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey='data' tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
+                        tickFormatter={d => { const p = d.split('-'); return `${p[2]}/${p[1]}` }} interval='preserveStartEnd' />
+                      <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} tickFormatter={v => `R$${(v/1000).toFixed(0)}k`} width={55} />
+                      <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 12 }}
+                        formatter={(v, n) => [fmt(v), n === 'patrimonio_liquido' ? 'Patrimônio' : n === 'investido' ? 'Investido' : 'Em Caixa']}
+                        labelFormatter={d => { const p = d.split('-'); return `${p[2]}/${p[1]}/${p[0]}` }} />
+                      <Area type='monotone' dataKey='patrimonio_liquido' stroke='#22c55e' strokeWidth={2.5} fill='url(#gradPat)' dot={false} />
+                      <Area type='monotone' dataKey='investido' stroke='#3b82f6' strokeWidth={1.5} fill='url(#gradInv)' dot={false} strokeDasharray='4 2' />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                  <div className='flex gap-6 mt-4 justify-center'>
+                    {[{ color: '#22c55e', label: 'Patrimônio Líquido' }, { color: '#3b82f6', label: 'Investido' }].map(l => (
+                      <div key={l.label} className='flex items-center gap-2'>
+                        <div className='w-4 h-1 rounded-full' style={{ background: l.color }} />
+                        <span className='text-xs' style={{ color: 'var(--text-muted)' }}>{l.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className='rounded-2xl p-6 border' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                  <p className='text-xs font-bold uppercase tracking-widest mb-6' style={{ color: 'var(--text-muted)' }}>Em Caixa vs A Pagar</p>
+                  <ResponsiveContainer width='100%' height={180}>
+                    <AreaChart data={evolucao} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                      <XAxis dataKey='data' tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
+                        tickFormatter={d => { const p = d.split('-'); return `${p[2]}/${p[1]}` }} interval='preserveStartEnd' />
+                      <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} tickFormatter={v => `R$${v.toFixed(0)}`} width={55} />
+                      <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 12 }}
+                        formatter={(v, n) => [fmt(v), n === 'em_caixa' ? 'Em Caixa' : 'A Pagar']} />
+                      <Area type='monotone' dataKey='em_caixa' stroke='#22c55e' strokeWidth={2} fill='rgba(34,197,94,0.1)' dot={false} />
+                      <Area type='monotone' dataKey='a_pagar' stroke='#f59e0b' strokeWidth={2} fill='rgba(245,158,11,0.1)' dot={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </>
+            )
+          })()}
         </div>
       )}
 
