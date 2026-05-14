@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import api from '../utils/api'
 import {
-  XAxis, Tooltip, ResponsiveContainer,
-  AreaChart, Area, PieChart, Pie, Cell
+  XAxis, YAxis, Tooltip, ResponsiveContainer,
+  AreaChart, Area, PieChart, Pie, Cell, LineChart, Line, ReferenceLine
 } from 'recharts'
 
 const mesesLabel = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
@@ -35,6 +35,12 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('resumo')
   const [activePreset, setActivePreset] = useState('mes')
   const [showCustom, setShowCustom] = useState(false)
+  const [projecao, setProjecao] = useState(null)
+  const [saude, setSaude] = useState(null)
+  const [alertasIA, setAlertasIA] = useState(null)
+  const [loadingProjecao, setLoadingProjecao] = useState(false)
+  const [loadingSaude, setLoadingSaude] = useState(false)
+  const [loadingAlertas, setLoadingAlertas] = useState(false)
 
   const aplicarPreset = (preset) => {
     const n = new Date()
@@ -211,21 +217,37 @@ export default function Dashboard() {
       </div>
 
       {/* Navegação */}
-      <div className='flex gap-1.5 p-2 rounded-[2.5rem] border mb-12 max-w-lg' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+      <div className='flex gap-1 p-1.5 rounded-[2.5rem] border mb-12 overflow-x-auto hide-scrollbar' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         {[
-          { id: 'resumo', label: 'Resumo', icon: '📊' },
-          { id: 'ia', label: 'Análise', icon: '🤖' },
-          { id: 'conquistas', label: 'Troféus', icon: '🏆' }
+          { id: 'resumo',    label: 'Resumo',   icon: '📊' },
+          { id: 'projecao',  label: 'Projeção',  icon: '🔮' },
+          { id: 'saude',     label: 'Saúde',     icon: '❤️' },
+          { id: 'ia',        label: 'Alertas',   icon: '🤖' },
+          { id: 'conquistas',label: 'Troféus',   icon: '🏆' }
         ].map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-wider transition-all ${
+            onClick={() => {
+              setActiveTab(tab.id)
+              if (tab.id === 'projecao' && !projecao && !loadingProjecao) {
+                setLoadingProjecao(true)
+                api.get('/projecao?meses=6').then(r => setProjecao(r.data)).catch(() => setProjecao({})).finally(() => setLoadingProjecao(false))
+              }
+              if (tab.id === 'saude' && !saude && !loadingSaude) {
+                setLoadingSaude(true)
+                api.get(`/saude-financeira?mes=${now.getMonth()+1}&ano=${now.getFullYear()}`).then(r => setSaude(r.data)).catch(() => setSaude({})).finally(() => setLoadingSaude(false))
+              }
+              if (tab.id === 'ia' && !alertasIA && !loadingAlertas) {
+                setLoadingAlertas(true)
+                api.get('/alertas-ia').then(r => setAlertasIA(r.data)).catch(() => setAlertasIA([])).finally(() => setLoadingAlertas(false))
+              }
+            }}
+            className={`flex-1 min-w-[80px] flex items-center justify-center gap-1.5 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all ${
               activeTab === tab.id ? 'bg-green-500 text-black shadow-lg' : 'hover:bg-green-500/10'
             }`}
             style={activeTab !== tab.id ? { color: 'var(--text-muted)' } : {}}
           >
-            <span className='text-xl'>{tab.icon}</span>
+            <span className='text-base'>{tab.icon}</span>
             <span className='hidden sm:inline'>{tab.label}</span>
           </button>
         ))}
@@ -399,75 +421,232 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* ── TAB: PROJEÇÃO ─────────────────────────────────────────────── */}
+      {activeTab === 'projecao' && (
+        <div className='space-y-8'>
+          <div>
+            <h2 className='text-3xl font-black' style={{ color: 'var(--text-main)' }}>🔮 Projeção de Fluxo de Caixa</h2>
+            <p className='text-sm mt-1' style={{ color: 'var(--text-muted)' }}>Baseada na média dos últimos 3 meses + recorrências ativas</p>
+          </div>
+
+          {loadingProjecao && (
+            <div className='flex items-center justify-center py-20'>
+              <div className='w-8 h-8 border-4 border-green-500/30 border-t-green-500 rounded-full animate-spin' />
+            </div>
+          )}
+
+          {!loadingProjecao && projecao && (
+            <>
+              {/* Cards de médias */}
+              <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                {[
+                  { label: 'Receita Mensal Estimada', val: projecao.media_receita, color: '#22c55e' },
+                  { label: 'Despesa Mensal Estimada', val: projecao.media_despesa, color: '#ef4444' },
+                  { label: 'Saldo Líquido Mensal',   val: (projecao.media_receita||0) - (projecao.media_despesa||0), color: ((projecao.media_receita||0) - (projecao.media_despesa||0)) >= 0 ? '#22c55e' : '#ef4444' },
+                ].map(c => (
+                  <div key={c.label} className='rounded-2xl p-6 border' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                    <p className='text-xs font-bold uppercase tracking-widest mb-2' style={{ color: 'var(--text-muted)' }}>{c.label}</p>
+                    <p className='text-2xl font-black' style={{ color: c.color }}>{fmt(c.val)}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Gráfico */}
+              <div className='rounded-[2.5rem] p-8 border' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                <p className='text-xs font-black uppercase tracking-widest mb-6' style={{ color: 'var(--text-muted)' }}>Saldo Projetado — Próximos 6 Meses</p>
+                <ResponsiveContainer width='100%' height={280}>
+                  <AreaChart data={projecao.projecoes || []} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id='projGrad' x1='0' y1='0' x2='0' y2='1'>
+                        <stop offset='5%'  stopColor='#22c55e' stopOpacity={0.3} />
+                        <stop offset='95%' stopColor='#22c55e' stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey='mes' tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v/1000).toFixed(0)}k`} width={55} />
+                    <ReferenceLine y={0} stroke='#ef4444' strokeDasharray='4 4' strokeOpacity={0.5} />
+                    <Tooltip formatter={(v) => [fmt(v), 'Saldo']} contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 16, color: 'var(--text-main)' }} />
+                    <Area type='monotone' dataKey='saldo' stroke='#22c55e' strokeWidth={2.5} fill='url(#projGrad)' dot={{ fill: '#22c55e', r: 4 }} activeDot={{ r: 6 }} />
+                  </AreaChart>
+                </ResponsiveContainer>
+                {(projecao.projecoes || []).some(p => p.saldo < 0) && (
+                  <p className='text-xs text-red-400 mt-4 font-semibold'>⚠️ Atenção: projeção indica saldo negativo em alguns meses. Considere reduzir despesas ou aumentar receitas.</p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB: SAÚDE FINANCEIRA ─────────────────────────────────────── */}
+      {activeTab === 'saude' && (
+        <div className='space-y-8'>
+          <div>
+            <h2 className='text-3xl font-black' style={{ color: 'var(--text-main)' }}>❤️ Saúde Financeira</h2>
+            <p className='text-sm mt-1' style={{ color: 'var(--text-muted)' }}>Score e análise da sua situação financeira atual</p>
+          </div>
+
+          {loadingSaude && (
+            <div className='flex items-center justify-center py-20'>
+              <div className='w-8 h-8 border-4 border-green-500/30 border-t-green-500 rounded-full animate-spin' />
+            </div>
+          )}
+
+          {!loadingSaude && saude && (
+            <>
+              {/* Score principal */}
+              <div className='rounded-[2.5rem] p-8 border relative overflow-hidden' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                <div className='flex flex-col md:flex-row md:items-center gap-8'>
+                  <div className='flex flex-col items-center justify-center w-40 h-40 rounded-full border-8 shrink-0 mx-auto md:mx-0'
+                    style={{ borderColor: (saude.score||0) >= 70 ? '#22c55e' : (saude.score||0) >= 40 ? '#f59e0b' : '#ef4444' }}>
+                    <span className='text-5xl font-black' style={{ color: (saude.score||0) >= 70 ? '#22c55e' : (saude.score||0) >= 40 ? '#f59e0b' : '#ef4444' }}>{saude.score||0}</span>
+                    <span className='text-xs font-bold' style={{ color: 'var(--text-muted)' }}>/ 100</span>
+                  </div>
+                  <div className='flex-1'>
+                    <h3 className='text-2xl font-black mb-1' style={{ color: 'var(--text-main)' }}>
+                      {(saude.score||0) >= 80 ? '🏆 Excelente' : (saude.score||0) >= 60 ? '😊 Bom' : (saude.score||0) >= 40 ? '⚠️ Regular' : '🚨 Atenção'}
+                    </h3>
+                    <p className='text-sm mb-4' style={{ color: 'var(--text-muted)' }}>
+                      {(saude.score||0) >= 80 ? 'Sua vida financeira está muito bem organizada!' :
+                       (saude.score||0) >= 60 ? 'Bom progresso — continue melhorando.' :
+                       (saude.score||0) >= 40 ? 'Há espaço para melhorar. Veja os fatores abaixo.' :
+                       'Alguns pontos precisam de atenção urgente.'}
+                    </p>
+                    <div className='h-3 rounded-full overflow-hidden' style={{ background: 'var(--bg-input)' }}>
+                      <div className='h-full rounded-full transition-all duration-700'
+                        style={{ width: `${saude.score||0}%`, background: (saude.score||0) >= 70 ? 'linear-gradient(90deg,#22c55e,#16a34a)' : (saude.score||0) >= 40 ? 'linear-gradient(90deg,#f59e0b,#d97706)' : '#ef4444' }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fatores */}
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                {(saude.fatores||[]).map((f, i) => (
+                  <div key={i} className='rounded-2xl p-5 border' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                    <div className='flex justify-between items-start mb-3'>
+                      <div className='flex items-center gap-2'>
+                        <span className='text-xl'>{f.icone}</span>
+                        <span className='font-bold text-sm' style={{ color: 'var(--text-main)' }}>{f.fator}</span>
+                      </div>
+                      <span className='font-black text-sm' style={{ color: f.pts === f.max ? '#22c55e' : f.pts >= f.max * 0.6 ? '#f59e0b' : '#ef4444' }}>
+                        {f.pts}/{f.max} pts
+                      </span>
+                    </div>
+                    <div className='h-2 rounded-full overflow-hidden mb-2' style={{ background: 'var(--bg-input)' }}>
+                      <div className='h-full rounded-full' style={{ width: `${(f.pts/f.max)*100}%`, background: f.pts === f.max ? '#22c55e' : f.pts >= f.max*0.6 ? '#f59e0b' : '#ef4444' }} />
+                    </div>
+                    <p className='text-xs' style={{ color: 'var(--text-muted)' }}>{f.msg}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Regra 50-30-20 */}
+              {saude.receita > 0 && (
+                <div className='rounded-[2.5rem] p-8 border' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                  <p className='text-xs font-black uppercase tracking-widest mb-6' style={{ color: 'var(--accent)' }}>Regra 50 · 30 · 20</p>
+                  <div className='space-y-5'>
+                    {[
+                      { label: 'Necessidades', pct: 50, real: saude.regra_50_30_20?.necessidades?.real, meta: saude.regra_50_30_20?.necessidades?.meta, color: '#3b82f6' },
+                      { label: 'Desejos',      pct: 30, real: saude.regra_50_30_20?.desejos?.real,      meta: saude.regra_50_30_20?.desejos?.meta,      color: '#a855f7' },
+                      { label: 'Poupança',     pct: 20, real: saude.regra_50_30_20?.poupanca?.real,     meta: saude.regra_50_30_20?.poupanca?.meta,     color: '#22c55e' },
+                    ].map(b => (
+                      <div key={b.label}>
+                        <div className='flex justify-between text-sm mb-2'>
+                          <span className='font-bold' style={{ color: 'var(--text-main)' }}>{b.label} <span className='font-normal' style={{ color: 'var(--text-muted)' }}>({b.pct}%)</span></span>
+                          <span style={{ color: 'var(--text-muted)' }}>{fmt(b.real)} <span className='text-xs'>/ meta {fmt(b.meta)}</span></span>
+                        </div>
+                        <div className='h-3 rounded-full overflow-hidden' style={{ background: 'var(--bg-input)' }}>
+                          <div className='h-full rounded-full transition-all duration-500' style={{ width: `${Math.min(100,(b.real/b.meta)*100)||0}%`, background: b.color }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className='text-xs mt-6 p-3 rounded-xl' style={{ color: 'var(--text-muted)', background: 'var(--bg-input)' }}>
+                    💡 A regra 50-30-20 sugere: 50% da renda para necessidades, 30% para desejos e 20% para poupança/investimentos.
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB: ALERTAS IA ───────────────────────────────────────────── */}
       {activeTab === 'ia' && (
         <div className='space-y-8'>
           <div className='flex items-center justify-between'>
             <div>
-              <h2 className='text-3xl font-black' style={{ color: 'var(--text-main)' }}>Análise Financeira</h2>
-              <p className='text-sm mt-1' style={{ color: 'var(--text-muted)' }}>Baseada nos seus dados do período</p>
+              <h2 className='text-3xl font-black' style={{ color: 'var(--text-main)' }}>🤖 Alertas Inteligentes</h2>
+              <p className='text-sm mt-1' style={{ color: 'var(--text-muted)' }}>IA analisando seus dados e padrões financeiros</p>
             </div>
+            <button onClick={() => { setAlertasIA(null); setLoadingAlertas(true); api.get('/alertas-ia').then(r => setAlertasIA(r.data)).catch(() => setAlertasIA([])).finally(() => setLoadingAlertas(false)) }}
+              className='text-xs font-bold px-4 py-2 rounded-xl border transition hover:bg-green-500/10' style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
+              Atualizar
+            </button>
           </div>
 
-          {/* Barra de saúde financeira */}
-          <div className='border rounded-[2.5rem] p-8' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-            <div className='flex items-center justify-between mb-4'>
-              <span className='font-black text-xs uppercase tracking-widest' style={{ color: 'var(--text-muted)' }}>Saúde Financeira</span>
-              <span className='font-black text-lg' style={{ color: data?.meta_economia >= 20 ? '#22c55e' : data?.meta_economia > 0 ? '#f59e0b' : '#ef4444' }}>
-                {data?.meta_economia >= 30 ? 'Excelente 🏆' : data?.meta_economia >= 20 ? 'Ótimo 😊' : data?.meta_economia > 0 ? 'Atenção ⚠️' : 'Crítico 🚨'}
-              </span>
-            </div>
-            <div className='w-full h-4 rounded-full overflow-hidden' style={{ background: 'var(--bg-input)' }}>
-              <div className='h-full rounded-full transition-all duration-700'
-                style={{ width: `${Math.min(100, Math.max(0, data?.meta_economia || 0))}%`, background: data?.meta_economia >= 20 ? 'linear-gradient(90deg, #22c55e, #16a34a)' : data?.meta_economia > 0 ? 'linear-gradient(90deg, #f59e0b, #d97706)' : '#ef4444' }} />
-            </div>
-            <div className='flex justify-between mt-2 text-xs font-bold' style={{ color: 'var(--text-muted)' }}>
-              <span>Crítico</span><span>Estável</span><span>Excelente</span>
-            </div>
-          </div>
-
-          {/* Stats rápidos */}
-          <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
-            {[
-              { label: 'Taxa de economia', valor: `${Math.round(data?.meta_economia || 0)}%`, icon: '💰', ok: (data?.meta_economia || 0) >= 20 },
-              { label: 'Saldo do período', valor: fmt(data?.saldo), icon: '📊', ok: (data?.saldo || 0) >= 0 },
-              { label: 'Total receitas', valor: fmt(data?.receitas), icon: '📈', ok: true },
-              { label: 'Total despesas', valor: fmt(data?.despesas), icon: '📉', ok: (data?.despesas || 0) <= (data?.receitas || 0) },
-            ].map((s, i) => (
-              <div key={i} className='border rounded-[2rem] p-6 flex flex-col gap-2' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-                <span className='text-2xl'>{s.icon}</span>
-                <p className='text-[10px] font-black uppercase tracking-widest' style={{ color: 'var(--text-muted)' }}>{s.label}</p>
-                <p className='text-xl font-black' style={{ color: s.ok ? 'var(--text-main)' : '#ef4444' }}>{s.valor}</p>
+          {/* Alertas da IA */}
+          {loadingAlertas && (
+            <div className='flex items-center justify-center py-20'>
+              <div className='flex flex-col items-center gap-3'>
+                <div className='w-8 h-8 border-4 border-green-500/30 border-t-green-500 rounded-full animate-spin' />
+                <p className='text-xs font-bold' style={{ color: 'var(--text-muted)' }}>IA analisando seus dados...</p>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
 
-          {/* Insights */}
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-5'>
-            {insights.map((ins, i) => {
-              const isWarn = ins.msg.toLowerCase().includes('maior') || ins.msg.toLowerCase().includes('revis')
-              const isGood = ins.msg.toLowerCase().includes('parabén') || ins.msg.toLowerCase().includes('economiz')
-              const icon = isWarn ? '⚠️' : isGood ? '🎉' : '💡'
-              const accent = isWarn ? '#f59e0b' : isGood ? '#22c55e' : '#3b82f6'
-              return (
-                <div key={i} className='rounded-[2rem] p-6 border-l-4 border flex gap-4 items-start'
-                  style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', borderLeftColor: accent }}>
-                  <span className='text-3xl shrink-0'>{icon}</span>
-                  <div>
-                    <p className='font-black text-sm mb-1' style={{ color: accent }}>
-                      {isWarn ? 'Atenção' : isGood ? 'Parabéns!' : 'Dica'}
-                    </p>
-                    <p className='text-sm leading-relaxed' style={{ color: 'var(--text-main)' }}>{ins.msg}</p>
+          {!loadingAlertas && alertasIA && alertasIA.length > 0 && (
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+              {alertasIA.map((a, i) => {
+                const colors = { positivo: { bg: '#22c55e15', border: '#22c55e', icon: '🎉' }, alerta: { bg: '#f59e0b15', border: '#f59e0b', icon: '⚠️' }, dica: { bg: '#3b82f615', border: '#3b82f6', icon: '💡' } }
+                const c = colors[a.tipo] || colors.dica
+                return (
+                  <div key={i} className='rounded-2xl p-5 border-l-4' style={{ background: c.bg, borderLeftColor: c.border, borderTop: '1px solid var(--border-color)', borderRight: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)' }}>
+                    <div className='flex items-center gap-2 mb-2'>
+                      <span className='text-xl'>{c.icon}</span>
+                      <span className='font-black text-sm' style={{ color: c.border }}>{a.titulo}</span>
+                    </div>
+                    <p className='text-sm leading-relaxed' style={{ color: 'var(--text-main)' }}>{a.msg}</p>
                   </div>
-                </div>
-              )
-            })}
-            {insights.length === 0 && (
-              <div className='col-span-2 text-center py-12' style={{ color: 'var(--text-muted)' }}>
-                <span className='text-5xl block mb-4'>🔍</span>
-                <p>Registre mais lançamentos para receber análises personalizadas.</p>
+                )
+              })}
+            </div>
+          )}
+
+          {!loadingAlertas && alertasIA && alertasIA.length === 0 && (
+            <div className='text-center py-16 rounded-2xl border' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+              <span className='text-5xl block mb-4'>🤖</span>
+              <p className='font-bold mb-2' style={{ color: 'var(--text-main)' }}>Nenhum alerta gerado</p>
+              <p className='text-sm' style={{ color: 'var(--text-muted)' }}>Registre receitas e despesas para receber insights personalizados.</p>
+            </div>
+          )}
+
+          {!loadingAlertas && !alertasIA && (
+            <div className='text-center py-16 rounded-2xl border' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+              <span className='text-5xl block mb-4'>🤖</span>
+              <p className='text-sm' style={{ color: 'var(--text-muted)' }}>Clique em "Atualizar" para gerar alertas com IA.</p>
+            </div>
+          )}
+
+          {/* Insights básicos do período */}
+          {insights.length > 0 && (
+            <div>
+              <p className='text-xs font-black uppercase tracking-widest mb-4' style={{ color: 'var(--text-muted)' }}>Análise do Período</p>
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                {insights.map((ins, i) => {
+                  const isWarn = ins.msg.toLowerCase().includes('maior') || ins.msg.toLowerCase().includes('revis')
+                  const isGood = ins.msg.toLowerCase().includes('parabén') || ins.msg.toLowerCase().includes('economiz')
+                  const accent = isWarn ? '#f59e0b' : isGood ? '#22c55e' : '#3b82f6'
+                  return (
+                    <div key={i} className='rounded-2xl p-5 border-l-4 border' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', borderLeftColor: accent }}>
+                      <p className='text-sm leading-relaxed' style={{ color: 'var(--text-main)' }}>{ins.msg}</p>
+                    </div>
+                  )
+                })}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -5,10 +5,11 @@ import { useEffect, useState } from 'react'
 import api from '../utils/api'
 
 const menu = [
-  { label: 'Dashboard', path: '/', icon: '📊' },
-  { label: 'Minha Carteira', path: '/carteira', icon: '💼' },
-  { label: 'Metas & Sonhos', path: '/metas', icon: '🎯' },
-  { label: 'Recorrências', path: '/recorrencias', icon: '🔄' },
+  { label: 'Dashboard',     path: '/',              icon: '📊' },
+  { label: 'Minha Carteira',path: '/carteira',      icon: '💼' },
+  { label: 'Orçamentos',    path: '/orcamentos',    icon: '🎯' },
+  { label: 'Metas & Sonhos',path: '/metas',         icon: '⭐' },
+  { label: 'Recorrências',  path: '/recorrencias',  icon: '🔄' },
   { label: 'Configurações', path: '/configuracoes', icon: '⚙️' },
 ]
 

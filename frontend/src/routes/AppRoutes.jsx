@@ -13,6 +13,7 @@ import Categorias from '../pages/Categorias'
 import Planejamento from '../pages/Planejamento'
 import Configuracoes from '../pages/Configuracoes'
 import Recorrencias from '../pages/Recorrencias'
+import Orcamentos from '../pages/Orcamentos'
 import Login from '../pages/Login'
 import Register from '../pages/Register'
 import ForgotPassword from '../pages/ForgotPassword'
@@ -42,6 +43,7 @@ export default function AppRoutes() {
           <Route path='/relatorios' element={<Relatorios />} />
           <Route path='/categorias' element={<Categorias />} />
           <Route path='/planejamento' element={<Planejamento />} />
+          <Route path='/orcamentos' element={<Orcamentos />} />
           <Route path='/recorrencias' element={<Recorrencias />} />
           <Route path='/configuracoes' element={<Configuracoes />} />
         </Route>

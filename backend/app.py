@@ -169,7 +169,8 @@ def init_db():
             f"CREATE TABLE IF NOT EXISTS metas (id {pk}, user_id INTEGER, titulo TEXT NOT NULL, descricao TEXT DEFAULT '', valor_alvo REAL DEFAULT 0, valor_atual REAL DEFAULT 0, progresso INTEGER DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS investimentos (id {pk}, user_id INTEGER, titulo TEXT NOT NULL, tipo TEXT NOT NULL, valor_investido REAL NOT NULL, valor_atual REAL NOT NULL, rentabilidade REAL DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS planejamento (id {pk}, user_id INTEGER, categoria_id INTEGER, valor_planejado REAL NOT NULL, mes INTEGER NOT NULL, ano INTEGER NOT NULL, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
-            f"CREATE TABLE IF NOT EXISTS recorrencias (id {pk}, user_id INTEGER, tipo TEXT NOT NULL, descricao TEXT NOT NULL, valor REAL NOT NULL, categoria_id INTEGER, dia INTEGER DEFAULT 1, ativo INTEGER DEFAULT 1, ultima_geracao TEXT, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
+            f"CREATE TABLE IF NOT EXISTS recorrencias (id {pk}, user_id INTEGER, tipo TEXT NOT NULL, descricao TEXT NOT NULL, valor REAL NOT NULL, categoria_id INTEGER, dia INTEGER DEFAULT 1, ativo INTEGER DEFAULT 1, ultima_geracao TEXT, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+            f"CREATE TABLE IF NOT EXISTS orcamentos (id {pk}, user_id INTEGER NOT NULL, categoria_id INTEGER NOT NULL, limite REAL NOT NULL, mes INTEGER NOT NULL, ano INTEGER NOT NULL, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
         ]
 
         for sql in tables:
@@ -858,6 +859,253 @@ def reset_password():
     h = generate_password_hash(password)
     execute_query('UPDATE users SET senha = ? WHERE email = ?', (h, email))
     return jsonify({'msg': 'Senha alterada com sucesso!'})
+
+# ─── ORÇAMENTOS ────────────────────────────────────────────────────────────────
+
+@app.route('/orcamentos', methods=['GET', 'POST'])
+@jwt_required()
+def orcamentos():
+    uid = int(get_jwt_identity())
+    if request.method == 'GET':
+        mes = int(request.args.get('mes', datetime.now().month))
+        ano = int(request.args.get('ano', datetime.now().year))
+        rows = fetch_all('''
+            SELECT o.id, o.categoria_id, o.limite, o.mes, o.ano,
+                   c.nome as categoria_nome, c.cor,
+                   COALESCE((
+                       SELECT SUM(ct.valor) FROM contas ct
+                       WHERE ct.user_id = o.user_id
+                         AND ct.categoria_id = o.categoria_id
+                         AND ct.pago = 1
+                         AND strftime('%m', ct.criado_em) = ?
+                         AND strftime('%Y', ct.criado_em) = ?
+                   ), 0) as gasto
+            FROM orcamentos o
+            LEFT JOIN categorias c ON c.id = o.categoria_id
+            WHERE o.user_id = ? AND o.mes = ? AND o.ano = ?
+            ORDER BY c.nome
+        ''', (f'{mes:02d}', str(ano), uid, mes, ano))
+        return jsonify(rows)
+    d = request.json or {}
+    cat_id  = d.get('categoria_id')
+    limite  = float(d.get('limite', 0))
+    mes     = int(d.get('mes', datetime.now().month))
+    ano     = int(d.get('ano', datetime.now().year))
+    if not cat_id or limite <= 0:
+        return jsonify({'msg': 'Categoria e limite são obrigatórios.'}), 400
+    existing = fetch_one('SELECT id FROM orcamentos WHERE user_id=? AND categoria_id=? AND mes=? AND ano=?', (uid, cat_id, mes, ano))
+    if existing:
+        execute_query('UPDATE orcamentos SET limite=? WHERE id=?', (limite, existing['id']))
+    else:
+        execute_query('INSERT INTO orcamentos (user_id, categoria_id, limite, mes, ano) VALUES (?,?,?,?,?)', (uid, cat_id, limite, mes, ano))
+    return jsonify({'msg': 'OK'}), 201
+
+@app.route('/orcamentos/<int:oid>', methods=['DELETE'])
+@jwt_required()
+def delete_orcamento(oid):
+    uid = int(get_jwt_identity())
+    execute_query('DELETE FROM orcamentos WHERE id=? AND user_id=?', (oid, uid))
+    return jsonify({'msg': 'OK'})
+
+# ─── SAÚDE FINANCEIRA ──────────────────────────────────────────────────────────
+
+@app.route('/saude-financeira', methods=['GET'])
+@jwt_required()
+def saude_financeira():
+    uid = int(get_jwt_identity())
+    mes = int(request.args.get('mes', datetime.now().month))
+    ano = int(request.args.get('ano', datetime.now().year))
+    mes_s, ano_s = f'{mes:02d}', str(ano)
+
+    r  = float(fetch_one("SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=? AND strftime('%m',criado_em)=? AND strftime('%Y',criado_em)=?", (uid, mes_s, ano_s))['t'])
+    dp = float(fetch_one("SELECT COALESCE(SUM(valor),0) as t FROM contas   WHERE user_id=? AND pago=1 AND strftime('%m',criado_em)=? AND strftime('%Y',criado_em)=?", (uid, mes_s, ano_s))['t'])
+    inv = float(fetch_one('SELECT COALESCE(SUM(valor_atual),0) as t FROM investimentos WHERE user_id=?', (uid,))['t'])
+    inv_ap = float(fetch_one('SELECT COALESCE(SUM(valor_investido),0) as t FROM investimentos WHERE user_id=?', (uid,))['t'])
+    has_metas = fetch_one('SELECT COUNT(*) as c FROM metas WHERE user_id=?', (uid,))['c']
+    has_orc   = fetch_one('SELECT COUNT(*) as c FROM orcamentos WHERE user_id=?', (uid,))['c']
+
+    poupanca = r - dp
+    taxa_poupanca = round((poupanca / r * 100), 1) if r > 0 else 0
+    rendimento = inv - inv_ap
+
+    score = 0
+    fatores = []
+
+    # 1. Taxa de poupança (35 pts)
+    if taxa_poupanca >= 20:
+        pts = 35
+        msg = f'Excelente! Poupando {taxa_poupanca:.0f}% da renda'
+    elif taxa_poupanca >= 10:
+        pts = 22
+        msg = f'Bom. Poupando {taxa_poupanca:.0f}% — meta é 20%'
+    elif taxa_poupanca > 0:
+        pts = 10
+        msg = f'Atenção: poupando apenas {taxa_poupanca:.0f}%'
+    else:
+        pts = 0
+        msg = 'Gastos maiores que receitas este mês'
+    score += pts
+    fatores.append({'fator': 'Poupança', 'icone': '💰', 'pts': pts, 'max': 35, 'msg': msg})
+
+    # 2. Investimentos (25 pts)
+    if inv > 0 and rendimento >= 0:
+        pts = 25
+        msg = f'Investindo R$ {inv:,.2f} com rendimento positivo'
+    elif inv > 0:
+        pts = 15
+        msg = f'Tem investimentos mas com queda no período'
+    else:
+        pts = 0
+        msg = 'Sem investimentos — comece mesmo que pouco'
+    score += pts
+    fatores.append({'fator': 'Investimentos', 'icone': '📈', 'pts': pts, 'max': 25, 'msg': msg})
+
+    # 3. Controle de gastos (25 pts)
+    if r > 0:
+        ratio = dp / r
+        if ratio <= 0.5:   pts, msg = 25, 'Gastos abaixo de 50% da renda — excepcional'
+        elif ratio <= 0.7: pts, msg = 18, 'Bom controle — gastos entre 50% e 70%'
+        elif ratio <= 0.9: pts, msg = 10, 'Gastos elevados — reduza se possível'
+        else:               pts, msg = 0,  'Alerta: gastos acima de 90% da renda'
+    else:
+        pts, msg = 0, 'Sem receita registrada este mês'
+    score += pts
+    fatores.append({'fator': 'Controle de Gastos', 'icone': '🎯', 'pts': pts, 'max': 25, 'msg': msg})
+
+    # 4. Planejamento (15 pts)
+    pts = min(15, (5 if has_orc > 0 else 0) + (5 if has_orc >= 3 else 0) + (5 if has_metas > 0 else 0))
+    msg = 'Orçamentos e metas configurados' if pts == 15 else ('Configure orçamentos por categoria e metas' if pts == 0 else 'Adicione mais orçamentos e metas')
+    score += pts
+    fatores.append({'fator': 'Planejamento', 'icone': '📋', 'pts': pts, 'max': 15, 'msg': msg})
+
+    # 50-30-20
+    regra = {
+        'necessidades': {'real': round(dp * 0.65, 2), 'meta': round(r * 0.50, 2)},
+        'desejos':      {'real': round(dp * 0.35, 2), 'meta': round(r * 0.30, 2)},
+        'poupanca':     {'real': round(max(0, poupanca), 2), 'meta': round(r * 0.20, 2)},
+    }
+
+    return jsonify({
+        'score': min(100, score),
+        'taxa_poupanca': taxa_poupanca,
+        'receita': r, 'despesa': dp, 'poupanca': poupanca,
+        'investimentos': inv, 'rendimento': rendimento,
+        'fatores': fatores,
+        'regra_50_30_20': regra,
+    })
+
+# ─── PROJEÇÃO DE FLUXO DE CAIXA ───────────────────────────────────────────────
+
+@app.route('/projecao', methods=['GET'])
+@jwt_required()
+def projecao():
+    uid  = int(get_jwt_identity())
+    meses_futuro = int(request.args.get('meses', 6))
+    now  = datetime.now()
+
+    # Média dos últimos 3 meses
+    media_rec = media_desp = 0
+    amostras = 0
+    for delta in range(1, 4):
+        d = datetime(now.year, now.month, 1) - timedelta(days=delta * 28)
+        ms, ys = f'{d.month:02d}', str(d.year)
+        r = float(fetch_one("SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=? AND strftime('%m',criado_em)=? AND strftime('%Y',criado_em)=?", (uid, ms, ys))['t'])
+        e = float(fetch_one("SELECT COALESCE(SUM(valor),0) as t FROM contas WHERE user_id=? AND pago=1 AND strftime('%m',criado_em)=? AND strftime('%Y',criado_em)=?", (uid, ms, ys))['t'])
+        if r > 0 or e > 0:
+            media_rec  += r
+            media_desp += e
+            amostras   += 1
+
+    if amostras > 0:
+        media_rec  = round(media_rec  / amostras, 2)
+        media_desp = round(media_desp / amostras, 2)
+
+    # Recorrências ativas
+    recs = fetch_all('SELECT tipo, valor FROM recorrencias WHERE user_id=? AND ativo=1', (uid,))
+    rec_entrada = sum(float(r['valor']) for r in recs if r['tipo'] == 'receita')
+    rec_saida   = sum(float(r['valor']) for r in recs if r['tipo'] == 'despesa')
+
+    receita_mensal = max(media_rec, rec_entrada)
+    despesa_mensal = max(media_desp, rec_saida)
+
+    saldo_atual = float(fetch_one("SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=?", (uid,))['t']) - \
+                  float(fetch_one("SELECT COALESCE(SUM(valor),0) as t FROM contas WHERE user_id=? AND pago=1", (uid,))['t'])
+
+    meses_labels = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+    projecoes = [{'mes': 'Hoje', 'saldo': round(saldo_atual, 2), 'receitas': 0, 'despesas': 0}]
+
+    saldo = saldo_atual
+    for i in range(1, meses_futuro + 1):
+        m_idx = (now.month - 1 + i) % 12
+        saldo += receita_mensal - despesa_mensal
+        projecoes.append({
+            'mes': meses_labels[m_idx],
+            'saldo': round(saldo, 2),
+            'receitas': receita_mensal,
+            'despesas': despesa_mensal,
+        })
+
+    return jsonify({
+        'projecoes': projecoes,
+        'media_receita': receita_mensal,
+        'media_despesa': despesa_mensal,
+    })
+
+# ─── ALERTAS IA ───────────────────────────────────────────────────────────────
+
+@app.route('/alertas-ia', methods=['GET'])
+@jwt_required()
+def alertas_ia():
+    if not gemini_client:
+        return jsonify([])
+    uid = int(get_jwt_identity())
+    now = datetime.now()
+    mes, ano = now.month, now.year
+    mes_ant = mes - 1 if mes > 1 else 12
+    ano_ant = ano if mes > 1 else ano - 1
+    ms, ys   = f'{mes:02d}',     str(ano)
+    ms2, ys2 = f'{mes_ant:02d}', str(ano_ant)
+
+    def get_stats(m, y):
+        r = float(fetch_one("SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=? AND strftime('%m',criado_em)=? AND strftime('%Y',criado_em)=?", (uid, m, y))['t'])
+        d = float(fetch_one("SELECT COALESCE(SUM(valor),0) as t FROM contas WHERE user_id=? AND pago=1 AND strftime('%m',criado_em)=? AND strftime('%Y',criado_em)=?", (uid, m, y))['t'])
+        return r, d
+
+    r_atual, d_atual = get_stats(ms,  ys)
+    r_ant,   d_ant   = get_stats(ms2, ys2)
+
+    cats = fetch_all("""
+        SELECT c.nome, COALESCE(SUM(ct.valor),0) as total
+        FROM contas ct JOIN categorias c ON c.id = ct.categoria_id
+        WHERE ct.user_id=? AND ct.pago=1 AND strftime('%m',ct.criado_em)=? AND strftime('%Y',ct.criado_em)=?
+        GROUP BY c.nome ORDER BY total DESC LIMIT 5
+    """, (uid, ms, ys))
+    cats_str = ', '.join([f"{c['nome']}: R${c['total']:.2f}" for c in cats]) or 'sem dados'
+
+    var_rec  = ((r_atual - r_ant) / r_ant  * 100) if r_ant  > 0 else 0
+    var_desp = ((d_atual - d_ant) / d_ant * 100)  if d_ant > 0 else 0
+    taxa_poc = ((r_atual - d_atual) / r_atual * 100) if r_atual > 0 else 0
+
+    prompt = f"""Analise esses dados financeiros pessoais e gere exatamente 4 insights curtos em português brasileiro.
+
+Mês atual: Receitas R${r_atual:.2f} | Despesas pagas R${d_atual:.2f} | Taxa de poupança {taxa_poc:.1f}%
+Mês anterior: Receitas R${r_ant:.2f} | Despesas R${d_ant:.2f}
+Variação receita: {var_rec:+.1f}% | Variação despesa: {var_desp:+.1f}%
+Top categorias de gasto: {cats_str}
+
+Responda APENAS com JSON válido, sem texto extra:
+[{{"tipo": "positivo"|"alerta"|"dica", "titulo": "até 5 palavras", "msg": "1 frase direta e útil"}}]"""
+
+    try:
+        resp = gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+        import json, re
+        match = re.search(r'\[.*?\]', resp.text, re.DOTALL)
+        if match:
+            return jsonify(json.loads(match.group()))
+    except Exception as e:
+        print(f'alertas-ia error: {e}')
+    return jsonify([])
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
