@@ -157,17 +157,32 @@ export default function Dashboard() {
   }, [carregarDashboard])
 
   useEffect(() => {
-    Promise.allSettled([
-      api.get('/contas'),
-      api.get('/cartoes'),
-      api.get('/metas'),
-      api.get('/receitas'),
-    ]).then(([c, cart, m, rec]) => {
-      if (c.status === 'fulfilled') setContas(c.value.data || [])
-      if (cart.status === 'fulfilled') setCartoes(cart.value.data || [])
-      if (m.status === 'fulfilled') setMetas(m.value.data || [])
-      if (rec.status === 'fulfilled') setReceitas(rec.value.data || [])
-    })
+    const chaveRec = `rec_gerada_${now.getFullYear()}_${now.getMonth() + 1}`
+    const jaGerou = localStorage.getItem(chaveRec)
+
+    const carregarWidgets = () => {
+      Promise.allSettled([
+        api.get('/contas'),
+        api.get('/cartoes'),
+        api.get('/metas'),
+        api.get('/receitas'),
+      ]).then(([c, cart, m, rec]) => {
+        if (c.status === 'fulfilled') setContas(c.value.data || [])
+        if (cart.status === 'fulfilled') setCartoes(cart.value.data || [])
+        if (m.status === 'fulfilled') setMetas(m.value.data || [])
+        if (rec.status === 'fulfilled') setReceitas(rec.value.data || [])
+      })
+    }
+
+    if (!jaGerou) {
+      api.post('/recorrencias/gerar').then(() => {
+        localStorage.setItem(chaveRec, '1')
+        carregarWidgets()
+        carregarDashboard()
+      }).catch(() => carregarWidgets())
+    } else {
+      carregarWidgets()
+    }
   }, [])
 
   const chartData = (data?.historico || []).map(d => ({ ...d, saldo: (d.receitas || 0) - (d.despesas || 0) }))
