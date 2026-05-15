@@ -592,7 +592,8 @@ def chat():
                     model=GEMINI_MODEL, contents=context, config=cfg
                 ):
                     if chunk.text:
-                        yield f"data: {chunk.text.replace(chr(10), '\\n')}\n\n"
+                        safe = chunk.text.replace('\n', '\\n')
+                        yield f"data: {safe}\n\n"
             except Exception as ex:
                 yield f"data: [ERROR]{str(ex)}\n\n"
             yield "data: [DONE]\n\n"
