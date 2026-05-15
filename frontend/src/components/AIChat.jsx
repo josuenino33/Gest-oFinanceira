@@ -172,25 +172,57 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
   actionRef.current.sendVoiceMessage = async (text) => {
     setVoiceState('processing')
     setMessages(prev => [...prev, { role: 'user', text }, { role: 'ai', text: '' }])
+
     let full = ''
+    let buf = ''
+    const queue = []
+    let busy = false
+    let streamDone = false
+
+    const next = () => {
+      if (busy || queue.length === 0) {
+        if (streamDone && !busy && queue.length === 0) {
+          if (voiceModeRef.current) setTimeout(() => actionRef.current.startListening(), 400)
+          else setVoiceState('idle')
+        }
+        return
+      }
+      busy = true
+      setVoiceState('speaking')
+      speak(queue.shift(), () => { busy = false; next() })
+    }
+
+    const flush = (force = false) => {
+      const end = Math.max(buf.lastIndexOf('.'), buf.lastIndexOf('!'), buf.lastIndexOf('?'))
+      if (end >= 10) {
+        queue.push(buf.slice(0, end + 1).trim())
+        buf = buf.slice(end + 1).trimStart()
+      } else if (force && buf.trim()) {
+        queue.push(buf.trim())
+        buf = ''
+      }
+      next()
+    }
+
     await streamChat(
       text,
       (chunk) => {
         full += chunk
+        buf += chunk
         setMessages(prev => {
           const msgs = [...prev]
           msgs[msgs.length - 1] = { role: 'ai', text: full }
           return msgs
         })
+        flush()
       },
       () => {
-        setVoiceState('speaking')
-        speak(full, () => {
-          if (voiceModeRef.current) setTimeout(() => actionRef.current.startListening(), 400)
-          else setVoiceState('idle')
-        })
+        streamDone = true
+        flush(true)
+        next()
       },
       () => {
+        streamDone = true
         setMessages(prev => {
           const msgs = [...prev]
           msgs[msgs.length - 1] = { role: 'ai', text: 'Erro de conexão com o servidor.' }
