@@ -635,8 +635,10 @@ def text_to_speech():
             )
             el_resp.raise_for_status()
             return Response(el_resp.content, mimetype='audio/mpeg')
+        except http_requests.exceptions.HTTPError:
+            print(f'ElevenLabs TTS falhou [{el_resp.status_code}]: {el_resp.text[:300]}')
         except Exception as e:
-            print(f'ElevenLabs TTS falhou, usando Gemini: {e}')
+            print(f'ElevenLabs TTS falhou: {e}')
 
     # Fallback: Gemini TTS
     if not gemini_client:
