@@ -1,7 +1,7 @@
 import os
 import sqlite3
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response, stream_with_context
 from dotenv import load_dotenv
 from pathlib import Path
 load_dotenv(Path(__file__).parent / '.env')
@@ -578,14 +578,30 @@ def chat():
         r, de, iv = float(resumo['t']), float(desp['t']), float(inv['t'])
         context = (
             f"Você é um assistente financeiro pessoal. Dados do usuário:\n"
-            f"- Receitas acumuladas: R$ {r:,.2f}\n"
-            f"- Despesas acumuladas: R$ {de:,.2f}\n"
-            f"- Saldo disponível: R$ {r-de:,.2f}\n"
-            f"- Investimentos (valor atual): R$ {iv:,.2f}\n"
-            f"Responda de forma clara e objetiva em português.\n\nUsuário: {msg}"
+            f"- Receitas: R$ {r:,.2f}\n"
+            f"- Despesas: R$ {de:,.2f}\n"
+            f"- Saldo: R$ {r-de:,.2f}\n"
+            f"- Investimentos: R$ {iv:,.2f}\n"
+            f"Responda de forma concisa em português.\n\nUsuário: {msg}"
         )
-        res = gemini_client.models.generate_content(model=GEMINI_MODEL, contents=context)
-        return jsonify({'response': res.text})
+        cfg = genai_types.GenerateContentConfig(max_output_tokens=400, temperature=0.5)
+
+        def generate():
+            try:
+                for chunk in gemini_client.models.generate_content_stream(
+                    model=GEMINI_MODEL, contents=context, config=cfg
+                ):
+                    if chunk.text:
+                        yield f"data: {chunk.text.replace(chr(10), '\\n')}\n\n"
+            except Exception as ex:
+                yield f"data: [ERROR]{str(ex)}\n\n"
+            yield "data: [DONE]\n\n"
+
+        return Response(
+            stream_with_context(generate()),
+            mimetype='text/event-stream',
+            headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
+        )
     except Exception as e:
         return jsonify({'response': f'Erro na IA: {str(e)}'}), 500
 

@@ -2,6 +2,41 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../utils/api'
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+
+async function streamChat(msg, onChunk, onDone, onError) {
+  const token = localStorage.getItem('finance-dashboard-token')
+  let res
+  try {
+    res = await fetch(`${API_BASE}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ message: msg }),
+    })
+  } catch {
+    onError(); return
+  }
+  if (!res.ok) { onError(); return }
+  const reader = res.body.getReader()
+  const dec = new TextDecoder()
+  let buf = ''
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buf += dec.decode(value, { stream: true })
+    const lines = buf.split('\n')
+    buf = lines.pop()
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue
+      const data = line.slice(6)
+      if (data === '[DONE]') { onDone(); return }
+      if (data.startsWith('[ERROR]')) { onError(); return }
+      onChunk(data.replace(/\\n/g, '\n'))
+    }
+  }
+  onDone()
+}
+
 export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
   const navigate = useNavigate()
   const [isOpen, setIsOpen] = useState(false)
@@ -125,21 +160,35 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
 
   actionRef.current.sendVoiceMessage = async (text) => {
     setVoiceState('processing')
-    setMessages(prev => [...prev, { role: 'user', text }])
-    try {
-      const res = await api.post('/chat', { message: text })
-      const aiText = res.data.response
-      setMessages(prev => [...prev, { role: 'ai', text: aiText }])
-      setVoiceState('speaking')
-      speak(aiText, () => {
-        if (voiceModeRef.current) setTimeout(() => actionRef.current.startListening(), 400)
+    setMessages(prev => [...prev, { role: 'user', text }, { role: 'ai', text: '' }])
+    let full = ''
+    await streamChat(
+      text,
+      (chunk) => {
+        full += chunk
+        setMessages(prev => {
+          const msgs = [...prev]
+          msgs[msgs.length - 1] = { role: 'ai', text: full }
+          return msgs
+        })
+      },
+      () => {
+        setVoiceState('speaking')
+        speak(full, () => {
+          if (voiceModeRef.current) setTimeout(() => actionRef.current.startListening(), 400)
+          else setVoiceState('idle')
+        })
+      },
+      () => {
+        setMessages(prev => {
+          const msgs = [...prev]
+          msgs[msgs.length - 1] = { role: 'ai', text: 'Erro de conexão com o servidor.' }
+          return msgs
+        })
+        if (voiceModeRef.current) setTimeout(() => actionRef.current.startListening(), 1000)
         else setVoiceState('idle')
-      })
-    } catch {
-      setMessages(prev => [...prev, { role: 'ai', text: 'Erro de conexão com o servidor.' }])
-      if (voiceModeRef.current) setTimeout(() => actionRef.current.startListening(), 1000)
-      else setVoiceState('idle')
-    }
+      }
+    )
   }
 
   const stopVoiceMode = () => {
@@ -166,14 +215,29 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
     if (!input.trim() || loading) return
     const userMsg = input.trim()
     setInput('')
-    setMessages(prev => [...prev, { role: 'user', text: userMsg }])
+    setMessages(prev => [...prev, { role: 'user', text: userMsg }, { role: 'ai', text: '' }])
     setLoading(true)
-    try {
-      const res = await api.post('/chat', { message: userMsg })
-      setMessages(prev => [...prev, { role: 'ai', text: res.data.response }])
-    } catch (err) {
-      setMessages(prev => [...prev, { role: 'ai', text: err.response?.data?.response || 'Erro de conexão.' }])
-    } finally { setLoading(false) }
+    let full = ''
+    await streamChat(
+      userMsg,
+      (chunk) => {
+        full += chunk
+        setMessages(prev => {
+          const msgs = [...prev]
+          msgs[msgs.length - 1] = { role: 'ai', text: full }
+          return msgs
+        })
+      },
+      () => setLoading(false),
+      () => {
+        setMessages(prev => {
+          const msgs = [...prev]
+          msgs[msgs.length - 1] = { role: 'ai', text: 'Erro de conexão.' }
+          return msgs
+        })
+        setLoading(false)
+      }
+    )
   }
 
   const voiceLabel = { listening: 'Ouvindo...', processing: 'Processando...', speaking: 'Respondendo...' }
