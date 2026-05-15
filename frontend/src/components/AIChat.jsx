@@ -99,6 +99,9 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
       const best = preferred.map(n => voices.find(v => v.name === n)).find(Boolean)
         || voices.find(v => v.lang?.startsWith('pt-BR') && !v.localService)
         || voices.find(v => v.lang?.startsWith('pt-BR'))
+        || voices.find(v => v.lang?.startsWith('pt-PT') && !v.localService)
+        || voices.find(v => v.lang?.startsWith('pt-PT'))
+        || voices.find(v => v.lang?.startsWith('pt'))
       if (best) utter.voice = best
       utter.onend = () => onEnd?.()
       utter.onerror = () => onEnd?.()
