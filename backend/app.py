@@ -23,6 +23,7 @@ jwt = JWTManager(app)
 gemini_client = None
 GEMINI_MODEL = 'gemini-flash-lite-latest'
 GEMINI_TTS_MODEL = 'gemini-2.5-flash-preview-tts'
+GEMINI_TTS_VOICE = 'Zephyr'
 try:
     api_key = os.environ.get('GEMINI_API_KEY')
     if api_key:
@@ -616,21 +617,23 @@ def text_to_speech():
     if not text:
         return jsonify({'error': 'Texto vazio'}), 400
     try:
+        voice = request.json.get('voice', GEMINI_TTS_VOICE) if request.json else GEMINI_TTS_VOICE
         response = gemini_client.models.generate_content(
             model=GEMINI_TTS_MODEL,
             contents=text,
             config=genai_types.GenerateContentConfig(
                 system_instruction=(
-                    "Você é uma assistente financeira brasileira chamada Sofia. "
-                    "Fale de forma natural, calorosa e expressiva, como uma amiga de confiança. "
-                    "Use entonação natural do português brasileiro, com pausas e variação de ritmo. "
-                    "Seja direta e acolhedora, nunca monótona."
+                    "Você é Sofia, assistente financeira brasileira. "
+                    "Fale em português do Brasil de forma completamente natural e humana, "
+                    "com entonação expressiva, pausas naturais e variação de ritmo. "
+                    "Nunca soe robótica. Seja calorosa, próxima e clara."
                 ),
                 response_modalities=['AUDIO'],
                 speech_config=genai_types.SpeechConfig(
+                    language_code='pt-BR',
                     voice_config=genai_types.VoiceConfig(
                         prebuilt_voice_config=genai_types.PrebuiltVoiceConfig(
-                            voice_name='Sulafat'
+                            voice_name=voice
                         )
                     )
                 )
@@ -644,6 +647,24 @@ def text_to_speech():
     except Exception as e:
         print(f'TTS error: {e}')
         return jsonify({'error': str(e)}), 500
+
+@app.route('/tts/vozes', methods=['GET'])
+@jwt_required()
+def listar_vozes_tts():
+    vozes = [
+        {'id': 'Zephyr',        'desc': 'Brilhante e clara (padrão)'},
+        {'id': 'Puck',          'desc': 'Animada e conversacional'},
+        {'id': 'Charon',        'desc': 'Informativa e séria'},
+        {'id': 'Kore',          'desc': 'Firme e profissional'},
+        {'id': 'Fenrir',        'desc': 'Expressiva e enérgica'},
+        {'id': 'Leda',          'desc': 'Jovem e leve'},
+        {'id': 'Aoede',         'desc': 'Suave e tranquila'},
+        {'id': 'Sulafat',       'desc': 'Calorosa e acolhedora'},
+        {'id': 'Achernar',      'desc': 'Suave e delicada'},
+        {'id': 'Vindemiatrix',  'desc': 'Gentil e amigável'},
+        {'id': 'Achird',        'desc': 'Simpática e próxima'},
+    ]
+    return jsonify({'vozes': vozes, 'atual': GEMINI_TTS_VOICE})
 
 @app.route('/auto-categorize', methods=['POST'])
 @jwt_required()

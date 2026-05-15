@@ -48,6 +48,9 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
   const [voiceMode, setVoiceMode] = useState(false)
   const [voiceState, setVoiceState] = useState('idle') // idle | listening | processing | speaking
   const [liveTranscript, setLiveTranscript] = useState('')
+  const [selectedVoice, setSelectedVoice] = useState('Zephyr')
+  const [vozes, setVozes] = useState([])
+  const [showVoices, setShowVoices] = useState(false)
 
   const scrollRef = useRef(null)
   const recognitionRef = useRef(null)
@@ -60,9 +63,11 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [messages, liveTranscript])
 
-  // Stop everything when chat is closed
+  // Stop everything when chat is closed; load voices on open
   useEffect(() => {
-    if (!isOpen && voiceMode) stopVoiceMode()
+    if (!isOpen) { if (voiceMode) stopVoiceMode(); return }
+    if (vozes.length === 0)
+      api.get('/tts/vozes').then(r => setVozes(r.data.vozes)).catch(() => {})
   }, [isOpen])
 
   // Remove markdown e formata para soar natural no TTS
@@ -101,8 +106,7 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
 
   const speak = (text, onEnd) => {
     const clean = cleanForSpeech(text)
-    // Tenta Gemini TTS primeiro, cai no browser se falhar
-    api.post('/tts', { text: clean }, { responseType: 'blob' })
+    api.post('/tts', { text: clean, voice: selectedVoice }, { responseType: 'blob' })
       .then(res => {
         const url = URL.createObjectURL(res.data)
         const audio = new Audio(url)
@@ -274,7 +278,7 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
           style={{ background: 'var(--bg-sidebar)', borderColor: 'var(--border-color)' }}>
 
           {/* Header */}
-          <div className='bg-gradient-to-r from-green-500 to-emerald-600 p-5 flex justify-between items-center shadow-lg shrink-0'>
+          <div className='bg-gradient-to-r from-green-500 to-emerald-600 p-5 flex justify-between items-center shadow-lg shrink-0 relative'>
             <div className='flex items-center gap-3'>
               <div className='w-10 h-10 bg-black/20 rounded-xl flex items-center justify-center text-xl'>🤖</div>
               <div>
@@ -284,7 +288,28 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
                 </span>
               </div>
             </div>
-            <button onClick={() => setIsOpen(false)} className='text-black/60 hover:text-black transition text-2xl leading-none'>✕</button>
+            <div className='flex items-center gap-2'>
+              <button onClick={() => setShowVoices(v => !v)}
+                className='text-black/60 hover:text-black transition text-sm font-bold px-2 py-1 rounded-lg bg-black/10 hover:bg-black/20'
+                title='Trocar voz'>
+                🎙️ {selectedVoice}
+              </button>
+              <button onClick={() => setIsOpen(false)} className='text-black/60 hover:text-black transition text-2xl leading-none'>✕</button>
+            </div>
+            {showVoices && (
+              <div className='absolute top-full right-4 mt-1 w-56 rounded-2xl border shadow-2xl z-10 overflow-hidden'
+                style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                <p className='text-[10px] font-black uppercase tracking-widest px-4 pt-3 pb-1' style={{ color: 'var(--text-muted)' }}>Escolha a voz</p>
+                {vozes.map(v => (
+                  <button key={v.id} onClick={() => { setSelectedVoice(v.id); setShowVoices(false) }}
+                    className={`w-full text-left px-4 py-2.5 text-sm transition hover:bg-green-500/10 ${selectedVoice === v.id ? 'text-green-500 font-bold' : ''}`}
+                    style={selectedVoice !== v.id ? { color: 'var(--text-main)' } : {}}>
+                    <span className='block font-semibold'>{v.id}</span>
+                    <span className='text-xs' style={{ color: 'var(--text-muted)' }}>{v.desc}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Messages */}
