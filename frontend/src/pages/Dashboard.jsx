@@ -149,31 +149,32 @@ export default function Dashboard() {
     carregarDashboard({ showLoading: !cData })
   }, [carregarDashboard])
 
+  const carregarWidgets = useCallback(() => {
+    Promise.allSettled([
+      api.get('/contas'),
+      api.get('/cartoes'),
+      api.get('/metas'),
+      api.get('/receitas'),
+    ]).then(([c, cart, m, rec]) => {
+      if (c.status === 'fulfilled') setContas(c.value.data || [])
+      if (cart.status === 'fulfilled') setCartoes(cart.value.data || [])
+      if (m.status === 'fulfilled') setMetas(m.value.data || [])
+      if (rec.status === 'fulfilled') setReceitas(rec.value.data || [])
+    })
+  }, [])
+
   useEffect(() => {
-    const refreshIfVisible = () => { if (document.visibilityState === 'visible') carregarDashboard() }
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') { carregarDashboard(); carregarWidgets() }
+    }
     window.addEventListener('focus', refreshIfVisible)
     document.addEventListener('visibilitychange', refreshIfVisible)
     return () => { window.removeEventListener('focus', refreshIfVisible); document.removeEventListener('visibilitychange', refreshIfVisible) }
-  }, [carregarDashboard])
+  }, [carregarDashboard, carregarWidgets])
 
   useEffect(() => {
     const chaveRec = `rec_gerada_${now.getFullYear()}_${now.getMonth() + 1}`
     const jaGerou = localStorage.getItem(chaveRec)
-
-    const carregarWidgets = () => {
-      Promise.allSettled([
-        api.get('/contas'),
-        api.get('/cartoes'),
-        api.get('/metas'),
-        api.get('/receitas'),
-      ]).then(([c, cart, m, rec]) => {
-        if (c.status === 'fulfilled') setContas(c.value.data || [])
-        if (cart.status === 'fulfilled') setCartoes(cart.value.data || [])
-        if (m.status === 'fulfilled') setMetas(m.value.data || [])
-        if (rec.status === 'fulfilled') setReceitas(rec.value.data || [])
-      })
-    }
-
     if (!jaGerou) {
       api.post('/recorrencias/gerar').then(() => {
         localStorage.setItem(chaveRec, '1')
@@ -183,7 +184,7 @@ export default function Dashboard() {
     } else {
       carregarWidgets()
     }
-  }, [])
+  }, [carregarWidgets, carregarDashboard])
 
   const chartData = (data?.historico || []).map(d => ({ ...d, saldo: (d.receitas || 0) - (d.despesas || 0) }))
   const totalDespesas = data?.despesas || 0
@@ -471,7 +472,17 @@ export default function Dashboard() {
                           <p className='text-xs font-bold truncate' style={{ color: 'var(--text-main)' }}>{c.descricao}</p>
                           {c.categoria_nome && <p className='text-[10px]' style={{ color: 'var(--text-muted)' }}>{c.categoria_nome}</p>}
                         </div>
-                        <p className='text-xs font-black shrink-0' style={{ color: '#ef4444' }}>{fmt(c.valor)}</p>
+                        <p className='text-xs font-black shrink-0mr-2' style={{ color: '#ef4444' }}>{fmt(c.valor)}</p>
+                        <button
+                          onClick={() => api.patch(`/contas/${c.id}`, { pago: true }).then(() => {
+                            setContas(prev => prev.map(x => x.id === c.id ? { ...x, pago: true } : x))
+                            carregarDashboard()
+                          })}
+                          className='w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors'
+                          style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}
+                          title='Marcar como pago'>
+                          ✓
+                        </button>
                       </div>
                     ))}
                   </div>
