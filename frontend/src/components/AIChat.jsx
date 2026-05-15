@@ -48,7 +48,7 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
   const [voiceMode, setVoiceMode] = useState(false)
   const [voiceState, setVoiceState] = useState('idle') // idle | listening | processing | speaking
   const [liveTranscript, setLiveTranscript] = useState('')
-  const [useBrowserTTS, setUseBrowserTTS] = useState(false)
+  const [useBrowserTTS, setUseBrowserTTS] = useState(true)
 
   const scrollRef = useRef(null)
   const recognitionRef = useRef(null)

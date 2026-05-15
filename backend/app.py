@@ -620,52 +620,28 @@ def text_to_speech():
     if not text:
         return jsonify({'error': 'Texto vazio'}), 400
 
-    # Tenta ElevenLabs primeiro
-    if ELEVENLABS_API_KEY:
-        try:
-            el_resp = http_requests.post(
-                f'https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}',
-                headers={'xi-api-key': ELEVENLABS_API_KEY, 'Content-Type': 'application/json', 'Accept': 'audio/mpeg'},
-                json={
-                    'text': text,
-                    'model_id': 'eleven_multilingual_v2',
-                    'voice_settings': {'stability': 0.5, 'similarity_boost': 0.75, 'style': 0.1, 'use_speaker_boost': True}
-                },
-                timeout=15
-            )
-            el_resp.raise_for_status()
-            return Response(el_resp.content, mimetype='audio/mpeg')
-        except http_requests.exceptions.HTTPError:
-            print(f'ElevenLabs TTS falhou [{el_resp.status_code}]: {el_resp.text[:300]}')
-        except Exception as e:
-            print(f'ElevenLabs TTS falhou: {e}')
-
-    # Fallback: Gemini TTS
-    if not gemini_client:
+    # ElevenLabs TTS
+    if not ELEVENLABS_API_KEY:
         return jsonify({'error': 'TTS não configurado'}), 503
     try:
-        response = gemini_client.models.generate_content(
-            model=GEMINI_TTS_MODEL,
-            contents=text,
-            config=genai_types.GenerateContentConfig(
-                response_modalities=['AUDIO'],
-                speech_config=genai_types.SpeechConfig(
-                    voice_config=genai_types.VoiceConfig(
-                        prebuilt_voice_config=genai_types.PrebuiltVoiceConfig(
-                            voice_name=GEMINI_TTS_VOICE
-                        )
-                    )
-                )
-            )
+        el_resp = http_requests.post(
+            f'https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}',
+            headers={'xi-api-key': ELEVENLABS_API_KEY, 'Content-Type': 'application/json', 'Accept': 'audio/mpeg'},
+            json={
+                'text': text,
+                'model_id': 'eleven_multilingual_v2',
+                'voice_settings': {'stability': 0.5, 'similarity_boost': 0.75, 'style': 0.1, 'use_speaker_boost': True}
+            },
+            timeout=15
         )
-        audio_data = response.candidates[0].content.parts[0].inline_data.data
-        if isinstance(audio_data, str):
-            import base64
-            audio_data = base64.b64decode(audio_data)
-        return Response(audio_data, mimetype='audio/wav')
+        el_resp.raise_for_status()
+        return Response(el_resp.content, mimetype='audio/mpeg')
+    except http_requests.exceptions.HTTPError:
+        print(f'ElevenLabs TTS falhou [{el_resp.status_code}]: {el_resp.text[:300]}')
+        return jsonify({'error': 'TTS indisponível'}), 503
     except Exception as e:
-        print(f'Gemini TTS error: {e}')
-        return jsonify({'error': str(e)}), 500
+        print(f'ElevenLabs TTS falhou: {e}')
+        return jsonify({'error': str(e)}), 503
 
 
 @app.route('/auto-categorize', methods=['POST'])
