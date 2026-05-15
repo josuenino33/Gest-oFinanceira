@@ -351,39 +351,6 @@ def rota_categoria_id(id):
     execute_query('UPDATE categorias SET nome = ?, cor = ? WHERE id = ? AND user_id = ?', (d.get('nome'), d.get('cor'), id, uid))
     return jsonify({'msg': 'OK'})
 
-@app.route('/planejamento', methods=['GET', 'POST'])
-@jwt_required()
-def rota_planejamento():
-    uid = int(get_jwt_identity())
-    if request.method == 'POST':
-        d = request.json
-        execute_query('INSERT INTO planejamento (user_id, categoria_id, valor_planejado, mes, ano) VALUES (?, ?, ?, ?, ?)',
-                      (uid, d.get('categoria_id'), d.get('valor_planejado'), d.get('mes'), d.get('ano')))
-        return jsonify({'msg': 'OK'})
-    mes = datetime.now().month
-    ano = datetime.now().year
-    start = f"{ano}-{mes:02d}-01 00:00:00"
-    end = f"{ano}-{mes+1:02d}-01 00:00:00" if mes < 12 else f"{ano+1}-01-01 00:00:00"
-    rows = fetch_all('''
-        SELECT p.id, p.valor_planejado, p.mes, p.ano,
-               c.nome as categoria_nome, c.cor,
-               COALESCE((SELECT SUM(valor) FROM contas
-                         WHERE user_id = ? AND categoria_id = p.categoria_id
-                         AND criado_em >= ? AND criado_em < ?), 0) as valor_gasto
-        FROM planejamento p
-        LEFT JOIN categorias c ON c.id = p.categoria_id
-        WHERE p.user_id = ? AND p.mes = ? AND p.ano = ?
-        ORDER BY p.id DESC
-    ''', (uid, start, end, uid, mes, ano))
-    return jsonify(rows)
-
-@app.route('/planejamento/<int:id>', methods=['DELETE'])
-@jwt_required()
-def excluir_planejamento(id):
-    uid = int(get_jwt_identity())
-    execute_query('DELETE FROM planejamento WHERE id = ? AND user_id = ?', (id, uid))
-    return jsonify({'msg': 'OK'})
-
 @app.route('/resumo-mensal', methods=['GET'])
 @jwt_required()
 def resumo_mensal():
