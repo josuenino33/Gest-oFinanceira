@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import requests as http_requests
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, Response, stream_with_context
 from dotenv import load_dotenv
@@ -33,6 +34,10 @@ try:
         print('GEMINI_API_KEY não configurada. IA desabilitada.')
 except Exception as e:
     print(f'Erro ao configurar IA: {e}')
+
+# ElevenLabs TTS
+ELEVENLABS_API_KEY = os.environ.get('ELEVENLABS_API_KEY', '')
+ELEVENLABS_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'  # Bella — voz feminina natural, ótima em pt-BR
 
 # Banco de Dados
 DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -610,30 +615,46 @@ def chat():
 @app.route('/tts', methods=['POST'])
 @jwt_required()
 def text_to_speech():
-    if not gemini_client:
-        return jsonify({'error': 'IA não configurada'}), 503
     d = request.json or {}
     text = (d.get('text') or '').strip()
     if not text:
         return jsonify({'error': 'Texto vazio'}), 400
+
+    # Tenta ElevenLabs primeiro
+    if ELEVENLABS_API_KEY:
+        try:
+            el_resp = http_requests.post(
+                f'https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}',
+                headers={'xi-api-key': ELEVENLABS_API_KEY, 'Content-Type': 'application/json', 'Accept': 'audio/mpeg'},
+                json={
+                    'text': text,
+                    'model_id': 'eleven_multilingual_v2',
+                    'voice_settings': {'stability': 0.5, 'similarity_boost': 0.75, 'style': 0.1, 'use_speaker_boost': True}
+                },
+                timeout=15
+            )
+            el_resp.raise_for_status()
+            return Response(el_resp.content, mimetype='audio/mpeg')
+        except Exception as e:
+            print(f'ElevenLabs TTS falhou, usando Gemini: {e}')
+
+    # Fallback: Gemini TTS
+    if not gemini_client:
+        return jsonify({'error': 'TTS não configurado'}), 503
     try:
-        voice = request.json.get('voice', GEMINI_TTS_VOICE) if request.json else GEMINI_TTS_VOICE
         response = gemini_client.models.generate_content(
             model=GEMINI_TTS_MODEL,
             contents=text,
             config=genai_types.GenerateContentConfig(
                 system_instruction=(
                     "Você é Sofia, assistente financeira brasileira. "
-                    "Fale em português do Brasil de forma completamente natural e humana, "
-                    "com entonação expressiva, pausas naturais e variação de ritmo. "
-                    "Nunca soe robótica. Seja calorosa, próxima e clara."
+                    "Fale em português do Brasil de forma natural e humana."
                 ),
                 response_modalities=['AUDIO'],
                 speech_config=genai_types.SpeechConfig(
-                    language_code='pt-BR',
                     voice_config=genai_types.VoiceConfig(
                         prebuilt_voice_config=genai_types.PrebuiltVoiceConfig(
-                            voice_name=voice
+                            voice_name=GEMINI_TTS_VOICE
                         )
                     )
                 )
@@ -645,26 +666,9 @@ def text_to_speech():
             audio_data = base64.b64decode(audio_data)
         return Response(audio_data, mimetype='audio/wav')
     except Exception as e:
-        print(f'TTS error: {e}')
+        print(f'Gemini TTS error: {e}')
         return jsonify({'error': str(e)}), 500
 
-@app.route('/tts/vozes', methods=['GET'])
-@jwt_required()
-def listar_vozes_tts():
-    vozes = [
-        {'id': 'Zephyr',        'desc': 'Brilhante e clara (padrão)'},
-        {'id': 'Puck',          'desc': 'Animada e conversacional'},
-        {'id': 'Charon',        'desc': 'Informativa e séria'},
-        {'id': 'Kore',          'desc': 'Firme e profissional'},
-        {'id': 'Fenrir',        'desc': 'Expressiva e enérgica'},
-        {'id': 'Leda',          'desc': 'Jovem e leve'},
-        {'id': 'Aoede',         'desc': 'Suave e tranquila'},
-        {'id': 'Sulafat',       'desc': 'Calorosa e acolhedora'},
-        {'id': 'Achernar',      'desc': 'Suave e delicada'},
-        {'id': 'Vindemiatrix',  'desc': 'Gentil e amigável'},
-        {'id': 'Achird',        'desc': 'Simpática e próxima'},
-    ]
-    return jsonify({'vozes': vozes, 'atual': GEMINI_TTS_VOICE})
 
 @app.route('/auto-categorize', methods=['POST'])
 @jwt_required()

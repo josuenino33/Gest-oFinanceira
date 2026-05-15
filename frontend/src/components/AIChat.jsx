@@ -48,9 +48,6 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
   const [voiceMode, setVoiceMode] = useState(false)
   const [voiceState, setVoiceState] = useState('idle') // idle | listening | processing | speaking
   const [liveTranscript, setLiveTranscript] = useState('')
-  const [selectedVoice, setSelectedVoice] = useState('Zephyr')
-  const [vozes, setVozes] = useState([])
-  const [showVoices, setShowVoices] = useState(false)
   const [useBrowserTTS, setUseBrowserTTS] = useState(false)
 
   const scrollRef = useRef(null)
@@ -64,11 +61,9 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [messages, liveTranscript])
 
-  // Stop everything when chat is closed; load voices on open
+  // Stop everything when chat is closed
   useEffect(() => {
-    if (!isOpen) { if (voiceMode) stopVoiceMode(); return }
-    if (vozes.length === 0)
-      api.get('/tts/vozes').then(r => setVozes(r.data.vozes)).catch(() => {})
+    if (!isOpen) { if (voiceMode) stopVoiceMode() }
   }, [isOpen])
 
   // Remove markdown e formata para soar natural no TTS
@@ -116,7 +111,7 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
   const speak = (text, onEnd) => {
     const clean = cleanForSpeech(text)
     if (useBrowserTTS) { speakBrowser(clean, onEnd); return }
-    api.post('/tts', { text: clean, voice: selectedVoice }, { responseType: 'blob' })
+    api.post('/tts', { text: clean }, { responseType: 'blob' })
       .then(res => {
         const url = URL.createObjectURL(res.data)
         const audio = new Audio(url)
@@ -305,29 +300,8 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
                 title={useBrowserTTS ? 'Usando voz do navegador' : 'Usando voz da IA'}>
                 {useBrowserTTS ? '🌐 Navegador' : '🤖 IA'}
               </button>
-              {!useBrowserTTS && (
-                <button onClick={() => setShowVoices(v => !v)}
-                  className='text-black/60 hover:text-black transition text-xs font-bold px-2 py-1 rounded-lg bg-black/10 hover:bg-black/20'
-                  title='Trocar voz da IA'>
-                  {selectedVoice}
-                </button>
-              )}
               <button onClick={() => setIsOpen(false)} className='text-black/60 hover:text-black transition text-2xl leading-none'>✕</button>
             </div>
-            {showVoices && (
-              <div className='absolute top-full right-4 mt-1 w-56 rounded-2xl border shadow-2xl z-10 overflow-hidden'
-                style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-                <p className='text-[10px] font-black uppercase tracking-widest px-4 pt-3 pb-1' style={{ color: 'var(--text-muted)' }}>Escolha a voz</p>
-                {vozes.map(v => (
-                  <button key={v.id} onClick={() => { setSelectedVoice(v.id); setShowVoices(false) }}
-                    className={`w-full text-left px-4 py-2.5 text-sm transition hover:bg-green-500/10 ${selectedVoice === v.id ? 'text-green-500 font-bold' : ''}`}
-                    style={selectedVoice !== v.id ? { color: 'var(--text-main)' } : {}}>
-                    <span className='block font-semibold'>{v.id}</span>
-                    <span className='text-xs' style={{ color: 'var(--text-muted)' }}>{v.desc}</span>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Messages */}
