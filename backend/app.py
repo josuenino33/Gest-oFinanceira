@@ -620,11 +620,17 @@ def text_to_speech():
             model=GEMINI_TTS_MODEL,
             contents=text,
             config=genai_types.GenerateContentConfig(
+                system_instruction=(
+                    "Você é uma assistente financeira brasileira chamada Sofia. "
+                    "Fale de forma natural, calorosa e expressiva, como uma amiga de confiança. "
+                    "Use entonação natural do português brasileiro, com pausas e variação de ritmo. "
+                    "Seja direta e acolhedora, nunca monótona."
+                ),
                 response_modalities=['AUDIO'],
                 speech_config=genai_types.SpeechConfig(
                     voice_config=genai_types.VoiceConfig(
                         prebuilt_voice_config=genai_types.PrebuiltVoiceConfig(
-                            voice_name='Aoede'
+                            voice_name='Sulafat'
                         )
                     )
                 )

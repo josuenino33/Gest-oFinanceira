@@ -65,13 +65,15 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
     if (!isOpen && voiceMode) stopVoiceMode()
   }, [isOpen])
 
-  // Remove markdown e formata números para soar natural no TTS
+  // Remove markdown e formata para soar natural no TTS
   const cleanForSpeech = (text) => text
     .replace(/\*\*(.+?)\*\*/gs, '$1')
     .replace(/\*(.+?)\*/gs, '$1')
     .replace(/^#{1,6}\s+/gm, '')
     .replace(/`(.+?)`/gs, '$1')
-    .replace(/(\d)\.(\d{3})/g, '$1$2')   // 2.000 → 2000 (separador de milhar pt-BR)
+    .replace(/R\$\s?([\d.,]+)/g, (_, n) => n.replace(/\./g, '').replace(',', ' reais e ') + ' centavos')
+    .replace(/(\d+)%/g, '$1 por cento')
+    .replace(/(\d)\.(\d{3})/g, '$1$2')
     .replace(/\n{2,}/g, '. ')
     .replace(/\n/g, ', ')
     .replace(/\s{2,}/g, ' ')
