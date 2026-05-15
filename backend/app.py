@@ -646,10 +646,6 @@ def text_to_speech():
             model=GEMINI_TTS_MODEL,
             contents=text,
             config=genai_types.GenerateContentConfig(
-                system_instruction=(
-                    "Você é Sofia, assistente financeira brasileira. "
-                    "Fale em português do Brasil de forma natural e humana."
-                ),
                 response_modalities=['AUDIO'],
                 speech_config=genai_types.SpeechConfig(
                     voice_config=genai_types.VoiceConfig(
