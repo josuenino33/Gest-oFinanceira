@@ -51,6 +51,7 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
   const [selectedVoice, setSelectedVoice] = useState('Zephyr')
   const [vozes, setVozes] = useState([])
   const [showVoices, setShowVoices] = useState(false)
+  const [useBrowserTTS, setUseBrowserTTS] = useState(false)
 
   const scrollRef = useRef(null)
   const recognitionRef = useRef(null)
@@ -87,25 +88,34 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
   const speakBrowser = (text, onEnd) => {
     if (!window.speechSynthesis) { onEnd?.(); return }
     window.speechSynthesis.cancel()
-    const utter = new SpeechSynthesisUtterance(text)
-    utter.lang = 'pt-BR'
-    utter.rate = 1.05
-    const voices = window.speechSynthesis.getVoices()
     const preferred = [
       'Microsoft Francisca Online (Natural) - Portuguese (Brazil)',
       'Microsoft Luciana Online (Natural) - Portuguese (Brazil)',
       'Google português do Brasil',
       'Microsoft Maria - Portuguese (Brazil)',
+      'Luciana', 'Francisca',
     ]
-    const best = preferred.map(n => voices.find(v => v.name === n)).find(Boolean)
-      || voices.find(v => v.lang?.startsWith('pt-BR'))
-    if (best) utter.voice = best
-    utter.onend = () => onEnd?.()
-    window.speechSynthesis.speak(utter)
+    const doSpeak = () => {
+      const utter = new SpeechSynthesisUtterance(text)
+      utter.lang = 'pt-BR'
+      utter.rate = 0.95
+      utter.pitch = 1.0
+      const voices = window.speechSynthesis.getVoices()
+      const best = preferred.map(n => voices.find(v => v.name === n)).find(Boolean)
+        || voices.find(v => v.lang?.startsWith('pt-BR') && !v.localService)
+        || voices.find(v => v.lang?.startsWith('pt-BR'))
+      if (best) utter.voice = best
+      utter.onend = () => onEnd?.()
+      utter.onerror = () => onEnd?.()
+      window.speechSynthesis.speak(utter)
+    }
+    if (window.speechSynthesis.getVoices().length > 0) doSpeak()
+    else { window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.onvoiceschanged = null; doSpeak() } }
   }
 
   const speak = (text, onEnd) => {
     const clean = cleanForSpeech(text)
+    if (useBrowserTTS) { speakBrowser(clean, onEnd); return }
     api.post('/tts', { text: clean, voice: selectedVoice }, { responseType: 'blob' })
       .then(res => {
         const url = URL.createObjectURL(res.data)
@@ -289,11 +299,19 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
               </div>
             </div>
             <div className='flex items-center gap-2'>
-              <button onClick={() => setShowVoices(v => !v)}
-                className='text-black/60 hover:text-black transition text-sm font-bold px-2 py-1 rounded-lg bg-black/10 hover:bg-black/20'
-                title='Trocar voz'>
-                🎙️ {selectedVoice}
+              <button
+                onClick={() => setUseBrowserTTS(v => !v)}
+                className={`text-xs font-black px-2 py-1 rounded-lg transition ${useBrowserTTS ? 'bg-black/30 text-black' : 'bg-black/10 text-black/50'}`}
+                title={useBrowserTTS ? 'Usando voz do navegador' : 'Usando voz da IA'}>
+                {useBrowserTTS ? '🌐 Navegador' : '🤖 IA'}
               </button>
+              {!useBrowserTTS && (
+                <button onClick={() => setShowVoices(v => !v)}
+                  className='text-black/60 hover:text-black transition text-xs font-bold px-2 py-1 rounded-lg bg-black/10 hover:bg-black/20'
+                  title='Trocar voz da IA'>
+                  {selectedVoice}
+                </button>
+              )}
               <button onClick={() => setIsOpen(false)} className='text-black/60 hover:text-black transition text-2xl leading-none'>✕</button>
             </div>
             {showVoices && (
