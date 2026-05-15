@@ -37,7 +37,7 @@ except Exception as e:
 
 # ElevenLabs TTS
 ELEVENLABS_API_KEY = os.environ.get('ELEVENLABS_API_KEY', '')
-ELEVENLABS_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'  # Bella — voz feminina natural, ótima em pt-BR
+ELEVENLABS_VOICE_ID = 'nf4MCGNSdM0hxM95ZBQR'  # Sarah
 
 # Banco de Dados
 DATABASE_URL = os.environ.get('DATABASE_URL')
