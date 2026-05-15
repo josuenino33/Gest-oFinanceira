@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 
 import Dashboard from '../pages/Dashboard'
-import Resumo from '../pages/Resumo'
 import Receitas from '../pages/Receitas'
 import Contas from '../pages/Contas'
 import Cartoes from '../pages/Cartoes'
@@ -10,7 +9,6 @@ import Metas from '../pages/Metas'
 import Investimentos from '../pages/Investimentos'
 import Relatorios from '../pages/Relatorios'
 import Categorias from '../pages/Categorias'
-import Planejamento from '../pages/Planejamento'
 import Configuracoes from '../pages/Configuracoes'
 import Recorrencias from '../pages/Recorrencias'
 import Orcamentos from '../pages/Orcamentos'
@@ -30,11 +28,9 @@ export default function AppRoutes() {
         <Route path='/login' element={<Login />} />
         <Route path='/register' element={<Register />} />
         <Route path='/forgot-password' element={<ForgotPassword />} />
-        
-        {/* Rota Protegida com Layout Persistente */}
+
         <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route path='/' element={<Dashboard />} />
-          <Route path='/resumo' element={<Resumo />} />
           <Route path='/carteira' element={<Carteira />} />
           <Route path='/receitas' element={<Receitas />} />
           <Route path='/contas' element={<Contas />} />
@@ -44,7 +40,6 @@ export default function AppRoutes() {
           <Route path='/investimentos' element={<Investimentos />} />
           <Route path='/relatorios' element={<Relatorios />} />
           <Route path='/categorias' element={<Categorias />} />
-          <Route path='/planejamento' element={<Planejamento />} />
           <Route path='/orcamentos' element={<Orcamentos />} />
           <Route path='/envelopes' element={<Envelopes />} />
           <Route path='/desafios' element={<Desafios />} />
