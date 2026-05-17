@@ -868,64 +868,72 @@ def chat():
         return jsonify({'response': 'IA não configurada no momento.'})
     try:
         now = datetime.now()
-        mes, ano = now.month, now.year
+        meses_nome = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
-        # Totais do mês atual
-        r_mes = fetch_one('SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=? AND EXTRACT(MONTH FROM criado_em::timestamp)=? AND EXTRACT(YEAR FROM criado_em::timestamp)=?' if IS_POSTGRES else
-                          'SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=? AND strftime("%m",criado_em)=? AND strftime("%Y",criado_em)=?',
-                          (uid, f'{mes:02d}' if not IS_POSTGRES else mes, str(ano)))
-        d_mes = fetch_one('SELECT COALESCE(SUM(valor),0) as t FROM contas WHERE user_id=? AND EXTRACT(MONTH FROM criado_em::timestamp)=? AND EXTRACT(YEAR FROM criado_em::timestamp)=?' if IS_POSTGRES else
-                          'SELECT COALESCE(SUM(valor),0) as t FROM contas WHERE user_id=? AND strftime("%m",criado_em)=? AND strftime("%Y",criado_em)=?',
-                          (uid, f'{mes:02d}' if not IS_POSTGRES else mes, str(ano)))
+        # Gera os últimos 3 meses (mês atual + 2 anteriores)
+        periodos = []
+        for i in range(3):
+            d_ref = now.replace(day=1) - timedelta(days=i * 28)
+            periodos.append((d_ref.month, d_ref.year))
 
-        # Despesas do mês por categoria
-        cats = fetch_all(
-            'SELECT COALESCE(cat.nome,\'Sem categoria\') as categoria, COALESCE(SUM(c.valor),0) as total FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? AND EXTRACT(MONTH FROM c.criado_em::timestamp)=? AND EXTRACT(YEAR FROM c.criado_em::timestamp)=? GROUP BY cat.nome ORDER BY total DESC LIMIT 10' if IS_POSTGRES else
-            'SELECT COALESCE(cat.nome,\'Sem categoria\') as categoria, COALESCE(SUM(c.valor),0) as total FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? AND strftime("%m",c.criado_em)=? AND strftime("%Y",c.criado_em)=? GROUP BY cat.nome ORDER BY total DESC LIMIT 10',
-            (uid, f'{mes:02d}' if not IS_POSTGRES else mes, str(ano))
-        )
+        def q_pg(mes, ano):
+            return (mes, ano)
+        def q_sq(mes, ano):
+            return (f'{mes:02d}', str(ano))
 
-        # Últimas 15 despesas do mês
-        ultimas_desp = fetch_all(
-            'SELECT c.descricao, c.valor, c.pago, c.criado_em, COALESCE(cat.nome,\'Sem categoria\') as categoria FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? AND EXTRACT(MONTH FROM c.criado_em::timestamp)=? AND EXTRACT(YEAR FROM c.criado_em::timestamp)=? ORDER BY c.criado_em DESC LIMIT 15' if IS_POSTGRES else
-            'SELECT c.descricao, c.valor, c.pago, c.criado_em, COALESCE(cat.nome,\'Sem categoria\') as categoria FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? AND strftime("%m",c.criado_em)=? AND strftime("%Y",c.criado_em)=? ORDER BY c.criado_em DESC LIMIT 15',
-            (uid, f'{mes:02d}' if not IS_POSTGRES else mes, str(ano))
-        )
+        def build_context_mes(mes, ano):
+            p = q_pg(mes, ano) if IS_POSTGRES else q_sq(mes, ano)
 
-        # Últimas 10 receitas do mês
-        ultimas_rec = fetch_all(
-            'SELECT r.descricao, r.valor, r.criado_em, COALESCE(cat.nome,\'Sem categoria\') as categoria FROM receitas r LEFT JOIN categorias cat ON r.categoria_id=cat.id WHERE r.user_id=? AND EXTRACT(MONTH FROM r.criado_em::timestamp)=? AND EXTRACT(YEAR FROM r.criado_em::timestamp)=? ORDER BY r.criado_em DESC LIMIT 10' if IS_POSTGRES else
-            'SELECT r.descricao, r.valor, r.criado_em, COALESCE(cat.nome,\'Sem categoria\') as categoria FROM receitas r LEFT JOIN categorias cat ON r.categoria_id=cat.id WHERE r.user_id=? AND strftime("%m",r.criado_em)=? AND strftime("%Y",r.criado_em)=? ORDER BY r.criado_em DESC LIMIT 10',
-            (uid, f'{mes:02d}' if not IS_POSTGRES else mes, str(ano))
-        )
+            r_mes = fetch_one(
+                'SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=? AND EXTRACT(MONTH FROM criado_em::timestamp)=? AND EXTRACT(YEAR FROM criado_em::timestamp)=?' if IS_POSTGRES else
+                'SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=? AND strftime("%m",criado_em)=? AND strftime("%Y",criado_em)=?',
+                (uid, *p))
+            d_mes = fetch_one(
+                'SELECT COALESCE(SUM(valor),0) as t FROM contas WHERE user_id=? AND EXTRACT(MONTH FROM criado_em::timestamp)=? AND EXTRACT(YEAR FROM criado_em::timestamp)=?' if IS_POSTGRES else
+                'SELECT COALESCE(SUM(valor),0) as t FROM contas WHERE user_id=? AND strftime("%m",criado_em)=? AND strftime("%Y",criado_em)=?',
+                (uid, *p))
+            cats = fetch_all(
+                'SELECT COALESCE(cat.nome,\'Sem categoria\') as categoria, COALESCE(SUM(c.valor),0) as total FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? AND EXTRACT(MONTH FROM c.criado_em::timestamp)=? AND EXTRACT(YEAR FROM c.criado_em::timestamp)=? GROUP BY cat.nome ORDER BY total DESC' if IS_POSTGRES else
+                'SELECT COALESCE(cat.nome,\'Sem categoria\') as categoria, COALESCE(SUM(c.valor),0) as total FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? AND strftime("%m",c.criado_em)=? AND strftime("%Y",c.criado_em)=? GROUP BY cat.nome ORDER BY total DESC',
+                (uid, *p))
+            despesas = fetch_all(
+                'SELECT c.descricao, c.valor, c.pago, c.criado_em, COALESCE(cat.nome,\'Sem categoria\') as categoria FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? AND EXTRACT(MONTH FROM c.criado_em::timestamp)=? AND EXTRACT(YEAR FROM c.criado_em::timestamp)=? ORDER BY c.criado_em DESC' if IS_POSTGRES else
+                'SELECT c.descricao, c.valor, c.pago, c.criado_em, COALESCE(cat.nome,\'Sem categoria\') as categoria FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? AND strftime("%m",c.criado_em)=? AND strftime("%Y",c.criado_em)=? ORDER BY c.criado_em DESC',
+                (uid, *p))
+            receitas = fetch_all(
+                'SELECT r.descricao, r.valor, r.criado_em FROM receitas r WHERE r.user_id=? AND EXTRACT(MONTH FROM r.criado_em::timestamp)=? AND EXTRACT(YEAR FROM r.criado_em::timestamp)=? ORDER BY r.criado_em DESC' if IS_POSTGRES else
+                'SELECT r.descricao, r.valor, r.criado_em FROM receitas r WHERE r.user_id=? AND strftime("%m",r.criado_em)=? AND strftime("%Y",r.criado_em)=? ORDER BY r.criado_em DESC',
+                (uid, *p))
 
+            rm = float(r_mes['t']) if r_mes else 0
+            dm = float(d_mes['t']) if d_mes else 0
+            cats_txt = '\n'.join([f"    • {c['categoria']}: R$ {float(c['total']):,.2f}" for c in cats]) or '    (nenhuma)'
+            desp_txt = '\n'.join([f"    • {t['descricao']} — R$ {float(t['valor']):,.2f} [{t['categoria']}] em {str(t['criado_em'])[:10]} {'✓Pago' if t['pago'] else '⏳Pendente'}" for t in despesas]) or '    (nenhuma)'
+            rec_txt  = '\n'.join([f"    • {r['descricao']} — R$ {float(r['valor']):,.2f} em {str(r['criado_em'])[:10]}" for r in receitas]) or '    (nenhuma)'
+
+            return (
+                f"--- {meses_nome[mes-1].upper()} {ano} ---\n"
+                f"  Receitas: R$ {rm:,.2f} | Despesas: R$ {dm:,.2f} | Saldo: R$ {rm-dm:,.2f}\n"
+                f"  Por categoria:\n{cats_txt}\n"
+                f"  Despesas detalhadas:\n{desp_txt}\n"
+                f"  Receitas detalhadas:\n{rec_txt}"
+            )
+
+        blocos = '\n\n'.join([build_context_mes(m, a) for m, a in periodos])
         inv = fetch_one('SELECT COALESCE(SUM(valor_atual),0) as t FROM investimentos WHERE user_id=?', (uid,))
-
-        rm = float(r_mes['t']) if r_mes else 0
-        dm = float(d_mes['t']) if d_mes else 0
         iv = float(inv['t']) if inv else 0
 
-        cats_txt = '\n'.join([f"  • {c['categoria']}: R$ {float(c['total']):,.2f}" for c in cats]) or '  (nenhuma)'
-        desp_txt = '\n'.join([f"  • {t['descricao']} — R$ {float(t['valor']):,.2f} ({t['categoria']}) em {str(t['criado_em'])[:10]} {'[Pago]' if t['pago'] else '[Pendente]'}" for t in ultimas_desp]) or '  (nenhuma)'
-        rec_txt  = '\n'.join([f"  • {r['descricao']} — R$ {float(r['valor']):,.2f} em {str(r['criado_em'])[:10]}" for r in ultimas_rec]) or '  (nenhuma)'
-
-        meses_nome = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
         context = (
             f"Você é um consultor financeiro pessoal integrado ao sistema de finanças do usuário. "
-            f"Você TEM ACESSO aos dados reais do usuário listados abaixo. Use-os para responder com precisão.\n\n"
-            f"=== DADOS DE {meses_nome[mes-1].upper()} {ano} ===\n"
-            f"Receitas do mês: R$ {rm:,.2f}\n"
-            f"Despesas do mês: R$ {dm:,.2f}\n"
-            f"Saldo do mês: R$ {rm-dm:,.2f}\n"
-            f"Investimentos: R$ {iv:,.2f}\n\n"
-            f"DESPESAS POR CATEGORIA:\n{cats_txt}\n\n"
-            f"ÚLTIMAS DESPESAS:\n{desp_txt}\n\n"
-            f"ÚLTIMAS RECEITAS:\n{rec_txt}\n\n"
+            f"Você TEM ACESSO COMPLETO aos dados reais dos últimos 3 meses listados abaixo. "
+            f"Use esses dados para responder com precisão. Hoje é {now.strftime('%d/%m/%Y')}.\n\n"
+            f"INVESTIMENTOS TOTAIS: R$ {iv:,.2f}\n\n"
+            f"{blocos}\n\n"
             f"Responda em português, de forma CURTA e DIRETA (máximo 3 frases). "
-            f"Se o usuário perguntar sobre gastos específicos, consulte os dados acima e responda com os valores exatos. "
-            f"Nunca diga que não tem acesso aos dados — você tem.\n\nUsuário: {msg}"
+            f"Se perguntarem sobre gastos específicos, busque nos dados acima e cite valores e datas exatos. "
+            f"Nunca diga que não tem acesso aos dados.\n\nUsuário: {msg}"
         )
-        cfg = genai_types.GenerateContentConfig(max_output_tokens=350, temperature=0.3)
+        cfg = genai_types.GenerateContentConfig(max_output_tokens=400, temperature=0.3)
 
         def generate():
             try:
