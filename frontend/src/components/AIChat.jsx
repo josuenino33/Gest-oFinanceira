@@ -4,8 +4,29 @@ import api from '../utils/api'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
-async function streamChat(msg, onChunk, onDone, onError) {
+async function getValidToken() {
   const token = localStorage.getItem('finance-dashboard-token')
+  const refresh = localStorage.getItem('finance-dashboard-refresh')
+  if (!token) return null
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    if (Date.now() < payload.exp * 1000 - 60000) return token
+    if (!refresh) return null
+    const res = await fetch(`${API_BASE}/refresh`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${refresh}` }
+    })
+    if (!res.ok) { window.location.href = '/login'; return null }
+    const data = await res.json()
+    localStorage.setItem('finance-dashboard-token', data.access_token)
+    localStorage.setItem('finance-dashboard-refresh', data.refresh_token)
+    return data.access_token
+  } catch { return token }
+}
+
+async function streamChat(msg, onChunk, onDone, onError) {
+  const token = await getValidToken()
+  if (!token) { onError(); return }
   let res
   try {
     res = await fetch(`${API_BASE}/chat`, {
