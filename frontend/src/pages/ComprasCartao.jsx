@@ -33,10 +33,19 @@ export default function ComprasCartao() {
   }
   useEffect(() => { carregar() }, [])
 
+  const [busca, setBusca] = useState('')
+  const [cartaoFiltro, setCartaoFiltro] = useState('')
+
   const compras = comprasCompletas.filter(item => {
     if (!item.criado_em) return false
     const d = new Date(item.criado_em)
     return d.getMonth() === mesFiltro && d.getFullYear() === anoFiltro
+  })
+
+  const comprasFiltradas = compras.filter(c => {
+    const matchBusca = !busca || c.descricao.toLowerCase().includes(busca.toLowerCase())
+    const matchCartao = !cartaoFiltro || String(c.cartao_id) === cartaoFiltro
+    return matchBusca && matchCartao
   })
 
   const salvar = async () => {
@@ -121,41 +130,58 @@ export default function ComprasCartao() {
         ))}
       </div>
 
-      <div className='rounded-2xl border overflow-x-auto' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        <table className='w-full text-left'>
-          <thead>
-            <tr className='border-b' style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Compra</th>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Cartão</th>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Parcela</th>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Valor</th>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Status</th>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {compras.map((c) => (
-              <tr key={c.id} className='border-b hover:opacity-80 transition' style={{ borderColor: 'var(--border-color)' }}>
-                <td className='p-4 font-semibold' style={{ color: 'var(--text-main)' }}>{c.descricao}</td>
-                <td className='p-4' style={{ color: 'var(--text-muted)' }}>{c.cartao_nome} ({c.bandeira})</td>
-                <td className='p-4'><span className='bg-blue-500/20 text-blue-500 px-3 py-1 rounded-full text-sm'>{c.parcela_atual}/{c.parcelas}x</span></td>
-                <td className='p-4 text-green-500 font-bold'>{fmt(c.valor)}</td>
-                <td className='p-4'>
-                  {c.pago ? <span className='bg-green-500/20 text-green-500 px-3 py-1 rounded-full text-sm'>Paga</span>
-                          : <span className='bg-yellow-500/20 text-yellow-500 px-3 py-1 rounded-full text-sm'>Pendente</span>}
-                </td>
-                <td className='p-4'>
-                  <div className='flex gap-2 flex-col sm:flex-row'>
-                    {!c.pago && <button onClick={() => marcarPaga(c.id)} className='text-green-500 hover:text-green-400 text-sm'>Pagar</button>}
-                    <button onClick={() => abrirModalParaEditar(c)} className='text-blue-500 hover:text-blue-400 text-sm'>Editar</button>
-                    <button onClick={() => setConfirmarExclusao(c)} className='text-red-500 hover:text-red-400 text-sm'>Excluir</button>
-                  </div>
-                </td>
+      <div className='rounded-2xl border overflow-hidden' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <div className='flex flex-col sm:flex-row gap-2 p-3 border-b' style={{ borderColor: 'var(--border-color)' }}>
+          <input type='text' placeholder='Buscar compra...' value={busca} onChange={e => setBusca(e.target.value)}
+            className='flex-1 border rounded-xl px-4 py-2 text-sm outline-none focus:border-green-500 transition'
+            style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }} />
+          <select value={cartaoFiltro} onChange={e => setCartaoFiltro(e.target.value)}
+            className='border rounded-xl px-3 py-2 text-sm outline-none'
+            style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
+            <option value=''>Todos os cartões</option>
+            {cartoes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+          </select>
+        </div>
+        <div className='overflow-x-auto'>
+          <table className='w-full text-left table-3col'>
+            <thead>
+              <tr className='border-b' style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
+                <th className='p-4'>Compra</th>
+                <th className='p-4'>Cartão</th>
+                <th className='p-4'>Parcela</th>
+                <th className='p-4'>Valor</th>
+                <th className='p-4'>Status</th>
+                <th className='p-4'>Ações</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {compras.length === 0 && <p style={{ color: 'var(--text-muted)' }} className='text-center py-8'>Nenhuma parcela em {mesesNomes[mesFiltro]} {anoFiltro}</p>}
+            </thead>
+            <tbody>
+              {comprasFiltradas.map((c) => (
+                <tr key={c.id} className='border-b hover:opacity-80 transition' style={{ borderColor: 'var(--border-color)' }}>
+                  <td className='p-4 font-semibold' style={{ color: 'var(--text-main)' }}>{c.descricao}</td>
+                  <td className='p-4' style={{ color: 'var(--text-muted)' }}>{c.cartao_nome} ({c.bandeira})</td>
+                  <td className='p-4'><span className='bg-blue-500/20 text-blue-500 px-3 py-1 rounded-full text-sm'>{c.parcela_atual}/{c.parcelas}x</span></td>
+                  <td className='p-4 text-green-500 font-bold'>{fmt(c.valor)}</td>
+                  <td className='p-4'>
+                    {c.pago ? <span className='bg-green-500/20 text-green-500 px-3 py-1 rounded-full text-sm'>Paga</span>
+                            : <span className='bg-yellow-500/20 text-yellow-500 px-3 py-1 rounded-full text-sm'>Pendente</span>}
+                  </td>
+                  <td className='p-4'>
+                    <div className='flex gap-2 flex-col sm:flex-row'>
+                      {!c.pago && <button onClick={() => marcarPaga(c.id)} className='text-green-500 hover:text-green-400 text-sm'>Pagar</button>}
+                      <button onClick={() => abrirModalParaEditar(c)} className='text-blue-500 hover:text-blue-400 text-sm'>Editar</button>
+                      <button onClick={() => setConfirmarExclusao(c)} className='text-red-500 hover:text-red-400 text-sm'>Excluir</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {comprasFiltradas.length === 0 && (
+            <p style={{ color: 'var(--text-muted)' }} className='text-center py-8'>
+              {busca || cartaoFiltro ? 'Nenhuma compra encontrada para o filtro aplicado.' : `Nenhuma parcela em ${mesesNomes[mesFiltro]} ${anoFiltro}`}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Diálogo de confirmação de exclusão */}

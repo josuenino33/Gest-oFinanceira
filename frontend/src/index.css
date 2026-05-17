@@ -80,6 +80,14 @@ body {
   50% { box-shadow: 0 0 20px 4px rgba(34, 197, 94, 0.15); }
 }
 
+/* ===== Tabelas: exatamente 3 colunas visíveis por vez no mobile ===== */
+@media (max-width: 767px) {
+  .table-3col th,
+  .table-3col td {
+    min-width: calc((100vw - 2rem) / 3);
+  }
+}
+
 /* ===== Snap carousel: exatamente 3 itens por "página" no mobile ===== */
 .snap-item-3 {
   flex: 0 0 calc(100% / 3);

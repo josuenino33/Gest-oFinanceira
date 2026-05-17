@@ -22,6 +22,8 @@ export default function Receitas() {
   const [mesFiltro, setMesFiltro] = useState(now.getMonth())
   const [anoFiltro, setAnoFiltro] = useState(now.getFullYear())
   const [suggesting, setSuggesting] = useState(false)
+  const [busca, setBusca] = useState('')
+  const [categFiltro, setCategFiltro] = useState('')
 
   const sugerirCategoria = async () => {
     if (!descricao.trim() || categoriaId) return
@@ -40,6 +42,12 @@ export default function Receitas() {
     if (!item.criado_em) return false
     const d = new Date(item.criado_em)
     return d.getMonth() === mesFiltro && d.getFullYear() === anoFiltro
+  })
+
+  const listaFiltrada = lista.filter(r => {
+    const matchBusca = !busca || r.descricao.toLowerCase().includes(busca.toLowerCase())
+    const matchCateg = !categFiltro || String(r.categoria_id) === categFiltro
+    return matchBusca && matchCateg
   })
 
   const salvar = async () => {
@@ -127,33 +135,50 @@ export default function Receitas() {
         ))}
       </div>
 
-      <div className='rounded-2xl border overflow-x-auto' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        <table className='w-full text-left'>
-          <thead>
-            <tr className='border-b' style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Descrição</th>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Categoria</th>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Valor</th>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Data</th>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lista.map((item) => (
-              <tr key={item.id} className='border-b hover:opacity-80 transition' style={{ borderColor: 'var(--border-color)' }}>
-                <td className='p-4 font-semibold' style={{ color: 'var(--text-main)' }}>{item.descricao}</td>
-                <td className='p-4' style={{ color: 'var(--text-muted)' }}>{item.categoria_nome || '—'}</td>
-                <td className='p-4 text-green-500 font-bold'>{fmt(item.valor)}</td>
-                <td className='p-4 text-sm' style={{ color: 'var(--text-muted)' }}>{item.criado_em ? new Date(item.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
-                <td className='p-4 flex gap-3'>
-                  <button onClick={() => abrirModalParaEditar(item)} className='text-blue-500 hover:text-blue-400 text-sm'>Editar</button>
-                  <button onClick={() => excluir(item.id)} className='text-red-500 hover:text-red-400 text-sm'>Excluir</button>
-                </td>
+      <div className='rounded-2xl border overflow-hidden' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <div className='flex flex-col sm:flex-row gap-2 p-3 border-b' style={{ borderColor: 'var(--border-color)' }}>
+          <input type='text' placeholder='Buscar descrição...' value={busca} onChange={e => setBusca(e.target.value)}
+            className='flex-1 border rounded-xl px-4 py-2 text-sm outline-none focus:border-green-500 transition'
+            style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }} />
+          <select value={categFiltro} onChange={e => setCategFiltro(e.target.value)}
+            className='border rounded-xl px-3 py-2 text-sm outline-none'
+            style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
+            <option value=''>Todas as categorias</option>
+            {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+          </select>
+        </div>
+        <div className='overflow-x-auto'>
+          <table className='w-full text-left table-3col'>
+            <thead>
+              <tr className='border-b' style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
+                <th className='p-4'>Descrição</th>
+                <th className='p-4'>Categoria</th>
+                <th className='p-4'>Valor</th>
+                <th className='p-4'>Data</th>
+                <th className='p-4'>Ações</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {lista.length === 0 && <p style={{ color: 'var(--text-muted)' }} className='text-center py-8'>Nenhuma receita em {mesesNomes[mesFiltro]} {anoFiltro}</p>}
+            </thead>
+            <tbody>
+              {listaFiltrada.map((item) => (
+                <tr key={item.id} className='border-b hover:opacity-80 transition' style={{ borderColor: 'var(--border-color)' }}>
+                  <td className='p-4 font-semibold' style={{ color: 'var(--text-main)' }}>{item.descricao}</td>
+                  <td className='p-4' style={{ color: 'var(--text-muted)' }}>{item.categoria_nome || '—'}</td>
+                  <td className='p-4 text-green-500 font-bold'>{fmt(item.valor)}</td>
+                  <td className='p-4 text-sm' style={{ color: 'var(--text-muted)' }}>{item.criado_em ? new Date(item.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
+                  <td className='p-4 flex gap-3'>
+                    <button onClick={() => abrirModalParaEditar(item)} className='text-blue-500 hover:text-blue-400 text-sm'>Editar</button>
+                    <button onClick={() => excluir(item.id)} className='text-red-500 hover:text-red-400 text-sm'>Excluir</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {listaFiltrada.length === 0 && (
+            <p style={{ color: 'var(--text-muted)' }} className='text-center py-8'>
+              {busca || categFiltro ? 'Nenhuma receita encontrada para o filtro aplicado.' : `Nenhuma receita em ${mesesNomes[mesFiltro]} ${anoFiltro}`}
+            </p>
+          )}
+        </div>
       </div>
 
       <Modal isOpen={modalOpen} onClose={fecharModal} title={receitaEditando ? 'Editar Receita' : `Nova Receita — ${mesesNomes[mesFiltro]} ${anoFiltro}`}>

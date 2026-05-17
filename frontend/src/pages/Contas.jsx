@@ -27,6 +27,8 @@ export default function Contas() {
   const [mesFiltro, setMesFiltro] = useState(now.getMonth())
   const [anoFiltro, setAnoFiltro] = useState(now.getFullYear())
   const [suggesting, setSuggesting] = useState(false)
+  const [busca, setBusca] = useState('')
+  const [categFiltro, setCategFiltro] = useState('')
 
   const sugerirCategoria = async () => {
     if (!descricao.trim() || categoriaId) return
@@ -49,6 +51,12 @@ export default function Contas() {
     if (!item.criado_em) return false
     const d = new Date(item.criado_em)
     return d.getMonth() === mesFiltro && d.getFullYear() === anoFiltro
+  })
+
+  const contasFiltradas = contas.filter(c => {
+    const matchBusca = !busca || c.descricao.toLowerCase().includes(busca.toLowerCase())
+    const matchCateg = !categFiltro || String(c.categoria_id) === categFiltro
+    return matchBusca && matchCateg
   })
 
   const salvar = async () => {
@@ -159,39 +167,56 @@ export default function Contas() {
         </div>
       </div>
 
-      <div className='rounded-2xl border overflow-x-auto' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        <table className='w-full text-left'>
-          <thead>
-            <tr style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }} className='border-b'>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Descrição</th>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Categoria</th>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Valor</th>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Data</th>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Status</th>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {contas.map((c) => (
-              <tr key={c.id} className='border-b hover:opacity-80 transition' style={{ borderColor: 'var(--border-color)' }}>
-                <td className='p-4 font-semibold' style={{ color: 'var(--text-main)' }}>{c.descricao}</td>
-                <td className='p-4' style={{ color: 'var(--text-muted)' }}>{c.categoria_nome || '—'}</td>
-                <td className='p-4 text-red-500 font-bold'>{fmt(c.valor)}</td>
-                <td className='p-4 text-sm' style={{ color: 'var(--text-muted)' }}>{c.criado_em ? new Date(c.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
-                <td className='p-4'>
-                  {c.pago ? <span className='bg-green-500/20 text-green-500 px-3 py-1 rounded-full text-sm'>Paga</span>
-                          : <span className='bg-yellow-500/20 text-yellow-500 px-3 py-1 rounded-full text-sm'>Pendente</span>}
-                </td>
-                <td className='p-4 flex gap-3'>
-                  {!c.pago && <button onClick={() => marcarPaga(c.id)} className='text-green-500 hover:text-green-400 transition text-sm'>Pagar</button>}
-                  <button onClick={() => abrirModalParaEditar(c)} className='text-blue-500 hover:text-blue-400 transition text-sm'>Editar</button>
-                  <button onClick={() => excluir(c.id)} className='text-red-500 hover:text-red-400 transition text-sm'>Excluir</button>
-                </td>
+      <div className='rounded-2xl border overflow-hidden' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <div className='flex flex-col sm:flex-row gap-2 p-3 border-b' style={{ borderColor: 'var(--border-color)' }}>
+          <input type='text' placeholder='Buscar descrição...' value={busca} onChange={e => setBusca(e.target.value)}
+            className='flex-1 border rounded-xl px-4 py-2 text-sm outline-none focus:border-green-500 transition'
+            style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }} />
+          <select value={categFiltro} onChange={e => setCategFiltro(e.target.value)}
+            className='border rounded-xl px-3 py-2 text-sm outline-none'
+            style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
+            <option value=''>Todas as categorias</option>
+            {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+          </select>
+        </div>
+        <div className='overflow-x-auto'>
+          <table className='w-full text-left table-3col'>
+            <thead>
+              <tr style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }} className='border-b'>
+                <th className='p-4'>Descrição</th>
+                <th className='p-4'>Categoria</th>
+                <th className='p-4'>Valor</th>
+                <th className='p-4'>Data</th>
+                <th className='p-4'>Status</th>
+                <th className='p-4'>Ações</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {contas.length === 0 && <p style={{ color: 'var(--text-muted)' }} className='text-center py-8'>Nenhuma conta em {mesesNomes[mesFiltro]} {anoFiltro}</p>}
+            </thead>
+            <tbody>
+              {contasFiltradas.map((c) => (
+                <tr key={c.id} className='border-b hover:opacity-80 transition' style={{ borderColor: 'var(--border-color)' }}>
+                  <td className='p-4 font-semibold' style={{ color: 'var(--text-main)' }}>{c.descricao}</td>
+                  <td className='p-4' style={{ color: 'var(--text-muted)' }}>{c.categoria_nome || '—'}</td>
+                  <td className='p-4 text-red-500 font-bold'>{fmt(c.valor)}</td>
+                  <td className='p-4 text-sm' style={{ color: 'var(--text-muted)' }}>{c.criado_em ? new Date(c.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
+                  <td className='p-4'>
+                    {c.pago ? <span className='bg-green-500/20 text-green-500 px-3 py-1 rounded-full text-sm'>Paga</span>
+                            : <span className='bg-yellow-500/20 text-yellow-500 px-3 py-1 rounded-full text-sm'>Pendente</span>}
+                  </td>
+                  <td className='p-4 flex gap-3'>
+                    {!c.pago && <button onClick={() => marcarPaga(c.id)} className='text-green-500 hover:text-green-400 transition text-sm'>Pagar</button>}
+                    <button onClick={() => abrirModalParaEditar(c)} className='text-blue-500 hover:text-blue-400 transition text-sm'>Editar</button>
+                    <button onClick={() => excluir(c.id)} className='text-red-500 hover:text-red-400 transition text-sm'>Excluir</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {contasFiltradas.length === 0 && (
+            <p style={{ color: 'var(--text-muted)' }} className='text-center py-8'>
+              {busca || categFiltro ? 'Nenhuma conta encontrada para o filtro aplicado.' : `Nenhuma conta em ${mesesNomes[mesFiltro]} ${anoFiltro}`}
+            </p>
+          )}
+        </div>
       </div>
 
       <Modal isOpen={modalOpen} onClose={fecharModal} title={contaEditando ? 'Editar Conta' : `Nova Conta — ${mesesNomes[mesFiltro]} ${anoFiltro}`}>

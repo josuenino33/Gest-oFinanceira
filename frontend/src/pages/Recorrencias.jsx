@@ -17,6 +17,8 @@ export default function Recorrencias() {
   const [dia, setDia] = useState('1')
   const [loading, setLoading] = useState(false)
   const [gerando, setGerando] = useState(false)
+  const [busca, setBusca] = useState('')
+  const [tipoFiltro, setTipoFiltro] = useState('')
 
   const carregar = () => {
     api.get('/recorrencias').then(r => setLista(r.data)).catch(console.error)
@@ -64,6 +66,12 @@ export default function Recorrencias() {
     finally { setGerando(false) }
   }
 
+  const listaFiltrada = lista.filter(r => {
+    const matchBusca = !busca || r.descricao.toLowerCase().includes(busca.toLowerCase())
+    const matchTipo = !tipoFiltro || r.tipo === tipoFiltro
+    return matchBusca && matchTipo
+  })
+
   const now = new Date()
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
   const inputStyle = { background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }
@@ -99,52 +107,66 @@ export default function Recorrencias() {
         ))}
       </div>
 
-      <div className='rounded-2xl border overflow-x-auto' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        <table className='w-full text-left'>
-          <thead>
-            <tr className='border-b' style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Descrição</th>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Tipo</th>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Valor</th>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Dia</th>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Status</th>
-              <th className='p-4 min-w-[33vw] sm:min-w-0'>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lista.map((r) => (
-              <tr key={r.id} className={`border-b transition hover:opacity-80 ${!r.ativo ? 'opacity-40' : ''}`} style={{ borderColor: 'var(--border-color)' }}>
-                <td className='p-4'>
-                  <p className='font-semibold' style={{ color: 'var(--text-main)' }}>{r.descricao}</p>
-                  {r.categoria_nome && <p className='text-xs mt-0.5' style={{ color: 'var(--text-muted)' }}>{r.categoria_nome}</p>}
-                </td>
-                <td className='p-4'>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${r.tipo === 'receita' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-400'}`}>
-                    {r.tipo === 'receita' ? '↑ Receita' : '↓ Despesa'}
-                  </span>
-                </td>
-                <td className={`p-4 font-bold ${r.tipo === 'receita' ? 'text-green-500' : 'text-red-400'}`}>{fmt(r.valor)}</td>
-                <td className='p-4 text-sm' style={{ color: 'var(--text-muted)' }}>Dia {r.dia}</td>
-                <td className='p-4'>
-                  {r.ativo
-                    ? <span className='bg-green-500/20 text-green-500 px-3 py-1 rounded-full text-xs'>Ativo</span>
-                    : <span className='bg-gray-500/20 text-gray-500 px-3 py-1 rounded-full text-xs'>Pausado</span>}
-                </td>
-                <td className='p-4 flex gap-3'>
-                  <button onClick={() => toggleAtivo(r.id)} className='text-blue-500 hover:text-blue-400 text-sm transition'>
-                    {r.ativo ? 'Pausar' : 'Ativar'}
-                  </button>
-                  <button onClick={() => excluir(r.id)} className='text-red-500 hover:text-red-400 text-sm transition'>Excluir</button>
-                </td>
+      <div className='rounded-2xl border overflow-hidden' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <div className='flex flex-col sm:flex-row gap-2 p-3 border-b' style={{ borderColor: 'var(--border-color)' }}>
+          <input type='text' placeholder='Buscar descrição...' value={busca} onChange={e => setBusca(e.target.value)}
+            className='flex-1 border rounded-xl px-4 py-2 text-sm outline-none focus:border-green-500 transition'
+            style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }} />
+          <select value={tipoFiltro} onChange={e => setTipoFiltro(e.target.value)}
+            className='border rounded-xl px-3 py-2 text-sm outline-none'
+            style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
+            <option value=''>Todos os tipos</option>
+            <option value='receita'>↑ Receita</option>
+            <option value='despesa'>↓ Despesa</option>
+          </select>
+        </div>
+        <div className='overflow-x-auto'>
+          <table className='w-full text-left table-3col'>
+            <thead>
+              <tr className='border-b' style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
+                <th className='p-4'>Descrição</th>
+                <th className='p-4'>Tipo</th>
+                <th className='p-4'>Valor</th>
+                <th className='p-4'>Dia</th>
+                <th className='p-4'>Status</th>
+                <th className='p-4'>Ações</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {lista.length === 0 && (
-          <p style={{ color: 'var(--text-muted)' }} className='text-center py-10'>
-            Nenhuma recorrência cadastrada. Adicione receitas e despesas fixas mensais!
-          </p>
-        )}
+            </thead>
+            <tbody>
+              {listaFiltrada.map((r) => (
+                <tr key={r.id} className={`border-b transition hover:opacity-80 ${!r.ativo ? 'opacity-40' : ''}`} style={{ borderColor: 'var(--border-color)' }}>
+                  <td className='p-4'>
+                    <p className='font-semibold' style={{ color: 'var(--text-main)' }}>{r.descricao}</p>
+                    {r.categoria_nome && <p className='text-xs mt-0.5' style={{ color: 'var(--text-muted)' }}>{r.categoria_nome}</p>}
+                  </td>
+                  <td className='p-4'>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${r.tipo === 'receita' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-400'}`}>
+                      {r.tipo === 'receita' ? '↑ Receita' : '↓ Despesa'}
+                    </span>
+                  </td>
+                  <td className={`p-4 font-bold ${r.tipo === 'receita' ? 'text-green-500' : 'text-red-400'}`}>{fmt(r.valor)}</td>
+                  <td className='p-4 text-sm' style={{ color: 'var(--text-muted)' }}>Dia {r.dia}</td>
+                  <td className='p-4'>
+                    {r.ativo
+                      ? <span className='bg-green-500/20 text-green-500 px-3 py-1 rounded-full text-xs'>Ativo</span>
+                      : <span className='bg-gray-500/20 text-gray-500 px-3 py-1 rounded-full text-xs'>Pausado</span>}
+                  </td>
+                  <td className='p-4 flex gap-3'>
+                    <button onClick={() => toggleAtivo(r.id)} className='text-blue-500 hover:text-blue-400 text-sm transition'>
+                      {r.ativo ? 'Pausar' : 'Ativar'}
+                    </button>
+                    <button onClick={() => excluir(r.id)} className='text-red-500 hover:text-red-400 text-sm transition'>Excluir</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {listaFiltrada.length === 0 && (
+            <p style={{ color: 'var(--text-muted)' }} className='text-center py-10'>
+              {busca || tipoFiltro ? 'Nenhuma recorrência encontrada para o filtro aplicado.' : 'Nenhuma recorrência cadastrada. Adicione receitas e despesas fixas mensais!'}
+            </p>
+          )}
+        </div>
       </div>
 
       <Modal isOpen={modalOpen} onClose={fecharModal} title='Nova Recorrência'>
