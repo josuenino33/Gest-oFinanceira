@@ -7,18 +7,31 @@ from dotenv import load_dotenv
 from pathlib import Path
 load_dotenv(Path(__file__).parent / '.env')
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import JWTManager, create_access_token, create_refresh_token, jwt_required, get_jwt_identity, get_jwt
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from werkzeug.security import generate_password_hash, check_password_hash
 from google import genai as google_genai
 from google.genai import types as genai_types  # type: ignore
 
 app = Flask(__name__)
-CORS(app)
 
-# Configurações
-app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET', 'super-secret-key')
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=30)
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
+CORS(app, origins=[FRONTEND_URL, 'http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'])
+
+# JWT
+_jwt_secret = os.environ.get('JWT_SECRET', '')
+if not _jwt_secret or _jwt_secret in ('super-secret-key', 'mude-isso-para-algo-secreto-em-producao'):
+    import secrets as _sec
+    _jwt_secret = _sec.token_hex(32)
+    print('AVISO: JWT_SECRET não configurado. Usando chave aleatória — sessões perdem ao reiniciar. Configure JWT_SECRET no Render.')
+app.config['JWT_SECRET_KEY'] = _jwt_secret
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(minutes=30)
+app.config['JWT_REFRESH_TOKEN_EXPIRES'] = timedelta(days=7)
 jwt = JWTManager(app)
+
+# Rate limiting
+limiter = Limiter(app=app, key_func=get_remote_address, default_limits=[])
 
 # IA Gemini
 gemini_client = None
@@ -131,7 +144,7 @@ def fetch_one(query, params=()):
 
 def ensure_postgres_schema(cursor):
     migrations = {
-        'users': [('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
+        'users': [('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'), ('username', 'TEXT'), ('codigo_seguranca', 'TEXT')],
         'categorias': [('user_id', 'INTEGER'), ('cor', "TEXT DEFAULT '#22c55e'"), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
         'receitas': [('user_id', 'INTEGER'), ('categoria_id', 'INTEGER'), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
         'contas': [('user_id', 'INTEGER'), ('categoria_id', 'INTEGER'), ('pago', 'INTEGER DEFAULT 0'), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
@@ -166,7 +179,8 @@ def init_db():
 
         # Tabelas
         tables = [
-            f"CREATE TABLE IF NOT EXISTS users (id {pk}, nome TEXT NOT NULL, email TEXT UNIQUE NOT NULL, senha TEXT NOT NULL, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+            f"CREATE TABLE IF NOT EXISTS users (id {pk}, nome TEXT NOT NULL, username TEXT UNIQUE, email TEXT UNIQUE, senha TEXT NOT NULL, codigo_seguranca TEXT, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+            f"CREATE TABLE IF NOT EXISTS revoked_tokens (jti TEXT PRIMARY KEY, revoked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS categorias (id {pk}, user_id INTEGER, nome TEXT NOT NULL, cor TEXT DEFAULT '#22c55e', criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS receitas (id {pk}, user_id INTEGER, descricao TEXT NOT NULL, valor REAL NOT NULL, categoria_id INTEGER, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS contas (id {pk}, user_id INTEGER, descricao TEXT NOT NULL, valor REAL NOT NULL, categoria_id INTEGER, pago INTEGER DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
@@ -220,35 +234,112 @@ def init_db():
 # Inicializar banco na importação
 init_db()
 
+@jwt.token_in_blocklist_loader
+def check_if_revoked(jwt_header, jwt_payload):
+    jti = jwt_payload.get('jti')
+    return bool(jti and fetch_one('SELECT jti FROM revoked_tokens WHERE jti = ?', (jti,)))
+
+@app.after_request
+def security_headers(resp):
+    resp.headers['X-Content-Type-Options'] = 'nosniff'
+    resp.headers['X-Frame-Options'] = 'DENY'
+    resp.headers['X-XSS-Protection'] = '1; mode=block'
+    resp.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    resp.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
+    return resp
+
 # ==================== ROTAS ====================
 
 @app.route('/login', methods=['POST'])
+@limiter.limit('5 per minute')
 def login():
     d = request.json or {}
-    u = fetch_one('SELECT * FROM users WHERE email = ?', (d.get('email'),))
-    if u and check_password_hash(u['senha'], d.get('password')):
-        token = create_access_token(identity=str(u['id']))
-        return jsonify({'access_token': token, 'user': {'id': u['id'], 'nome': u['nome'], 'email': u['email']}})
-    return jsonify({'msg': 'Credenciais inválidas'}), 401
+    identifier = (d.get('username') or d.get('email') or '').strip()
+    password = d.get('password') or ''
+    if not identifier or not password:
+        return jsonify({'msg': 'Preencha todos os campos'}), 400
+    u = fetch_one('SELECT * FROM users WHERE username = ? OR email = ?', (identifier, identifier))
+    if not u or not check_password_hash(u['senha'], password):
+        return jsonify({'msg': 'Usuário ou senha incorretos'}), 401
+    # Limpar tokens revogados antigos (housekeeping)
+    execute_query("DELETE FROM revoked_tokens WHERE revoked_at < datetime('now', '-8 days')")
+    access_token = create_access_token(identity=str(u['id']))
+    refresh_token = create_refresh_token(identity=str(u['id']))
+    return jsonify({
+        'access_token': access_token,
+        'refresh_token': refresh_token,
+        'user': {'id': u['id'], 'nome': u['nome'], 'username': u.get('username'), 'email': u.get('email')}
+    })
 
 @app.route('/register', methods=['POST'])
+@limiter.limit('3 per minute')
 def register():
     d = request.json or {}
     nome = (d.get('nome') or '').strip()
-    email = (d.get('email') or '').strip()
+    username = (d.get('username') or '').strip().lower()
+    email = (d.get('email') or '').strip() or None
     password = d.get('password') or ''
-    if not nome or not email or not password:
-        return jsonify({'msg': 'Preencha todos os campos.'}), 400
-    if len(password) < 6:
-        return jsonify({'msg': 'A senha deve ter ao menos 6 caracteres.'}), 400
-    if '@' not in email:
-        return jsonify({'msg': 'Email inválido.'}), 400
+    codigo = (d.get('codigo_seguranca') or '').strip()
+    if not nome or not username or not password or not codigo:
+        return jsonify({'msg': 'Preencha todos os campos obrigatórios'}), 400
+    if len(username) < 3 or not all(c.isalnum() or c in '_.' for c in username):
+        return jsonify({'msg': 'Username deve ter 3+ caracteres (letras, números, _ e .)'}), 400
+    if len(password) < 8:
+        return jsonify({'msg': 'A senha deve ter ao menos 8 caracteres'}), 400
+    if not any(c.isupper() for c in password):
+        return jsonify({'msg': 'A senha deve ter ao menos uma letra maiúscula'}), 400
+    if not any(c.isdigit() for c in password):
+        return jsonify({'msg': 'A senha deve ter ao menos um número'}), 400
+    if email and '@' not in email:
+        return jsonify({'msg': 'Email inválido'}), 400
     try:
-        h = generate_password_hash(password)
-        execute_query('INSERT INTO users (nome, email, senha) VALUES (?, ?, ?)', (nome, email, h))
+        execute_query(
+            'INSERT INTO users (nome, username, email, senha, codigo_seguranca) VALUES (?, ?, ?, ?, ?)',
+            (nome, username, email, generate_password_hash(password), generate_password_hash(codigo))
+        )
         return jsonify({'msg': 'Usuário criado'}), 201
     except Exception as e:
-        return jsonify({'msg': 'Email já cadastrado.'}), 400
+        msg = str(e).lower()
+        if 'username' in msg: return jsonify({'msg': 'Username já em uso'}), 400
+        if 'email' in msg: return jsonify({'msg': 'Email já cadastrado'}), 400
+        return jsonify({'msg': 'Erro ao criar conta'}), 400
+
+@app.route('/refresh', methods=['POST'])
+@jwt_required(refresh=True)
+def refresh():
+    jti_antigo = get_jwt().get('jti')
+    uid = get_jwt_identity()
+    if jti_antigo:
+        execute_query('INSERT OR IGNORE INTO revoked_tokens (jti) VALUES (?)', (jti_antigo,))
+    return jsonify({
+        'access_token': create_access_token(identity=uid),
+        'refresh_token': create_refresh_token(identity=uid)
+    })
+
+@app.route('/logout', methods=['POST'])
+@jwt_required()
+def logout():
+    jti = get_jwt().get('jti')
+    if jti:
+        execute_query('INSERT OR IGNORE INTO revoked_tokens (jti) VALUES (?)', (jti,))
+    return jsonify({'msg': 'Logout realizado'})
+
+@app.route('/recuperar-senha', methods=['POST'])
+@limiter.limit('3 per minute')
+def recuperar_senha():
+    d = request.json or {}
+    username = (d.get('username') or '').strip().lower()
+    codigo = (d.get('codigo_seguranca') or '').strip()
+    nova_senha = d.get('nova_senha') or ''
+    if not username or not codigo or not nova_senha:
+        return jsonify({'msg': 'Preencha todos os campos'}), 400
+    if len(nova_senha) < 8 or not any(c.isupper() for c in nova_senha) or not any(c.isdigit() for c in nova_senha):
+        return jsonify({'msg': 'A nova senha deve ter 8+ caracteres, uma maiúscula e um número'}), 400
+    u = fetch_one('SELECT * FROM users WHERE username = ?', (username,))
+    if not u or not u.get('codigo_seguranca') or not check_password_hash(u['codigo_seguranca'], codigo):
+        return jsonify({'msg': 'Username ou código de segurança incorretos'}), 401
+    execute_query('UPDATE users SET senha = ? WHERE id = ?', (generate_password_hash(nova_senha), u['id']))
+    return jsonify({'msg': 'Senha alterada com sucesso'})
 
 @app.route('/resumo', methods=['GET'])
 @jwt_required()
@@ -544,7 +635,11 @@ def gerar_recorrencias():
 @jwt_required()
 def update_perfil():
     uid = int(get_jwt_identity())
-    d = request.json
+    d = request.json or {}
+    senha_atual = d.get('senha_atual', '')
+    user = fetch_one('SELECT senha FROM users WHERE id = ?', (uid,))
+    if not user or not check_password_hash(user['senha'], senha_atual):
+        return jsonify({'msg': 'Senha incorreta'}), 401
     execute_query('UPDATE users SET nome = ?, email = ? WHERE id = ?', (d.get('nome'), d.get('email'), uid))
     return jsonify({'msg': 'OK'})
 

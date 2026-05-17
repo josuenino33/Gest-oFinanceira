@@ -3,83 +3,88 @@ import { Link } from 'react-router-dom'
 import api from '../utils/api'
 
 export default function ForgotPassword() {
-  const [email, setEmail] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
+  const [username, setUsername] = useState('')
+  const [codigo, setCodigo] = useState('')
+  const [novaSenha, setNovaSenha] = useState('')
+  const [confirmar, setConfirmar] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
 
   const handleReset = async (e) => {
     e.preventDefault()
-    if (newPassword !== confirmPassword) { setError('As senhas não coincidem'); return }
-    if (newPassword.length < 4) { setError('A senha deve ter pelo menos 4 caracteres'); return }
+    if (novaSenha !== confirmar) { setError('As senhas não coincidem'); return }
     setLoading(true)
     setError('')
     try {
-      await api.post('/reset-password', { email, password: newPassword })
+      await api.post('/recuperar-senha', { username, codigo_seguranca: codigo, nova_senha: novaSenha })
       setSuccess(true)
     } catch (err) {
-      setError(err.response?.data?.msg || 'Email não encontrado')
+      setError(err.response?.data?.msg || 'Username ou código incorretos')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className='min-h-screen bg-[#07111f] flex items-center justify-center p-6 font-sans text-white'>
+    <div className='min-h-screen bg-[#07111f] flex items-center justify-center p-6 text-white'>
       <div className='w-full max-w-md rounded-3xl border border-gray-800 bg-[#0b1728] p-10 shadow-2xl'>
-        <div className='mb-8 text-center'>
-          <h1 className='text-3xl font-bold mb-2'>Redefinir Senha</h1>
+        <div className='mb-8'>
+          <h1 className='text-3xl font-bold mb-2'>Recuperar Senha</h1>
           <p className='text-gray-400 text-sm'>
-            {success ? 'Tudo pronto!' : 'Informe seu email e escolha uma nova senha.'}
+            {success ? 'Senha alterada com sucesso!' : 'Informe seu username e código de recuperação.'}
           </p>
         </div>
 
         {!success ? (
-          <form onSubmit={handleReset} className='space-y-5'>
-            <div className='space-y-2'>
-              <label className='text-sm text-gray-400 font-medium ml-1'>Email da conta</label>
+          <form onSubmit={handleReset} className='space-y-4'>
+            <label className='block'>
+              <span className='text-sm text-gray-300'>Username</span>
               <input
-                type='email'
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className='w-full rounded-2xl border border-gray-700 bg-[#111f34] px-5 py-4 text-white outline-none focus:border-green-400 transition-all placeholder:text-gray-600'
-                placeholder='seu@email.com'
+                type='text' required value={username} onChange={e => setUsername(e.target.value.toLowerCase())}
+                className='mt-2 w-full rounded-2xl border border-gray-700 bg-[#111f34] px-4 py-3 text-white outline-none focus:border-green-400'
+                placeholder='seu_usuario' autoComplete='username'
               />
-            </div>
-            <div className='space-y-2'>
-              <label className='text-sm text-gray-400 font-medium ml-1'>Nova Senha</label>
+            </label>
+
+            <label className='block'>
+              <span className='text-sm text-gray-300'>Código de Recuperação</span>
               <input
-                type='password'
-                required
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className='w-full rounded-2xl border border-gray-700 bg-[#111f34] px-5 py-4 text-white outline-none focus:border-green-400 transition-all'
-                placeholder='••••••••'
+                type='password' required value={codigo} onChange={e => setCodigo(e.target.value)}
+                className='mt-2 w-full rounded-2xl border border-gray-700 bg-[#111f34] px-4 py-3 text-white outline-none focus:border-green-400'
+                placeholder='Sua palavra ou frase secreta' autoComplete='off'
               />
-            </div>
-            <div className='space-y-2'>
-              <label className='text-sm text-gray-400 font-medium ml-1'>Confirmar Senha</label>
+            </label>
+
+            <label className='block'>
+              <span className='text-sm text-gray-300'>Nova Senha</span>
               <input
-                type='password'
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className='w-full rounded-2xl border border-gray-700 bg-[#111f34] px-5 py-4 text-white outline-none focus:border-green-400 transition-all'
-                placeholder='••••••••'
+                type='password' required value={novaSenha} onChange={e => setNovaSenha(e.target.value)}
+                className='mt-2 w-full rounded-2xl border border-gray-700 bg-[#111f34] px-4 py-3 text-white outline-none focus:border-green-400'
+                placeholder='••••••••' autoComplete='new-password'
               />
-            </div>
-            {error && <p className='text-sm text-red-400 bg-red-400/10 p-3 rounded-xl border border-red-400/20'>{error}</p>}
+              <p className='text-[11px] text-gray-500 mt-1 ml-1'>Mín. 8 caracteres, uma maiúscula e um número</p>
+            </label>
+
+            <label className='block'>
+              <span className='text-sm text-gray-300'>Confirmar Nova Senha</span>
+              <input
+                type='password' required value={confirmar} onChange={e => setConfirmar(e.target.value)}
+                className='mt-2 w-full rounded-2xl border border-gray-700 bg-[#111f34] px-4 py-3 text-white outline-none focus:border-green-400'
+                placeholder='••••••••' autoComplete='new-password'
+              />
+            </label>
+
+            {error && <p className='text-sm text-red-400 bg-red-400/10 px-3 py-2 rounded-xl'>{error}</p>}
+
             <button
-              type='submit'
-              disabled={loading}
-              className='w-full rounded-2xl bg-green-500 py-4 font-bold text-black transition-all hover:bg-green-400 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 shadow-lg shadow-green-500/20'
+              type='submit' disabled={loading}
+              className='w-full rounded-2xl bg-green-500 py-3 font-bold text-black transition hover:bg-green-400 disabled:opacity-60'
             >
-              {loading ? 'Redefinindo...' : 'Redefinir Senha'}
+              {loading ? 'Verificando...' : 'Redefinir Senha'}
             </button>
-            <div className='text-center mt-4'>
+
+            <div className='text-center'>
               <Link to='/login' className='text-gray-500 hover:text-green-400 text-sm transition-colors'>
                 Voltar para o Login
               </Link>
@@ -93,7 +98,7 @@ export default function ForgotPassword() {
             <p className='text-green-400 font-medium'>Senha alterada com sucesso!</p>
             <Link
               to='/login'
-              className='block w-full rounded-2xl bg-gray-800 py-4 font-bold text-white transition-all hover:bg-gray-700'
+              className='block w-full rounded-2xl bg-gray-800 py-3 font-bold text-white transition hover:bg-gray-700'
             >
               Ir para o Login
             </Link>

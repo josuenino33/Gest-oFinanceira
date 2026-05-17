@@ -9,26 +9,23 @@ export default function Login() {
   const location = useLocation()
   const from = location.state?.from?.pathname || '/'
 
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  if (token) {
-    return <Navigate to={from} replace />
-  }
+  if (token) return <Navigate to={from} replace />
 
-  const handleSubmit = async (event) => {
-    event.preventDefault()
+  const handleSubmit = async (e) => {
+    e.preventDefault()
     setError('')
     setLoading(true)
-
     try {
-      const response = await api.post('/login', { email, password })
-      login(response.data.access_token, response.data.user)
+      const res = await api.post('/login', { username: identifier, password })
+      login(res.data.access_token, res.data.refresh_token, res.data.user)
       navigate(from, { replace: true })
     } catch (err) {
-      setError('Usuário ou senha incorretos')
+      setError(err.response?.data?.msg || 'Usuário ou senha incorretos')
     } finally {
       setLoading(false)
     }
@@ -37,18 +34,20 @@ export default function Login() {
   return (
     <div className='min-h-screen bg-[#07111f] flex items-center justify-center p-6'>
       <div className='w-full max-w-md rounded-3xl border border-gray-800 bg-[#0b1728] p-10 text-white shadow-xl'>
-        <h1 className='text-4xl font-bold mb-6'>Login</h1>
+        <h1 className='text-4xl font-bold mb-2'>Login</h1>
         <p className='text-gray-400 mb-8'>Acesse sua conta para gerenciar suas finanças.</p>
+
         <form onSubmit={handleSubmit} className='space-y-4'>
           <label className='block'>
-            <span className='text-sm text-gray-300'>Email</span>
+            <span className='text-sm text-gray-300'>Username ou Email</span>
             <input
-              type='email'
+              type='text'
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               className='mt-2 w-full rounded-2xl border border-gray-700 bg-[#111f34] px-4 py-3 text-white outline-none focus:border-green-400'
-              placeholder='email@exemplo.com'
+              placeholder='seu_usuario'
+              autoComplete='username'
             />
           </label>
 
@@ -61,16 +60,17 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
               className='mt-2 w-full rounded-2xl border border-gray-700 bg-[#111f34] px-4 py-3 text-white outline-none focus:border-green-400'
               placeholder='••••••••'
+              autoComplete='current-password'
             />
           </label>
 
           <div className='flex justify-end'>
-            <Link to='/forgot-password' replace className='text-xs text-gray-500 hover:text-green-400 transition-colors'>
+            <Link to='/forgot-password' className='text-xs text-gray-500 hover:text-green-400 transition-colors'>
               Esqueceu a senha?
             </Link>
           </div>
 
-          {error && <p className='text-sm text-red-400'>{error}</p>}
+          {error && <p className='text-sm text-red-400 bg-red-400/10 px-3 py-2 rounded-xl'>{error}</p>}
 
           <button
             type='submit'
@@ -82,7 +82,8 @@ export default function Login() {
         </form>
 
         <p className='mt-8 text-center text-gray-400 text-sm'>
-          Não tem uma conta? <Link to='/register' className='text-green-400 hover:underline font-semibold'>Criar Conta</Link>
+          Não tem uma conta?{' '}
+          <Link to='/register' className='text-green-400 hover:underline font-semibold'>Criar Conta</Link>
         </p>
       </div>
     </div>
