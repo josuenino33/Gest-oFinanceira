@@ -867,19 +867,65 @@ def chat():
     if not gemini_client:
         return jsonify({'response': 'IA não configurada no momento.'})
     try:
-        resumo = fetch_one('SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=?', (uid,))
-        desp = fetch_one('SELECT COALESCE(SUM(valor),0) as t FROM contas WHERE user_id=?', (uid,))
-        inv = fetch_one('SELECT COALESCE(SUM(valor_atual),0) as t FROM investimentos WHERE user_id=?', (uid,))
-        r, de, iv = float(resumo['t']), float(desp['t']), float(inv['t'])
-        context = (
-            f"Você é um consultor financeiro pessoal direto e objetivo. Dados do usuário:\n"
-            f"- Receitas totais: R$ {r:,.2f}\n"
-            f"- Despesas totais: R$ {de:,.2f}\n"
-            f"- Saldo: R$ {r-de:,.2f}\n"
-            f"- Investimentos: R$ {iv:,.2f}\n"
-            f"Responda em português, de forma CURTA e DIRETA (máximo 3 frases). Sem listas longas. Vá direto ao ponto.\n\nUsuário: {msg}"
+        now = datetime.now()
+        mes, ano = now.month, now.year
+
+        # Totais do mês atual
+        r_mes = fetch_one('SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=? AND EXTRACT(MONTH FROM criado_em::timestamp)=? AND EXTRACT(YEAR FROM criado_em::timestamp)=?' if IS_POSTGRES else
+                          'SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=? AND strftime("%m",criado_em)=? AND strftime("%Y",criado_em)=?',
+                          (uid, f'{mes:02d}' if not IS_POSTGRES else mes, str(ano)))
+        d_mes = fetch_one('SELECT COALESCE(SUM(valor),0) as t FROM contas WHERE user_id=? AND EXTRACT(MONTH FROM criado_em::timestamp)=? AND EXTRACT(YEAR FROM criado_em::timestamp)=?' if IS_POSTGRES else
+                          'SELECT COALESCE(SUM(valor),0) as t FROM contas WHERE user_id=? AND strftime("%m",criado_em)=? AND strftime("%Y",criado_em)=?',
+                          (uid, f'{mes:02d}' if not IS_POSTGRES else mes, str(ano)))
+
+        # Despesas do mês por categoria
+        cats = fetch_all(
+            'SELECT COALESCE(cat.nome,\'Sem categoria\') as categoria, COALESCE(SUM(c.valor),0) as total FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? AND EXTRACT(MONTH FROM c.criado_em::timestamp)=? AND EXTRACT(YEAR FROM c.criado_em::timestamp)=? GROUP BY cat.nome ORDER BY total DESC LIMIT 10' if IS_POSTGRES else
+            'SELECT COALESCE(cat.nome,\'Sem categoria\') as categoria, COALESCE(SUM(c.valor),0) as total FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? AND strftime("%m",c.criado_em)=? AND strftime("%Y",c.criado_em)=? GROUP BY cat.nome ORDER BY total DESC LIMIT 10',
+            (uid, f'{mes:02d}' if not IS_POSTGRES else mes, str(ano))
         )
-        cfg = genai_types.GenerateContentConfig(max_output_tokens=250, temperature=0.4)
+
+        # Últimas 15 despesas do mês
+        ultimas_desp = fetch_all(
+            'SELECT c.descricao, c.valor, c.pago, c.criado_em, COALESCE(cat.nome,\'Sem categoria\') as categoria FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? AND EXTRACT(MONTH FROM c.criado_em::timestamp)=? AND EXTRACT(YEAR FROM c.criado_em::timestamp)=? ORDER BY c.criado_em DESC LIMIT 15' if IS_POSTGRES else
+            'SELECT c.descricao, c.valor, c.pago, c.criado_em, COALESCE(cat.nome,\'Sem categoria\') as categoria FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? AND strftime("%m",c.criado_em)=? AND strftime("%Y",c.criado_em)=? ORDER BY c.criado_em DESC LIMIT 15',
+            (uid, f'{mes:02d}' if not IS_POSTGRES else mes, str(ano))
+        )
+
+        # Últimas 10 receitas do mês
+        ultimas_rec = fetch_all(
+            'SELECT r.descricao, r.valor, r.criado_em, COALESCE(cat.nome,\'Sem categoria\') as categoria FROM receitas r LEFT JOIN categorias cat ON r.categoria_id=cat.id WHERE r.user_id=? AND EXTRACT(MONTH FROM r.criado_em::timestamp)=? AND EXTRACT(YEAR FROM r.criado_em::timestamp)=? ORDER BY r.criado_em DESC LIMIT 10' if IS_POSTGRES else
+            'SELECT r.descricao, r.valor, r.criado_em, COALESCE(cat.nome,\'Sem categoria\') as categoria FROM receitas r LEFT JOIN categorias cat ON r.categoria_id=cat.id WHERE r.user_id=? AND strftime("%m",r.criado_em)=? AND strftime("%Y",r.criado_em)=? ORDER BY r.criado_em DESC LIMIT 10',
+            (uid, f'{mes:02d}' if not IS_POSTGRES else mes, str(ano))
+        )
+
+        inv = fetch_one('SELECT COALESCE(SUM(valor_atual),0) as t FROM investimentos WHERE user_id=?', (uid,))
+
+        rm = float(r_mes['t']) if r_mes else 0
+        dm = float(d_mes['t']) if d_mes else 0
+        iv = float(inv['t']) if inv else 0
+
+        cats_txt = '\n'.join([f"  • {c['categoria']}: R$ {float(c['total']):,.2f}" for c in cats]) or '  (nenhuma)'
+        desp_txt = '\n'.join([f"  • {t['descricao']} — R$ {float(t['valor']):,.2f} ({t['categoria']}) em {str(t['criado_em'])[:10]} {'[Pago]' if t['pago'] else '[Pendente]'}" for t in ultimas_desp]) or '  (nenhuma)'
+        rec_txt  = '\n'.join([f"  • {r['descricao']} — R$ {float(r['valor']):,.2f} em {str(r['criado_em'])[:10]}" for r in ultimas_rec]) or '  (nenhuma)'
+
+        meses_nome = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+        context = (
+            f"Você é um consultor financeiro pessoal integrado ao sistema de finanças do usuário. "
+            f"Você TEM ACESSO aos dados reais do usuário listados abaixo. Use-os para responder com precisão.\n\n"
+            f"=== DADOS DE {meses_nome[mes-1].upper()} {ano} ===\n"
+            f"Receitas do mês: R$ {rm:,.2f}\n"
+            f"Despesas do mês: R$ {dm:,.2f}\n"
+            f"Saldo do mês: R$ {rm-dm:,.2f}\n"
+            f"Investimentos: R$ {iv:,.2f}\n\n"
+            f"DESPESAS POR CATEGORIA:\n{cats_txt}\n\n"
+            f"ÚLTIMAS DESPESAS:\n{desp_txt}\n\n"
+            f"ÚLTIMAS RECEITAS:\n{rec_txt}\n\n"
+            f"Responda em português, de forma CURTA e DIRETA (máximo 3 frases). "
+            f"Se o usuário perguntar sobre gastos específicos, consulte os dados acima e responda com os valores exatos. "
+            f"Nunca diga que não tem acesso aos dados — você tem.\n\nUsuário: {msg}"
+        )
+        cfg = genai_types.GenerateContentConfig(max_output_tokens=350, temperature=0.3)
 
         def generate():
             try:
