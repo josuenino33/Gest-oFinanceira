@@ -11,6 +11,7 @@ export default function Categorias() {
   const [cor, setCor] = useState('#22c55e')
   const [loading, setLoading] = useState(false)
   const [categoriaEditando, setCategoriaEditando] = useState(null)
+  const [confirmarExclusao, setConfirmarExclusao] = useState(null)
 
   const carregar = () => { api.get('/categorias').then(r => setCategorias(r.data)).catch(console.error) }
   useEffect(() => { carregar() }, [])
@@ -33,8 +34,7 @@ export default function Categorias() {
     setCategoriaEditando(cat); setNome(cat.nome); setCor(cat.cor || '#22c55e'); setModalOpen(true)
   }
   const excluir = async (id) => {
-    const cat = categorias.find(c => c.id === id)
-    if (cat?.user_id === null || cat?.user_id === undefined) { toast('Categorias padrão não podem ser excluídas.', 'warning'); return }
+    setConfirmarExclusao(null)
     try { await api.delete(`/categorias/${id}`); carregar() } catch (e) { toast('Erro ao excluir.', 'error') }
   }
 
@@ -65,7 +65,7 @@ export default function Categorias() {
               {cat.user_id ? (
                 <div className='flex gap-2 flex-col sm:flex-row'>
                   <button onClick={() => abrirModalParaEditar(cat)} className='text-blue-500 hover:text-blue-400 text-sm'>Editar</button>
-                  <button onClick={() => excluir(cat.id)} className='text-red-500 hover:text-red-400 text-sm'>Excluir</button>
+                  <button onClick={() => setConfirmarExclusao(cat)} className='text-red-500 hover:text-red-400 text-sm'>Excluir</button>
                 </div>
               ) : <span className='text-xs' style={{ color: 'var(--text-muted)' }}>Padrão</span>}
             </div>
@@ -76,6 +76,25 @@ export default function Categorias() {
       {categorias.length === 0 && (
         <div className='rounded-2xl p-12 border text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
           <p style={{ color: 'var(--text-muted)' }} className='text-lg'>Nenhuma categoria cadastrada</p>
+        </div>
+      )}
+
+      {confirmarExclusao && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center'>
+          <div className='absolute inset-0 bg-black/60 backdrop-blur-sm' onClick={() => setConfirmarExclusao(null)} />
+          <div className='relative border rounded-2xl p-8 w-full max-w-sm mx-4 shadow-2xl' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            <h2 className='text-lg font-bold mb-2' style={{ color: 'var(--text-main)' }}>Excluir categoria?</h2>
+            <p className='text-sm mb-6' style={{ color: 'var(--text-muted)' }}>
+              "<span className='font-semibold' style={{ color: 'var(--text-main)' }}>{confirmarExclusao.nome}</span>" será excluída permanentemente.
+            </p>
+            <div className='flex gap-3'>
+              <button onClick={() => setConfirmarExclusao(null)}
+                className='flex-1 border rounded-xl py-2 text-sm font-semibold transition hover:opacity-80'
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>Cancelar</button>
+              <button onClick={() => excluir(confirmarExclusao.id)}
+                className='flex-1 bg-red-500 text-white rounded-xl py-2 text-sm font-bold hover:bg-red-600 transition'>Excluir</button>
+            </div>
+          </div>
         </div>
       )}
 

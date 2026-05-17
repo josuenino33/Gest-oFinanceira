@@ -15,6 +15,7 @@ export default function Metas() {
   const [metaEditando, setMetaEditando] = useState(null)
   const [calcValor, setCalcValor] = useState('')
   const [calcMeses, setCalcMeses] = useState('12')
+  const [confirmarExclusao, setConfirmarExclusao] = useState(null)
 
   const carregar = () => { api.get('/metas').then(r => setMetas(r.data)).catch(console.error) }
   useEffect(() => { carregar() }, [])
@@ -33,7 +34,10 @@ export default function Metas() {
 
   const fecharModal = () => { setModalOpen(false); setMetaEditando(null); setTitulo(''); setDescricao(''); setValorAlvo(''); setValorAtual('') }
   const abrirModalParaEditar = (m) => { setMetaEditando(m); setTitulo(m.titulo); setDescricao(m.descricao); setValorAlvo(m.valor_alvo); setValorAtual(m.valor_atual); setModalOpen(true) }
-  const excluir = async (id) => { try { await api.delete(`/metas/${id}`); carregar() } catch (e) { toast('Erro ao excluir.', 'error') } }
+  const excluir = async (id) => {
+    setConfirmarExclusao(null)
+    try { await api.delete(`/metas/${id}`); carregar() } catch (e) { toast('Erro ao excluir.', 'error') }
+  }
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
   const inputStyle = { background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }
 
@@ -59,7 +63,7 @@ export default function Metas() {
                 <span className='text-green-500 font-bold text-2xl'>{meta.progresso}%</span>
                 <div className='flex gap-2 flex-col sm:flex-row'>
                   <button onClick={() => abrirModalParaEditar(meta)} className='text-blue-500 hover:text-blue-400 text-sm'>Editar</button>
-                  <button onClick={() => excluir(meta.id)} className='text-red-500 hover:text-red-400 text-sm'>Excluir</button>
+                  <button onClick={() => setConfirmarExclusao(meta)} className='text-red-500 hover:text-red-400 text-sm'>Excluir</button>
                 </div>
               </div>
             </div>
@@ -117,6 +121,25 @@ export default function Metas() {
           </div>
         </div>
       </div>
+
+      {confirmarExclusao && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center'>
+          <div className='absolute inset-0 bg-black/60 backdrop-blur-sm' onClick={() => setConfirmarExclusao(null)} />
+          <div className='relative border rounded-2xl p-8 w-full max-w-sm mx-4 shadow-2xl' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            <h2 className='text-lg font-bold mb-2' style={{ color: 'var(--text-main)' }}>Excluir meta?</h2>
+            <p className='text-sm mb-6' style={{ color: 'var(--text-muted)' }}>
+              "<span className='font-semibold' style={{ color: 'var(--text-main)' }}>{confirmarExclusao.titulo}</span>" será excluída permanentemente.
+            </p>
+            <div className='flex gap-3'>
+              <button onClick={() => setConfirmarExclusao(null)}
+                className='flex-1 border rounded-xl py-2 text-sm font-semibold transition hover:opacity-80'
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>Cancelar</button>
+              <button onClick={() => excluir(confirmarExclusao.id)}
+                className='flex-1 bg-red-500 text-white rounded-xl py-2 text-sm font-bold hover:bg-red-600 transition'>Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Modal isOpen={modalOpen} onClose={fecharModal} title={metaEditando ? 'Editar Meta' : 'Nova Meta'}>
         <div className='space-y-4'>

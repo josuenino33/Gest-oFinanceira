@@ -14,6 +14,7 @@ export default function Desafios() {
   const [dataFim, setDataFim] = useState('')
   const [aporte, setAporte] = useState('')
   const [loading, setLoading] = useState(false)
+  const [confirmarExclusao, setConfirmarExclusao] = useState(null)
 
   const now = new Date()
   const inputStyle = { background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }
@@ -55,6 +56,7 @@ export default function Desafios() {
   }
 
   const excluir = async (id) => {
+    setConfirmarExclusao(null)
     try { await api.delete(`/desafios/${id}`); carregar() }
     catch { toast('Erro ao excluir.', 'error') }
   }
@@ -101,7 +103,7 @@ export default function Desafios() {
                       <h3 className='font-black text-lg' style={{ color: 'var(--text-main)' }}>{d.titulo}</h3>
                       {d.descricao && <p className='text-xs mt-0.5' style={{ color: 'var(--text-muted)' }}>{d.descricao}</p>}
                     </div>
-                    <button onClick={() => excluir(d.id)} className='text-xs text-red-400 hover:text-red-300'>Excluir</button>
+                    <button onClick={() => setConfirmarExclusao(d)} className='text-xs text-red-400 hover:text-red-300'>Excluir</button>
                   </div>
 
                   <div className='flex justify-between text-sm mb-2'>
@@ -146,7 +148,7 @@ export default function Desafios() {
                       <p className='text-xs' style={{ color: '#22c55e' }}>{fmt(d.meta_valor)} — Concluído!</p>
                     </div>
                   </div>
-                  <button onClick={() => excluir(d.id)} className='text-xs text-red-400 hover:text-red-300'>Excluir</button>
+                  <button onClick={() => setConfirmarExclusao(d)} className='text-xs text-red-400 hover:text-red-300'>Excluir</button>
                 </div>
               </div>
             ))}
@@ -162,6 +164,25 @@ export default function Desafios() {
           <button onClick={() => setModalOpen(true)} className='bg-green-500 text-black px-6 py-3 rounded-xl font-semibold hover:bg-green-400 transition'>
             Criar Primeiro Desafio
           </button>
+        </div>
+      )}
+
+      {confirmarExclusao && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center'>
+          <div className='absolute inset-0 bg-black/60 backdrop-blur-sm' onClick={() => setConfirmarExclusao(null)} />
+          <div className='relative border rounded-2xl p-8 w-full max-w-sm mx-4 shadow-2xl' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            <h2 className='text-lg font-bold mb-2' style={{ color: 'var(--text-main)' }}>Excluir desafio?</h2>
+            <p className='text-sm mb-6' style={{ color: 'var(--text-muted)' }}>
+              "<span className='font-semibold' style={{ color: 'var(--text-main)' }}>{confirmarExclusao.titulo}</span>" será excluído permanentemente.
+            </p>
+            <div className='flex gap-3'>
+              <button onClick={() => setConfirmarExclusao(null)}
+                className='flex-1 border rounded-xl py-2 text-sm font-semibold transition hover:opacity-80'
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>Cancelar</button>
+              <button onClick={() => excluir(confirmarExclusao.id)}
+                className='flex-1 bg-red-500 text-white rounded-xl py-2 text-sm font-bold hover:bg-red-600 transition'>Excluir</button>
+            </div>
+          </div>
         </div>
       )}
 

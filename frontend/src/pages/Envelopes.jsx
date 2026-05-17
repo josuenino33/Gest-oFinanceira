@@ -17,6 +17,7 @@ export default function Envelopes() {
   const [alocado, setAlocado] = useState('')
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  const [confirmarExclusao, setConfirmarExclusao] = useState(null)
 
   const inputStyle = { background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }
 
@@ -45,6 +46,7 @@ export default function Envelopes() {
   }
 
   const excluir = async (id) => {
+    setConfirmarExclusao(null)
     try { await api.delete(`/envelopes/${id}`); carregar() }
     catch { toast('Erro ao excluir.', 'error') }
   }
@@ -145,7 +147,7 @@ export default function Envelopes() {
                   <span className='font-bold' style={{ color: 'var(--text-main)' }}>{e.categoria_nome}</span>
                   {pct >= 100 && <span className='text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-bold'>ESGOTADO</span>}
                 </div>
-                <button onClick={() => excluir(e.id)} className='text-xs text-red-400 hover:text-red-300'>Remover</button>
+                <button onClick={() => setConfirmarExclusao(e)} className='text-xs text-red-400 hover:text-red-300'>Remover</button>
               </div>
               <div className='h-2.5 rounded-full overflow-hidden mb-2' style={{ background: 'var(--bg-input)' }}>
                 <div className='h-full rounded-full transition-all duration-500' style={{ width: `${pct}%`, background: cor }} />
@@ -174,6 +176,25 @@ export default function Envelopes() {
           <button onClick={() => setShowForm(true)} className='bg-green-500 text-black px-6 py-3 rounded-xl font-semibold hover:bg-green-400 transition'>
             Criar Primeiro Envelope
           </button>
+        </div>
+      )}
+
+      {confirmarExclusao && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center'>
+          <div className='absolute inset-0 bg-black/60 backdrop-blur-sm' onClick={() => setConfirmarExclusao(null)} />
+          <div className='relative border rounded-2xl p-8 w-full max-w-sm mx-4 shadow-2xl' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            <h2 className='text-lg font-bold mb-2' style={{ color: 'var(--text-main)' }}>Remover envelope?</h2>
+            <p className='text-sm mb-6' style={{ color: 'var(--text-muted)' }}>
+              O envelope de "<span className='font-semibold' style={{ color: 'var(--text-main)' }}>{confirmarExclusao.categoria_nome}</span>" será removido permanentemente.
+            </p>
+            <div className='flex gap-3'>
+              <button onClick={() => setConfirmarExclusao(null)}
+                className='flex-1 border rounded-xl py-2 text-sm font-semibold transition hover:opacity-80'
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>Cancelar</button>
+              <button onClick={() => excluir(confirmarExclusao.id)}
+                className='flex-1 bg-red-500 text-white rounded-xl py-2 text-sm font-bold hover:bg-red-600 transition'>Remover</button>
+            </div>
+          </div>
         </div>
       )}
     </>
