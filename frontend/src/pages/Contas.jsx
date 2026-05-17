@@ -163,12 +163,12 @@ export default function Contas() {
         <table className='w-full text-left'>
           <thead>
             <tr style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }} className='border-b'>
-              <th className='p-4 min-w-[140px]'>Descrição</th>
-              <th className='p-4 min-w-[120px]'>Categoria</th>
-              <th className='p-4 min-w-[110px]'>Valor</th>
-              <th className='p-4 min-w-[110px]'>Data</th>
-              <th className='p-4 min-w-[110px]'>Status</th>
-              <th className='p-4 min-w-[120px]'>Ações</th>
+              <th className='p-4 min-w-[33vw] sm:min-w-0'>Descrição</th>
+              <th className='p-4 min-w-[33vw] sm:min-w-0'>Categoria</th>
+              <th className='p-4 min-w-[33vw] sm:min-w-0'>Valor</th>
+              <th className='p-4 min-w-[33vw] sm:min-w-0'>Data</th>
+              <th className='p-4 min-w-[33vw] sm:min-w-0'>Status</th>
+              <th className='p-4 min-w-[33vw] sm:min-w-0'>Ações</th>
             </tr>
           </thead>
           <tbody>

@@ -125,12 +125,12 @@ export default function ComprasCartao() {
         <table className='w-full text-left'>
           <thead>
             <tr className='border-b' style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
-              <th className='p-4 min-w-[140px]'>Compra</th>
-              <th className='p-4 min-w-[120px]'>Cartão</th>
-              <th className='p-4 min-w-[110px]'>Parcela</th>
-              <th className='p-4 min-w-[110px]'>Valor</th>
-              <th className='p-4 min-w-[110px]'>Status</th>
-              <th className='p-4 min-w-[120px]'>Ações</th>
+              <th className='p-4 min-w-[33vw] sm:min-w-0'>Compra</th>
+              <th className='p-4 min-w-[33vw] sm:min-w-0'>Cartão</th>
+              <th className='p-4 min-w-[33vw] sm:min-w-0'>Parcela</th>
+              <th className='p-4 min-w-[33vw] sm:min-w-0'>Valor</th>
+              <th className='p-4 min-w-[33vw] sm:min-w-0'>Status</th>
+              <th className='p-4 min-w-[33vw] sm:min-w-0'>Ações</th>
             </tr>
           </thead>
           <tbody>
