@@ -875,12 +875,12 @@ def _build_financial_context(uid):
 
     # Histórico completo: resumo mensal por categoria
     hist_desp = fetch_all(
-        'SELECT EXTRACT(YEAR FROM criado_em::timestamp)::int as ano, EXTRACT(MONTH FROM criado_em::timestamp)::int as mes, COALESCE(cat.nome,\'Sem categoria\') as categoria, COALESCE(SUM(c.valor),0) as total FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? GROUP BY ano, mes, cat.nome ORDER BY ano DESC, mes DESC, total DESC' if IS_POSTGRES else
-        'SELECT CAST(strftime("%Y",criado_em) AS INTEGER) as ano, CAST(strftime("%m",criado_em) AS INTEGER) as mes, COALESCE(cat.nome,\'Sem categoria\') as categoria, COALESCE(SUM(c.valor),0) as total FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? GROUP BY ano, mes, cat.nome ORDER BY ano DESC, mes DESC, total DESC',
+        'SELECT EXTRACT(YEAR FROM c.criado_em::timestamp)::int as ano, EXTRACT(MONTH FROM c.criado_em::timestamp)::int as mes, COALESCE(cat.nome,\'Sem categoria\') as categoria, COALESCE(SUM(c.valor),0) as total FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? GROUP BY EXTRACT(YEAR FROM c.criado_em::timestamp), EXTRACT(MONTH FROM c.criado_em::timestamp), cat.nome ORDER BY 1 DESC, 2 DESC, 4 DESC' if IS_POSTGRES else
+        'SELECT CAST(strftime("%Y",c.criado_em) AS INTEGER) as ano, CAST(strftime("%m",c.criado_em) AS INTEGER) as mes, COALESCE(cat.nome,\'Sem categoria\') as categoria, COALESCE(SUM(c.valor),0) as total FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? GROUP BY strftime("%Y",c.criado_em), strftime("%m",c.criado_em), cat.nome ORDER BY 1 DESC, 2 DESC, 4 DESC',
         (uid,))
     hist_rec = fetch_all(
-        'SELECT EXTRACT(YEAR FROM criado_em::timestamp)::int as ano, EXTRACT(MONTH FROM criado_em::timestamp)::int as mes, COALESCE(SUM(valor),0) as total FROM receitas WHERE user_id=? GROUP BY ano, mes ORDER BY ano DESC, mes DESC' if IS_POSTGRES else
-        'SELECT CAST(strftime("%Y",criado_em) AS INTEGER) as ano, CAST(strftime("%m",criado_em) AS INTEGER) as mes, COALESCE(SUM(valor),0) as total FROM receitas WHERE user_id=? GROUP BY ano, mes ORDER BY ano DESC, mes DESC',
+        'SELECT EXTRACT(YEAR FROM criado_em::timestamp)::int as ano, EXTRACT(MONTH FROM criado_em::timestamp)::int as mes, COALESCE(SUM(valor),0) as total FROM receitas WHERE user_id=? GROUP BY EXTRACT(YEAR FROM criado_em::timestamp), EXTRACT(MONTH FROM criado_em::timestamp) ORDER BY 1 DESC, 2 DESC' if IS_POSTGRES else
+        'SELECT CAST(strftime("%Y",criado_em) AS INTEGER) as ano, CAST(strftime("%m",criado_em) AS INTEGER) as mes, COALESCE(SUM(valor),0) as total FROM receitas WHERE user_id=? GROUP BY strftime("%Y",criado_em), strftime("%m",criado_em) ORDER BY 1 DESC, 2 DESC',
         (uid,))
 
     from collections import defaultdict
