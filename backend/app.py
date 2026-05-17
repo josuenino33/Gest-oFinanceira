@@ -154,8 +154,7 @@ def ensure_postgres_schema(cursor):
         'cartoes': [('user_id', 'INTEGER'), ('bandeira', 'TEXT'), ('limite', 'REAL DEFAULT 0'), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
         'compras_cartao': [('user_id', 'INTEGER'), ('pago', 'INTEGER DEFAULT 0'), ('parcela_atual', 'INTEGER DEFAULT 1'), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
         'metas': [('user_id', 'INTEGER'), ('valor_alvo', 'REAL DEFAULT 0'), ('valor_atual', 'REAL DEFAULT 0'), ('progresso', 'INTEGER DEFAULT 0'), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
-        'investimentos': [('user_id', 'INTEGER'), ('rentabilidade', 'REAL DEFAULT 0'), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
-        'planejamento': [('user_id', 'INTEGER'), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')]
+        'investimentos': [('user_id', 'INTEGER'), ('rentabilidade', 'REAL DEFAULT 0'), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')]
     }
 
     for table, columns in migrations.items():
@@ -193,7 +192,6 @@ def init_db():
             f"CREATE TABLE IF NOT EXISTS compras_cartao (id {pk}, user_id INTEGER, cartao_id INTEGER NOT NULL, descricao TEXT NOT NULL, valor REAL NOT NULL, parcelas INTEGER DEFAULT 1, parcela_atual INTEGER DEFAULT 1, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS metas (id {pk}, user_id INTEGER, titulo TEXT NOT NULL, descricao TEXT DEFAULT '', valor_alvo REAL DEFAULT 0, valor_atual REAL DEFAULT 0, progresso INTEGER DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS investimentos (id {pk}, user_id INTEGER, titulo TEXT NOT NULL, tipo TEXT NOT NULL, valor_investido REAL NOT NULL, valor_atual REAL NOT NULL, rentabilidade REAL DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
-            f"CREATE TABLE IF NOT EXISTS planejamento (id {pk}, user_id INTEGER, categoria_id INTEGER, valor_planejado REAL NOT NULL, mes INTEGER NOT NULL, ano INTEGER NOT NULL, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS recorrencias (id {pk}, user_id INTEGER, tipo TEXT NOT NULL, descricao TEXT NOT NULL, valor REAL NOT NULL, categoria_id INTEGER, dia INTEGER DEFAULT 1, ativo INTEGER DEFAULT 1, ultima_geracao TEXT, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS orcamentos (id {pk}, user_id INTEGER NOT NULL, categoria_id INTEGER NOT NULL, limite REAL NOT NULL, mes INTEGER NOT NULL, ano INTEGER NOT NULL, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS historico_patrimonio (id {pk}, user_id INTEGER NOT NULL, data TEXT NOT NULL, em_caixa REAL DEFAULT 0, a_pagar REAL DEFAULT 0, investido REAL DEFAULT 0, patrimonio_liquido REAL DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
@@ -561,6 +559,52 @@ def resumo():
     saldo = float(r) - float(d)
     return jsonify({'receitas': float(r), 'despesas': float(d), 'saldo': saldo, 'meta': float(m)})
 
+@app.route('/relatorios', methods=['GET'])
+@jwt_required()
+def relatorios():
+    uid = int(get_jwt_identity())
+    mes = request.args.get('mes', type=int)
+    ano = request.args.get('ano', type=int)
+
+    if mes and ano:
+        if mes == 12:
+            start, end = f"{ano}-{mes:02d}-01 00:00:00", f"{ano + 1}-01-01 00:00:00"
+        else:
+            start, end = f"{ano}-{mes:02d}-01 00:00:00", f"{ano}-{mes + 1:02d}-01 00:00:00"
+        date_filter_r = " AND criado_em >= ? AND criado_em < ?"
+        date_filter_co = " AND co.criado_em >= ? AND co.criado_em < ?"
+        args_r = (uid, start, end)
+        args_co_cat = (uid, start, end, uid)
+        args_list = (uid, start, end)
+    else:
+        date_filter_r = ""
+        date_filter_co = ""
+        args_r = (uid,)
+        args_co_cat = (uid, uid)
+        args_list = (uid,)
+
+    total_receitas = float(fetch_one(f'SELECT COALESCE(SUM(valor), 0) as t FROM receitas WHERE user_id = ?{date_filter_r}', args_r)['t'])
+    total_despesas = float(fetch_one(f'SELECT COALESCE(SUM(valor), 0) as t FROM contas WHERE user_id = ?{date_filter_r}', args_r)['t'])
+    total_investido = float(fetch_one('SELECT COALESCE(SUM(valor_investido), 0) as t FROM investimentos WHERE user_id = ?', (uid,))['t'])
+    por_categoria = fetch_all(
+        f'SELECT c.nome, c.cor, COALESCE(SUM(co.valor), 0) as total '
+        f'FROM categorias c LEFT JOIN contas co ON co.categoria_id = c.id AND co.user_id = ?{date_filter_co} '
+        f'WHERE (c.user_id IS NULL OR c.user_id = ?) GROUP BY c.id, c.nome, c.cor '
+        f'HAVING COALESCE(SUM(co.valor), 0) > 0 ORDER BY total DESC',
+        args_co_cat
+    )
+    receitas = fetch_all(f'SELECT descricao, valor, criado_em FROM receitas WHERE user_id = ?{date_filter_r} ORDER BY id DESC LIMIT 20', args_list)
+    despesas = fetch_all(f'SELECT descricao, valor, pago, criado_em FROM contas WHERE user_id = ?{date_filter_r} ORDER BY id DESC LIMIT 20', args_list)
+    return jsonify({
+        'total_receitas': total_receitas,
+        'total_despesas': total_despesas,
+        'saldo': total_receitas - total_despesas,
+        'total_investido': total_investido,
+        'por_categoria': [dict(r) for r in por_categoria],
+        'receitas': [dict(r) for r in receitas],
+        'despesas': [dict(r) for r in despesas],
+    })
+
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({'status': 'healthy', 'db': 'connected'})
@@ -884,7 +928,7 @@ def excluir_conta():
         return jsonify({'msg': 'Senha incorreta.'}), 400
     tabelas = [
         'contas', 'receitas', 'cartoes', 'compras_cartao', 'metas',
-        'investimentos', 'planejamento', 'recorrencias', 'orcamentos',
+        'investimentos', 'recorrencias', 'orcamentos',
         'historico_patrimonio', 'envelopes', 'desafios', 'categorias',
         'sessions', 'access_logs',
     ]
