@@ -1766,7 +1766,7 @@ def rota_desafios():
     )
     return jsonify({'ok': True}), 201
 
-@app.route('/desafios/<int:did>', methods=['PATCH', 'DELETE'])
+@app.route('/desafios/<int:did>', methods=['PATCH', 'PUT', 'DELETE'])
 @jwt_required()
 def atualizar_desafio(did):
     uid = int(get_jwt_identity())
@@ -1774,6 +1774,13 @@ def atualizar_desafio(did):
         execute_query('DELETE FROM desafios WHERE id=? AND user_id=?', (did, uid))
         return jsonify({'ok': True})
     d = request.json or {}
+    if request.method == 'PUT':
+        execute_query(
+            'UPDATE desafios SET titulo=?, descricao=?, meta_valor=?, data_fim=? WHERE id=? AND user_id=?',
+            (d.get('titulo'), d.get('descricao', ''), float(d.get('meta_valor', 0)), d.get('data_fim'), did, uid)
+        )
+        return jsonify({'ok': True})
+    # PATCH — registrar aporte
     valor_atual = float(d.get('valor_atual', 0))
     desafio = fetch_one('SELECT * FROM desafios WHERE id=? AND user_id=?', (did, uid))
     if not desafio:

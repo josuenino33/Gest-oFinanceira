@@ -15,6 +15,7 @@ export default function Desafios() {
   const [aporte, setAporte] = useState('')
   const [loading, setLoading] = useState(false)
   const [confirmarExclusao, setConfirmarExclusao] = useState(null)
+  const [desafioEditando, setDesafioEditando] = useState(null)
 
   const now = new Date()
   const inputStyle = { background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }
@@ -25,20 +26,29 @@ export default function Desafios() {
 
   useEffect(() => { carregar() }, [])
 
+  const abrirModalEditar = (d) => {
+    setDesafioEditando(d)
+    setTitulo(d.titulo)
+    setDescricao(d.descricao || '')
+    setMetaValor(String(d.meta_valor))
+    setDataFim(d.data_fim)
+    setModalOpen(true)
+  }
+
   const salvar = async () => {
     if (!titulo.trim() || !metaValor || !dataFim) return toast('Preencha título, meta e data limite.', 'warning')
     if (Number(metaValor) <= 0) return toast('A meta deve ser maior que zero.', 'warning')
     setLoading(true)
     try {
-      await api.post('/desafios', {
-        titulo, descricao,
-        meta_valor: Number(metaValor),
-        data_inicio: now.toISOString().slice(0, 10),
-        data_fim: dataFim
-      })
-      toast('Desafio criado!', 'success')
+      if (desafioEditando) {
+        await api.put(`/desafios/${desafioEditando.id}`, { titulo, descricao, meta_valor: Number(metaValor), data_fim: dataFim })
+        toast('Desafio atualizado!', 'success')
+      } else {
+        await api.post('/desafios', { titulo, descricao, meta_valor: Number(metaValor), data_inicio: now.toISOString().slice(0, 10), data_fim: dataFim })
+        toast('Desafio criado!', 'success')
+      }
       fecharModal(); carregar()
-    } catch { toast('Erro ao criar desafio.', 'error') }
+    } catch { toast(desafioEditando ? 'Erro ao atualizar desafio.' : 'Erro ao criar desafio.', 'error') }
     finally { setLoading(false) }
   }
 
@@ -61,7 +71,7 @@ export default function Desafios() {
     catch { toast('Erro ao excluir.', 'error') }
   }
 
-  const fecharModal = () => { setModalOpen(false); setTitulo(''); setDescricao(''); setMetaValor(''); setDataFim('') }
+  const fecharModal = () => { setModalOpen(false); setDesafioEditando(null); setTitulo(''); setDescricao(''); setMetaValor(''); setDataFim('') }
 
   const fmt = v => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 
@@ -103,7 +113,10 @@ export default function Desafios() {
                       <h3 className='font-black text-lg' style={{ color: 'var(--text-main)' }}>{d.titulo}</h3>
                       {d.descricao && <p className='text-xs mt-0.5' style={{ color: 'var(--text-muted)' }}>{d.descricao}</p>}
                     </div>
-                    <button onClick={() => setConfirmarExclusao(d)} className='text-xs text-red-400 hover:text-red-300'>Excluir</button>
+                    <div className='flex gap-2'>
+                      <button onClick={() => abrirModalEditar(d)} className='text-xs text-blue-400 hover:text-blue-300'>Editar</button>
+                      <button onClick={() => setConfirmarExclusao(d)} className='text-xs text-red-400 hover:text-red-300'>Excluir</button>
+                    </div>
                   </div>
 
                   <div className='flex justify-between text-sm mb-2'>
@@ -187,7 +200,7 @@ export default function Desafios() {
       )}
 
       {/* Modal novo desafio */}
-      <Modal isOpen={modalOpen} onClose={fecharModal} title='Novo Desafio'>
+      <Modal isOpen={modalOpen} onClose={fecharModal} title={desafioEditando ? 'Editar Desafio' : 'Novo Desafio'}>
         <div className='space-y-4'>
           <input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder='Ex: Reserva de emergência, Viagem...'
             className='w-full rounded-xl p-4 border outline-none focus:border-green-400' style={inputStyle} />
@@ -205,7 +218,7 @@ export default function Desafios() {
           </div>
           <button onClick={salvar} disabled={loading}
             className='w-full bg-green-500 text-black rounded-xl py-4 font-semibold hover:bg-green-400 transition disabled:opacity-60'>
-            {loading ? 'Salvando...' : 'Criar Desafio'}
+            {loading ? 'Salvando...' : desafioEditando ? 'Atualizar Desafio' : 'Criar Desafio'}
           </button>
         </div>
       </Modal>
