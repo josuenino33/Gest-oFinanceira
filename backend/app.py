@@ -263,16 +263,6 @@ def security_headers(resp):
     resp.headers['X-XSS-Protection'] = '1; mode=block'
     resp.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     resp.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
-    # Invalida o cache do contexto da IA quando o usuário modifica dados
-    if request.method in ('POST', 'PUT', 'PATCH', 'DELETE') and request.path != '/chat':
-        try:
-            from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
-            verify_jwt_in_request(optional=True)
-            uid = get_jwt_identity()
-            if uid:
-                invalidar_cache(int(uid))
-        except Exception:
-            pass
     return resp
 
 # ==================== ROTAS ====================
@@ -577,10 +567,11 @@ def rota_receitas():
                 execute_query('INSERT INTO receitas (user_id, descricao, valor, categoria_id, criado_em) VALUES (?, ?, ?, ?, ?)', (uid, descricao, valor, cat_id, criado_em))
             else:
                 execute_query('INSERT INTO receitas (user_id, descricao, valor, categoria_id) VALUES (?, ?, ?, ?)', (uid, descricao, valor, cat_id))
+            invalidar_cache(uid)
             return jsonify({'msg': 'OK'})
         except Exception as e:
             return jsonify({'msg': str(e)}), 500
-    
+
     return jsonify(fetch_all('SELECT r.*, c.nome as categoria_nome FROM receitas r LEFT JOIN categorias c ON c.id = r.categoria_id WHERE r.user_id = ? ORDER BY r.id DESC', (uid,)))
 
 @app.route('/receitas/<int:id>', methods=['DELETE', 'PUT'])
@@ -592,6 +583,7 @@ def acao_receita(id):
     else:
         d = request.json
         execute_query('UPDATE receitas SET descricao=?, valor=?, categoria_id=? WHERE id=? AND user_id=?', (d.get('descricao'), d.get('valor'), d.get('categoria_id'), id, uid))
+    invalidar_cache(uid)
     return jsonify({'msg': 'OK'})
 
 @app.route('/contas', methods=['GET', 'POST'])
@@ -612,10 +604,11 @@ def rota_contas():
                 execute_query('INSERT INTO contas (user_id, descricao, valor, categoria_id, pago, criado_em) VALUES (?, ?, ?, ?, ?, ?)', (uid, descricao, valor, cat_id, pago, criado_em))
             else:
                 execute_query('INSERT INTO contas (user_id, descricao, valor, categoria_id, pago) VALUES (?, ?, ?, ?, ?)', (uid, descricao, valor, cat_id, pago))
+            invalidar_cache(uid)
             return jsonify({'msg': 'OK'})
         except Exception as e:
             return jsonify({'msg': str(e)}), 500
-            
+
     return jsonify(fetch_all('SELECT co.*, c.nome as categoria_nome FROM contas co LEFT JOIN categorias c ON c.id = co.categoria_id WHERE co.user_id = ? ORDER BY co.id DESC', (uid,)))
 
 @app.route('/contas/<int:id>', methods=['DELETE', 'PUT', 'PATCH'])
@@ -629,6 +622,7 @@ def acao_conta(id):
     else:
         d = request.json
         execute_query('UPDATE contas SET descricao=?, valor=?, categoria_id=?, pago=? WHERE id=? AND user_id=?', (d.get('descricao'), d.get('valor'), d.get('categoria_id'), d.get('pago', 0), id, uid))
+    invalidar_cache(uid)
     return jsonify({'msg': 'OK'})
 
 @app.route('/categorias', methods=['GET', 'POST'])
