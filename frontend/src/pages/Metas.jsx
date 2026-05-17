@@ -43,9 +43,9 @@ export default function Metas() {
 
   return (
     <>
-      <div className='flex justify-between items-center mb-8'>
+      <div className='flex flex-wrap justify-between items-start gap-4 mb-8'>
         <div>
-          <h1 className='text-4xl font-bold' style={{ color: 'var(--text-main)' }}>Metas</h1>
+          <h1 className='text-2xl sm:text-4xl font-bold' style={{ color: 'var(--text-main)' }}>Metas</h1>
           <p style={{ color: 'var(--text-muted)' }} className='mt-2'>Acompanhe o progresso de cada objetivo</p>
         </div>
         <button onClick={() => setModalOpen(true)} className='bg-green-500 text-black px-6 py-3 rounded-xl font-semibold hover:bg-green-400 transition'>+ Nova Meta</button>
@@ -79,17 +79,17 @@ export default function Metas() {
       </div>
 
       {metas.length === 0 && (
-        <div className='rounded-2xl p-12 border text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <div className='rounded-2xl p-8 sm:p-12 border text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
           <p style={{ color: 'var(--text-muted)' }} className='text-lg'>Nenhuma meta cadastrada</p>
         </div>
       )}
 
       {/* Simulador */}
-      <div className='mt-12 bg-gradient-to-br from-green-500/10 to-blue-500/10 rounded-3xl p-8 border border-green-500/20'>
+      <div className='mt-8 sm:mt-12 bg-gradient-to-br from-green-500/10 to-blue-500/10 rounded-3xl p-4 sm:p-8 border border-green-500/20'>
         <div className='max-w-3xl'>
-          <h2 className='text-3xl font-bold mb-2' style={{ color: 'var(--text-main)' }}>🚀 Simulador de Objetivos</h2>
-          <p style={{ color: 'var(--text-muted)' }} className='mb-8'>Descubra quanto você precisa poupar para realizar seus sonhos.</p>
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
+          <h2 className='text-xl sm:text-3xl font-bold mb-2' style={{ color: 'var(--text-main)' }}>🚀 Simulador de Objetivos</h2>
+          <p style={{ color: 'var(--text-muted)' }} className='mb-6 sm:mb-8'>Descubra quanto você precisa poupar para realizar seus sonhos.</p>
+          <div className='grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8'>
             <div className='space-y-6'>
               <div>
                 <label className='block text-sm font-medium mb-2' style={{ color: 'var(--text-main)' }}>Quanto você quer juntar?</label>
@@ -112,7 +112,7 @@ export default function Metas() {
             </div>
             <div className='rounded-2xl p-6 border flex flex-col justify-center items-center text-center shadow-xl' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
               <p style={{ color: 'var(--text-muted)' }} className='text-sm uppercase tracking-wider mb-2'>Você precisará poupar</p>
-              <h3 className='text-4xl md:text-5xl font-black text-green-500 mb-2'>{fmt(Number(calcValor || 0) / (Number(calcMeses) || 1))}</h3>
+              <h3 className='text-3xl sm:text-4xl md:text-5xl font-black text-green-500 mb-2'>{fmt(Number(calcValor || 0) / (Number(calcMeses) || 1))}</h3>
               <p style={{ color: 'var(--text-muted)' }}>por mês</p>
               <div className='mt-6 pt-6 border-t w-full' style={{ borderColor: 'var(--border-color)' }}>
                 <p className='text-xs italic' style={{ color: 'var(--text-muted)' }}>"O segredo para chegar em qualquer lugar é começar."</p>

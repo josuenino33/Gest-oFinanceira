@@ -45,15 +45,15 @@ export default function Investimentos() {
 
   return (
     <>
-      <div className='flex justify-between items-center mb-8'>
+      <div className='flex flex-wrap justify-between items-start gap-4 mb-8'>
         <div>
-          <h1 className='text-4xl font-bold' style={{ color: 'var(--text-main)' }}>Investimentos</h1>
+          <h1 className='text-2xl sm:text-4xl font-bold' style={{ color: 'var(--text-main)' }}>Investimentos</h1>
           <p style={{ color: 'var(--text-muted)' }} className='mt-2'>Acompanhe sua carteira de investimentos</p>
         </div>
         <button onClick={() => setModalOpen(true)} className='bg-green-500 text-black px-6 py-3 rounded-xl font-semibold hover:bg-green-400 transition'>+ Novo Investimento</button>
       </div>
 
-      <div className='grid grid-cols-1 md:grid-cols-3 gap-6 mb-8'>
+      <div className='grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-8'>
         {[{ l: 'Total Investido', v: fmt(totalInvestido), c: 'text-blue-500' }, { l: 'Valor Atual', v: fmt(totalAtual), c: 'text-green-500' }, { l: 'Rentabilidade', v: `${rentTotal >= 0 ? '+' : ''}${rentTotal}%`, c: rentTotal >= 0 ? 'text-green-500' : 'text-red-500' }].map((item, i) => (
           <div key={i} className='rounded-2xl p-6 border' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
             <p style={{ color: 'var(--text-muted)' }} className='text-sm'>{item.l}</p>
@@ -62,7 +62,7 @@ export default function Investimentos() {
         ))}
       </div>
 
-      <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
+      <div className='grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6'>
         {lista.map((inv) => (
           <div key={inv.id} className='rounded-2xl p-6 border hover:border-green-500/30 transition-all' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
             <div className='flex items-start justify-between mb-4'>
@@ -94,7 +94,7 @@ export default function Investimentos() {
       </div>
 
       {lista.length === 0 && (
-        <div className='rounded-2xl p-12 border text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <div className='rounded-2xl p-6 sm:p-12 border text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
           <p style={{ color: 'var(--text-muted)' }} className='text-lg'>Nenhum investimento cadastrado</p>
         </div>
       )}

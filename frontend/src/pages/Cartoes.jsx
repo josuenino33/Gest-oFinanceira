@@ -41,9 +41,9 @@ export default function Cartoes() {
 
   return (
     <>
-      <div className='flex justify-between items-center mb-8'>
+      <div className='flex flex-wrap justify-between items-start gap-4 mb-8'>
         <div>
-          <h1 className='text-4xl font-bold' style={{ color: 'var(--text-main)' }}>Cartões</h1>
+          <h1 className='text-2xl sm:text-4xl font-bold' style={{ color: 'var(--text-main)' }}>Cartões</h1>
           <p style={{ color: 'var(--text-muted)' }} className='mt-2'>Gerencie seus cartões de crédito</p>
         </div>
         <button onClick={() => setModalOpen(true)} className='bg-green-500 text-black px-6 py-3 rounded-xl font-semibold hover:bg-green-400 transition'>+ Novo Cartão</button>
@@ -82,7 +82,7 @@ export default function Cartoes() {
       </div>
 
       {cartoes.length === 0 && (
-        <div className='rounded-2xl p-12 border text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <div className='rounded-2xl p-6 sm:p-12 border text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
           <p style={{ color: 'var(--text-muted)' }} className='text-lg'>Nenhum cartão cadastrado</p>
           <button onClick={() => setModalOpen(true)} className='mt-4 text-green-500 hover:text-green-400 transition'>Adicionar primeiro cartão</button>
         </div>

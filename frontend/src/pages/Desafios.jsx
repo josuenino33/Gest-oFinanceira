@@ -88,7 +88,7 @@ export default function Desafios() {
     <>
       <div className='flex flex-wrap justify-between items-start gap-4 mb-8'>
         <div>
-          <h1 className='text-4xl font-black tracking-tighter' style={{ color: 'var(--text-main)' }}>Desafios</h1>
+          <h1 className='text-2xl sm:text-4xl font-black tracking-tighter' style={{ color: 'var(--text-main)' }}>Desafios</h1>
           <p className='mt-1 text-sm' style={{ color: 'var(--text-muted)' }}>Crie metas de economia com prazo e acompanhe o progresso</p>
         </div>
         <button onClick={() => setModalOpen(true)}
@@ -170,7 +170,7 @@ export default function Desafios() {
       )}
 
       {lista.length === 0 && (
-        <div className='rounded-2xl p-16 border text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <div className='rounded-2xl p-8 sm:p-16 border text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
           <div className='text-5xl mb-4'>🎯</div>
           <h3 className='text-xl font-bold mb-2' style={{ color: 'var(--text-main)' }}>Nenhum desafio criado</h3>
           <p className='mb-6 text-sm' style={{ color: 'var(--text-muted)' }}>Crie um desafio de economia com prazo e veja seu progresso crescer!</p>

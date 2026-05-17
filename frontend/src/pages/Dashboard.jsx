@@ -762,7 +762,7 @@ export default function Dashboard() {
             <h3 className='font-black text-sm mb-4' style={{ color: 'var(--text-main)' }}>
               Comparativo — {mesesLabel[(comparativo.mes_anterior || 1) - 1]} vs {mesesLabel[(comparativo.mes_atual || 1) - 1]}
             </h3>
-            <div className='grid grid-cols-3 gap-3'>
+            <div className='grid grid-cols-1 sm:grid-cols-3 gap-3'>
               {[
                 { label: 'Receitas', atual: comparativo.atual?.receitas, anterior: comparativo.anterior?.receitas, variacao: comparativo.variacao?.receitas, cor: '#22c55e' },
                 { label: 'Despesas', atual: comparativo.atual?.despesas, anterior: comparativo.anterior?.despesas, variacao: comparativo.variacao?.despesas, cor: '#ef4444' },
@@ -793,7 +793,7 @@ export default function Dashboard() {
       {activeTab === 'evolucao' && (
         <div className='space-y-8 px-4 md:px-0'>
           <div>
-            <h2 className='text-3xl font-black' style={{ color: 'var(--text-main)' }}>📈 Evolução do Patrimônio</h2>
+            <h2 className='text-xl sm:text-3xl font-black' style={{ color: 'var(--text-main)' }}>📈 Evolução do Patrimônio</h2>
             <p className='text-sm mt-1' style={{ color: 'var(--text-muted)' }}>Histórico dos últimos 90 dias — snapshot diário automático</p>
           </div>
           {loadingEvolucao && <div className='flex items-center justify-center py-20'><div className='w-8 h-8 border-4 border-green-500/30 border-t-green-500 rounded-full animate-spin' /></div>}

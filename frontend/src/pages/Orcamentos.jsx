@@ -57,7 +57,7 @@ export default function Orcamentos() {
     <>
       <div className='flex flex-wrap justify-between items-start gap-4 mb-8'>
         <div>
-          <h1 className='text-4xl font-black tracking-tighter' style={{ color: 'var(--text-main)' }}>Orçamentos</h1>
+          <h1 className='text-2xl sm:text-4xl font-black tracking-tighter' style={{ color: 'var(--text-main)' }}>Orçamentos</h1>
           <p style={{ color: 'var(--text-muted)' }} className='mt-1'>Defina limites de gasto por categoria</p>
         </div>
         <div className='flex flex-wrap items-center gap-3'>
@@ -143,7 +143,7 @@ export default function Orcamentos() {
       </div>
 
       {orcamentos.length === 0 && (
-        <div className='rounded-2xl p-16 border text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <div className='rounded-2xl p-8 sm:p-16 border text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
           <div className='text-5xl mb-4'>💰</div>
           <h3 className='text-xl font-bold mb-2' style={{ color: 'var(--text-main)' }}>Nenhum orçamento para este mês</h3>
           <p style={{ color: 'var(--text-muted)' }} className='mb-6'>Defina limites por categoria e acompanhe seus gastos em tempo real.</p>

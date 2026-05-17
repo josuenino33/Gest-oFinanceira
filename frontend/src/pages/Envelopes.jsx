@@ -78,7 +78,7 @@ export default function Envelopes() {
     <>
       <div className='flex flex-wrap justify-between items-start gap-4 mb-8'>
         <div>
-          <h1 className='text-4xl font-black tracking-tighter' style={{ color: 'var(--text-main)' }}>Envelopes</h1>
+          <h1 className='text-2xl sm:text-4xl font-black tracking-tighter' style={{ color: 'var(--text-main)' }}>Envelopes</h1>
           <p className='mt-1 text-sm' style={{ color: 'var(--text-muted)' }}>Orçamento base-zero — distribua cada real da sua renda</p>
         </div>
         <div className='flex flex-wrap items-center gap-3'>
@@ -200,7 +200,7 @@ export default function Envelopes() {
       </div>
 
       {envelopes.length === 0 && !showForm && (
-        <div className='rounded-2xl p-16 border text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <div className='rounded-2xl p-8 sm:p-16 border text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
           <div className='text-5xl mb-4'>✉️</div>
           <h3 className='text-xl font-bold mb-2' style={{ color: 'var(--text-main)' }}>Nenhum envelope criado</h3>
           <p className='mb-6 text-sm' style={{ color: 'var(--text-muted)' }}>

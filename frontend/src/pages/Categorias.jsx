@@ -43,15 +43,15 @@ export default function Categorias() {
 
   return (
     <>
-      <div className='flex justify-between items-center mb-8'>
+      <div className='flex flex-wrap justify-between items-start gap-4 mb-8'>
         <div>
-          <h1 className='text-4xl font-bold' style={{ color: 'var(--text-main)' }}>Categorias</h1>
+          <h1 className='text-2xl sm:text-4xl font-bold' style={{ color: 'var(--text-main)' }}>Categorias</h1>
           <p style={{ color: 'var(--text-muted)' }} className='mt-2'>Organize suas receitas e despesas</p>
         </div>
         <button onClick={() => setModalOpen(true)} className='bg-green-500 text-black px-6 py-3 rounded-xl font-semibold hover:bg-green-400 transition'>+ Nova Categoria</button>
       </div>
 
-      <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6'>
+      <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6'>
         {categorias.map((cat) => (
           <div key={cat.id} className='rounded-2xl p-6 border hover:border-green-500/30 transition-all' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
             <div className='flex items-center justify-between'>
@@ -74,7 +74,7 @@ export default function Categorias() {
       </div>
 
       {categorias.length === 0 && (
-        <div className='rounded-2xl p-12 border text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <div className='rounded-2xl p-6 sm:p-12 border text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
           <p style={{ color: 'var(--text-muted)' }} className='text-lg'>Nenhuma categoria cadastrada</p>
         </div>
       )}

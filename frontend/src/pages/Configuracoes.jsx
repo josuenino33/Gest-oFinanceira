@@ -168,7 +168,7 @@ export default function Configuracoes() {
   return (
     <>
       <div className='mb-6'>
-        <h1 className='text-3xl font-bold' style={{ color: 'var(--text-main)' }}>Configurações</h1>
+        <h1 className='text-2xl sm:text-3xl font-bold' style={{ color: 'var(--text-main)' }}>Configurações</h1>
         <p className='mt-1 text-sm' style={{ color: 'var(--text-muted)' }}>Gerencie seu perfil e segurança</p>
       </div>
 
@@ -260,12 +260,12 @@ export default function Configuracoes() {
                 <div className='space-y-4'>
                   <p className='text-sm font-semibold' style={{ color: 'var(--text-main)' }}>1. Escaneie o QR Code com o Google Authenticator:</p>
                   <div className='flex justify-center p-4 rounded-xl bg-white'>
-                    <img src={`data:image/png;base64,${qrCode}`} alt='QR Code 2FA' className='w-48 h-48' />
+                    <img src={`data:image/png;base64,${qrCode}`} alt='QR Code 2FA' className='w-full max-w-[192px] aspect-square' />
                   </div>
                   <p className='text-sm font-semibold' style={{ color: 'var(--text-main)' }}>2. Digite o código gerado pelo app:</p>
                   <input type='text' inputMode='numeric' maxLength={6} value={totpCode}
                     onChange={e => setTotpCode(e.target.value.replace(/\D/g, ''))}
-                    className='w-full rounded-xl p-3 border outline-none focus:border-green-400 text-center text-2xl tracking-widest transition' style={inputStyle}
+                    className='w-full rounded-xl p-3 border outline-none focus:border-green-400 text-center text-xl sm:text-2xl tracking-widest transition' style={inputStyle}
                     placeholder='000000' />
                   <button onClick={ativar2fa} disabled={loading2fa || totpCode.length !== 6}
                     className='w-full bg-green-500 text-black rounded-xl px-6 py-3 font-semibold hover:bg-green-400 transition disabled:opacity-60'>

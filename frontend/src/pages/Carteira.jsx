@@ -26,12 +26,12 @@ export default function Carteira() {
 
   return (
     <div className='max-w-7xl mx-auto'>
-      <div className='mb-10'>
-        <h1 className='text-4xl font-black tracking-tighter' style={{ color: 'var(--text-main)' }}>Minha Carteira</h1>
+      <div className='mb-6 sm:mb-10'>
+        <h1 className='text-2xl sm:text-4xl font-black tracking-tighter' style={{ color: 'var(--text-main)' }}>Minha Carteira</h1>
         <p style={{ color: 'var(--text-muted)' }} className='font-medium'>Gerencie todos os seus lançamentos em um só lugar</p>
       </div>
 
-      <div className='mb-10 rounded-[2rem] border p-2'
+      <div className='mb-6 sm:mb-10 rounded-[2rem] border p-2'
         style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         <div className='flex overflow-x-auto hide-scrollbar md:gap-2'
           style={{ scrollSnapType: 'x mandatory' }}>
