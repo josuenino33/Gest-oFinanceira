@@ -873,6 +873,41 @@ def update_senha():
     execute_query('UPDATE users SET senha = ? WHERE id = ?', (generate_password_hash(nova_senha), uid))
     return jsonify({'msg': 'Senha alterada com sucesso!'})
 
+@app.route('/usuario', methods=['DELETE'])
+@jwt_required()
+def excluir_conta():
+    uid = get_jwt_identity()
+    d = request.get_json(silent=True) or {}
+    senha = d.get('senha', '')
+    user = fetch_one('SELECT senha FROM users WHERE id = ?', (uid,))
+    if not user or not check_password_hash(user['senha'], senha):
+        return jsonify({'msg': 'Senha incorreta.'}), 400
+    tabelas = [
+        'contas', 'receitas', 'cartoes', 'compras_cartao', 'metas',
+        'investimentos', 'planejamento', 'recorrencias', 'orcamentos',
+        'historico_patrimonio', 'envelopes', 'desafios', 'categorias',
+        'sessions', 'access_logs',
+    ]
+    for tabela in tabelas:
+        execute_query(f'DELETE FROM {tabela} WHERE user_id = ?', (uid,))
+    execute_query('DELETE FROM users WHERE id = ?', (uid,))
+    invalidar_cache(uid)
+    return jsonify({'msg': 'Conta excluída com sucesso.'}), 200
+
+@app.route('/exportar-tudo', methods=['GET'])
+@jwt_required()
+def exportar_tudo():
+    uid = get_jwt_identity()
+    tabelas = [
+        'contas', 'receitas', 'categorias', 'cartoes', 'compras_cartao',
+        'metas', 'investimentos', 'recorrencias', 'orcamentos', 'envelopes', 'desafios',
+    ]
+    data = {}
+    for tabela in tabelas:
+        rows = fetch_all(f'SELECT * FROM {tabela} WHERE user_id = ?', (uid,))
+        data[tabela] = [dict(r) for r in rows]
+    return jsonify(data), 200
+
 @app.route('/test-ai', methods=['GET'])
 def test_ai():
     return jsonify({'modelos_disponiveis': [GEMINI_MODEL] if gemini_client else []})

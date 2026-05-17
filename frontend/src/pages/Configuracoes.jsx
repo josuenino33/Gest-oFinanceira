@@ -43,6 +43,12 @@ export default function Configuracoes() {
   // Logs
   const [logs, setLogs] = useState([])
 
+  // Dados / excluir conta
+  const [senhaExcluir, setSenhaExcluir] = useState('')
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false)
+  const [loadingExcluir, setLoadingExcluir] = useState(false)
+  const [exportando, setExportando] = useState(false)
+
   useEffect(() => {
     if (user) { setNome(user.nome || ''); setEmail(user.email || '') }
   }, [user])
@@ -114,6 +120,33 @@ export default function Configuracoes() {
     finally { setLoading2fa(false) }
   }
 
+  const exportarTudo = async () => {
+    setExportando(true)
+    try {
+      const r = await api.get('/exportar-tudo')
+      const blob = new Blob([JSON.stringify(r.data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `backup-financas-${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast('Backup exportado com sucesso!', 'success')
+    } catch { toast('Erro ao exportar dados.', 'error') }
+    finally { setExportando(false) }
+  }
+
+  const excluirConta = async () => {
+    if (!senhaExcluir) return toast('Digite sua senha para confirmar.', 'warning')
+    setLoadingExcluir(true)
+    try {
+      await api.delete('/usuario', { data: { senha: senhaExcluir } })
+      toast('Conta excluída.', 'success')
+      logout()
+    } catch (e) { toast(e.response?.data?.msg || 'Erro ao excluir conta.', 'error') }
+    finally { setLoadingExcluir(false) }
+  }
+
   const encerrarSessao = async (jti) => {
     try {
       await api.delete(`/sessoes/${jti}`)
@@ -146,6 +179,7 @@ export default function Configuracoes() {
         <Tab id='2fa' label='2FA' icon='🔐' active={aba === '2fa'} onClick={setAba} />
         <Tab id='sessoes' label='Sessões' icon='📱' active={aba === 'sessoes'} onClick={setAba} />
         <Tab id='logs' label='Acessos' icon='📋' active={aba === 'logs'} onClick={setAba} />
+        <Tab id='dados' label='Dados' icon='💾' active={aba === 'dados'} onClick={setAba} />
       </div>
 
       {/* Perfil */}
@@ -305,6 +339,53 @@ export default function Configuracoes() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Dados */}
+      {aba === 'dados' && (
+        <div className='space-y-6 max-w-lg'>
+          {/* Exportar */}
+          <div className={`${card}`} style={cardStyle}>
+            <h2 className='text-lg font-bold mb-1' style={{ color: 'var(--text-main)' }}>Exportar todos os dados</h2>
+            <p className='text-sm mb-4' style={{ color: 'var(--text-muted)' }}>
+              Baixa um arquivo JSON com todas as suas contas, receitas, investimentos, metas e mais.
+            </p>
+            <button onClick={exportarTudo} disabled={exportando}
+              className='bg-green-500 text-black rounded-xl px-6 py-3 font-semibold hover:bg-green-400 transition disabled:opacity-60'>
+              {exportando ? 'Exportando...' : '⬇ Baixar backup completo'}
+            </button>
+          </div>
+
+          {/* Excluir conta */}
+          <div className={`${card} border-red-500/30`} style={{ ...cardStyle, borderColor: 'rgba(239,68,68,0.3)' }}>
+            <h2 className='text-lg font-bold mb-1 text-red-500'>Excluir minha conta</h2>
+            <p className='text-sm mb-4' style={{ color: 'var(--text-muted)' }}>
+              Remove permanentemente todos os seus dados. Essa ação é irreversível.
+            </p>
+            {!confirmandoExclusao ? (
+              <button onClick={() => setConfirmandoExclusao(true)}
+                className='border border-red-500/40 text-red-500 rounded-xl px-6 py-3 font-semibold hover:bg-red-500/10 transition text-sm'>
+                Excluir minha conta
+              </button>
+            ) : (
+              <div className='space-y-3'>
+                <p className='text-sm font-semibold text-red-400'>Confirme sua senha para continuar:</p>
+                <input type='password' value={senhaExcluir} onChange={e => setSenhaExcluir(e.target.value)}
+                  className='w-full rounded-xl p-3 border outline-none focus:border-red-500 transition'
+                  style={inputStyle} placeholder='Sua senha atual' />
+                <div className='flex gap-3'>
+                  <button onClick={() => { setConfirmandoExclusao(false); setSenhaExcluir('') }}
+                    className='flex-1 border rounded-xl py-2 text-sm font-semibold transition hover:opacity-80'
+                    style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>Cancelar</button>
+                  <button onClick={excluirConta} disabled={loadingExcluir}
+                    className='flex-1 bg-red-500 text-white rounded-xl py-2 text-sm font-bold hover:bg-red-600 transition disabled:opacity-60'>
+                    {loadingExcluir ? 'Excluindo...' : 'Confirmar exclusão'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

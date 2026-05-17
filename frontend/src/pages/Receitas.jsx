@@ -24,6 +24,7 @@ export default function Receitas() {
   const [suggesting, setSuggesting] = useState(false)
   const [busca, setBusca] = useState('')
   const [categFiltro, setCategFiltro] = useState('')
+  const [confirmarExclusao, setConfirmarExclusao] = useState(null)
 
   const sugerirCategoria = async () => {
     if (!descricao.trim() || categoriaId) return
@@ -84,6 +85,7 @@ export default function Receitas() {
   const excluir = async (id) => {
     const backup = [...listaCompleta]
     setListaCompleta(prev => prev.filter(item => item.id !== id))
+    setConfirmarExclusao(null)
     try { await api.delete(`/receitas/${id}`) } catch (e) { setListaCompleta(backup); toast('Erro ao excluir.', 'error') }
   }
 
@@ -167,7 +169,7 @@ export default function Receitas() {
                   <td className='p-4 text-sm' style={{ color: 'var(--text-muted)' }}>{item.criado_em ? new Date(item.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
                   <td className='p-4 flex gap-3'>
                     <button onClick={() => abrirModalParaEditar(item)} className='text-blue-500 hover:text-blue-400 text-sm'>Editar</button>
-                    <button onClick={() => excluir(item.id)} className='text-red-500 hover:text-red-400 text-sm'>Excluir</button>
+                    <button onClick={() => setConfirmarExclusao(item)} className='text-red-500 hover:text-red-400 text-sm'>Excluir</button>
                   </td>
                 </tr>
               ))}
@@ -180,6 +182,25 @@ export default function Receitas() {
           )}
         </div>
       </div>
+
+      {confirmarExclusao && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center'>
+          <div className='absolute inset-0 bg-black/60 backdrop-blur-sm' onClick={() => setConfirmarExclusao(null)} />
+          <div className='relative border rounded-2xl p-8 w-full max-w-sm mx-4 shadow-2xl' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            <h2 className='text-lg font-bold mb-2' style={{ color: 'var(--text-main)' }}>Excluir receita?</h2>
+            <p className='text-sm mb-6' style={{ color: 'var(--text-muted)' }}>
+              "<span className='font-semibold' style={{ color: 'var(--text-main)' }}>{confirmarExclusao.descricao}</span>" será excluída permanentemente.
+            </p>
+            <div className='flex gap-3'>
+              <button onClick={() => setConfirmarExclusao(null)}
+                className='flex-1 border rounded-xl py-2 text-sm font-semibold transition hover:opacity-80'
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>Cancelar</button>
+              <button onClick={() => excluir(confirmarExclusao.id)}
+                className='flex-1 bg-red-500 text-white rounded-xl py-2 text-sm font-bold hover:bg-red-600 transition'>Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Modal isOpen={modalOpen} onClose={fecharModal} title={receitaEditando ? 'Editar Receita' : `Nova Receita — ${mesesNomes[mesFiltro]} ${anoFiltro}`}>
         <div className='space-y-5'>

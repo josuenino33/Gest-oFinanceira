@@ -1,12 +1,14 @@
-const CACHE = 'financas-v3'
+const CACHE = 'financas-v4'
+const SHELL = ['/', '/index.html']
 
-self.addEventListener('install', () => {
-  // Ativa imediatamente sem esperar aba fechar
+self.addEventListener('install', e => {
   self.skipWaiting()
+  e.waitUntil(
+    caches.open(CACHE).then(cache => cache.addAll(SHELL)).catch(() => {})
+  )
 })
 
 self.addEventListener('activate', e => {
-  // Remove todos os caches antigos na ativação
   e.waitUntil(
     caches.keys()
       .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
@@ -16,14 +18,15 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return
-  // Chamadas de API sempre vão para a rede, nunca cache
-  if (e.request.url.includes(':5000') || e.request.url.includes('/api/')) return
 
-  // Network-first: busca na rede primeiro; só usa cache se estiver offline
+  // API nunca usa cache — dados financeiros devem ser sempre frescos
+  const url = e.request.url
+  if (url.includes(':5000') || url.includes('/api/') || url.includes('onrender.com')) return
+
+  // Network-first: rede primeiro, cache como fallback offline
   e.respondWith(
     fetch(e.request)
       .then(response => {
-        // Guarda no cache apenas respostas válidas
         if (response && response.status === 200) {
           const clone = response.clone()
           caches.open(CACHE).then(cache => cache.put(e.request, clone))

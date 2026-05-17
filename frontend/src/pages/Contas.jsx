@@ -29,6 +29,7 @@ export default function Contas() {
   const [suggesting, setSuggesting] = useState(false)
   const [busca, setBusca] = useState('')
   const [categFiltro, setCategFiltro] = useState('')
+  const [confirmarExclusao, setConfirmarExclusao] = useState(null)
 
   const sugerirCategoria = async () => {
     if (!descricao.trim() || categoriaId) return
@@ -99,6 +100,7 @@ export default function Contas() {
   const excluir = async (id) => {
     const backup = [...contasCompletas]
     setContasCompletas(prev => prev.filter(item => item.id !== id))
+    setConfirmarExclusao(null)
     try { await api.delete(`/contas/${id}`) }
     catch (e) { setContasCompletas(backup); toast('Erro ao excluir.', 'error') }
   }
@@ -205,7 +207,7 @@ export default function Contas() {
                   <td className='p-4 flex gap-3'>
                     {!c.pago && <button onClick={() => marcarPaga(c.id)} className='text-green-500 hover:text-green-400 transition text-sm'>Pagar</button>}
                     <button onClick={() => abrirModalParaEditar(c)} className='text-blue-500 hover:text-blue-400 transition text-sm'>Editar</button>
-                    <button onClick={() => excluir(c.id)} className='text-red-500 hover:text-red-400 transition text-sm'>Excluir</button>
+                    <button onClick={() => setConfirmarExclusao(c)} className='text-red-500 hover:text-red-400 transition text-sm'>Excluir</button>
                   </td>
                 </tr>
               ))}
@@ -218,6 +220,25 @@ export default function Contas() {
           )}
         </div>
       </div>
+
+      {confirmarExclusao && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center'>
+          <div className='absolute inset-0 bg-black/60 backdrop-blur-sm' onClick={() => setConfirmarExclusao(null)} />
+          <div className='relative border rounded-2xl p-8 w-full max-w-sm mx-4 shadow-2xl' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            <h2 className='text-lg font-bold mb-2' style={{ color: 'var(--text-main)' }}>Excluir conta?</h2>
+            <p className='text-sm mb-6' style={{ color: 'var(--text-muted)' }}>
+              "<span className='font-semibold' style={{ color: 'var(--text-main)' }}>{confirmarExclusao.descricao}</span>" será excluída permanentemente.
+            </p>
+            <div className='flex gap-3'>
+              <button onClick={() => setConfirmarExclusao(null)}
+                className='flex-1 border rounded-xl py-2 text-sm font-semibold transition hover:opacity-80'
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>Cancelar</button>
+              <button onClick={() => excluir(confirmarExclusao.id)}
+                className='flex-1 bg-red-500 text-white rounded-xl py-2 text-sm font-bold hover:bg-red-600 transition'>Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Modal isOpen={modalOpen} onClose={fecharModal} title={contaEditando ? 'Editar Conta' : `Nova Conta — ${mesesNomes[mesFiltro]} ${anoFiltro}`}>
         <div className='space-y-5'>
