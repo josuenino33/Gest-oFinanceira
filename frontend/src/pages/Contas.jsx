@@ -3,8 +3,7 @@ import api from '../utils/api'
 import Modal from '../components/Modal'
 import { useToast } from '../context/ToastContext'
 import TranscreverSMS from '../components/TranscreverSMS'
-import { exportToCSV } from '../utils/exportCSV'
-import ImportarCSV from '../components/ImportarCSV'
+import ImpExpDropdown from '../components/ImpExpDropdown'
 
 const mesesNomes = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -114,8 +113,8 @@ export default function Contas() {
           <h1 className='text-2xl md:text-4xl font-bold' style={{ color: 'var(--text-main)' }}>Contas a Pagar</h1>
           <p style={{ color: 'var(--text-muted)' }} className='mt-1 text-sm md:text-base'>Acompanhe e adicione suas despesas</p>
         </div>
-        <div className='flex flex-wrap gap-3 items-center'>
-          <div className='flex items-center gap-2'>
+        <div className='w-full sm:w-auto overflow-x-auto pb-1'>
+          <div className='flex flex-nowrap gap-3 items-center min-w-max'>
             <select value={mesFiltro} onChange={e => setMesFiltro(Number(e.target.value))}
               className='border px-3 py-2 rounded-xl cursor-pointer outline-none focus:border-green-500/50 text-xs md:text-sm' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
               {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
@@ -124,19 +123,22 @@ export default function Contas() {
               className='border px-3 py-2 rounded-xl cursor-pointer outline-none focus:border-green-500/50 text-xs md:text-sm' style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
               {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(a => <option key={a} value={a}>{a}</option>)}
             </select>
+            <TranscreverSMS onExtrair={aoExtrairSMS} />
+            <ImpExpDropdown
+              tipo='contas'
+              lista={contas}
+              nomeArquivo={`contas_${mesesNomes[mesFiltro]}_${anoFiltro}.csv`}
+              colunasCsv={[
+                { key: 'descricao', label: 'Descrição' },
+                { key: 'valor', label: 'Valor', format: v => Number(v).toFixed(2).replace('.', ',') },
+                { key: 'pago', label: 'Pago', format: v => v ? 'Sim' : 'Não' },
+                { key: 'categoria_nome', label: 'Categoria' },
+                { key: 'criado_em', label: 'Data' },
+              ]}
+              onImportado={carregar}
+            />
+            <button onClick={() => setModalOpen(true)} className='bg-green-500 text-black px-6 py-2 rounded-xl font-semibold hover:bg-green-400 transition whitespace-nowrap'>+ Nova Conta</button>
           </div>
-          <TranscreverSMS onExtrair={aoExtrairSMS} />
-          <ImportarCSV tipo='contas' onImportado={carregar} />
-          <button onClick={() => exportToCSV(contas, `contas_${mesesNomes[mesFiltro]}_${anoFiltro}.csv`, [
-            { key: 'descricao', label: 'Descrição' },
-            { key: 'valor', label: 'Valor', format: v => Number(v).toFixed(2).replace('.', ',') },
-            { key: 'pago', label: 'Pago', format: v => v ? 'Sim' : 'Não' },
-            { key: 'categoria_nome', label: 'Categoria' },
-            { key: 'criado_em', label: 'Data' }
-          ])} className='border px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-80 transition' style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
-            ⬇ CSV
-          </button>
-          <button onClick={() => setModalOpen(true)} className='w-full sm:w-auto bg-green-500 text-black px-6 py-3 rounded-xl font-semibold hover:bg-green-400 transition'>+ Nova Conta</button>
         </div>
       </div>
 

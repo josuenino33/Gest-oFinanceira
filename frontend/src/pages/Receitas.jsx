@@ -3,8 +3,7 @@ import api from '../utils/api'
 import Modal from '../components/Modal'
 import { useToast } from '../context/ToastContext'
 import TranscreverSMS from '../components/TranscreverSMS'
-import { exportToCSV } from '../utils/exportCSV'
-import ImportarCSV from '../components/ImportarCSV'
+import ImpExpDropdown from '../components/ImpExpDropdown'
 
 const mesesNomes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
@@ -91,26 +90,29 @@ export default function Receitas() {
           <h1 className='text-2xl md:text-4xl font-bold' style={{ color: 'var(--text-main)' }}>Receitas</h1>
           <p style={{ color: 'var(--text-muted)' }} className='mt-1 text-sm md:text-base'>Cadastre e acompanhe suas entradas</p>
         </div>
-        <div className='flex flex-wrap gap-3 items-center'>
-          <div className='flex items-center gap-2'>
+        <div className='w-full sm:w-auto overflow-x-auto pb-1'>
+          <div className='flex flex-nowrap gap-3 items-center min-w-max'>
             <select value={mesFiltro} onChange={e => setMesFiltro(Number(e.target.value))} className='border px-3 py-2 rounded-xl cursor-pointer outline-none text-xs md:text-sm' style={inputStyle}>
               {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
             </select>
             <select value={anoFiltro} onChange={e => setAnoFiltro(Number(e.target.value))} className='border px-3 py-2 rounded-xl cursor-pointer outline-none text-xs md:text-sm' style={inputStyle}>
               {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(a => <option key={a} value={a}>{a}</option>)}
             </select>
+            <TranscreverSMS onExtrair={aoExtrairSMS} />
+            <ImpExpDropdown
+              tipo='receitas'
+              lista={lista}
+              nomeArquivo={`receitas_${mesesNomes[mesFiltro]}_${anoFiltro}.csv`}
+              colunasCsv={[
+                { key: 'descricao', label: 'Descrição' },
+                { key: 'valor', label: 'Valor', format: v => Number(v).toFixed(2).replace('.', ',') },
+                { key: 'categoria_nome', label: 'Categoria' },
+                { key: 'criado_em', label: 'Data' },
+              ]}
+              onImportado={carregar}
+            />
+            <button onClick={() => setModalOpen(true)} className='bg-green-500 text-black px-6 py-2 rounded-xl font-semibold hover:bg-green-400 transition whitespace-nowrap'>+ Nova Receita</button>
           </div>
-          <TranscreverSMS onExtrair={aoExtrairSMS} />
-          <ImportarCSV tipo='receitas' onImportado={carregar} />
-          <button onClick={() => exportToCSV(lista, `receitas_${mesesNomes[mesFiltro]}_${anoFiltro}.csv`, [
-            { key: 'descricao', label: 'Descrição' },
-            { key: 'valor', label: 'Valor', format: v => Number(v).toFixed(2).replace('.', ',') },
-            { key: 'categoria_nome', label: 'Categoria' },
-            { key: 'criado_em', label: 'Data' }
-          ])} className='border px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-80 transition' style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
-            ⬇ CSV
-          </button>
-          <button onClick={() => setModalOpen(true)} className='w-full sm:w-auto bg-green-500 text-black px-6 py-3 rounded-xl font-semibold hover:bg-green-400 transition'>+ Nova Receita</button>
         </div>
       </div>
 
