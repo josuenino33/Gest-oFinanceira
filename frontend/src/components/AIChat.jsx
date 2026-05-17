@@ -93,7 +93,7 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
     const doSpeak = () => {
       const utter = new SpeechSynthesisUtterance(text)
       utter.lang = 'pt-BR'
-      utter.rate = 0.95
+      utter.rate = 1.05
       utter.pitch = 1.0
       const voices = window.speechSynthesis.getVoices()
       const best = preferred.map(n => voices.find(v => v.name === n)).find(Boolean)
@@ -185,7 +185,7 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
     const next = () => {
       if (busy || queue.length === 0) {
         if (streamDone && !busy && queue.length === 0) {
-          if (voiceModeRef.current) setTimeout(() => actionRef.current.startListening(), 400)
+          if (voiceModeRef.current) setTimeout(() => actionRef.current.startListening(), 200)
           else setVoiceState('idle')
         }
         return
@@ -196,13 +196,20 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
     }
 
     const flush = (force = false) => {
-      const end = Math.max(buf.lastIndexOf('.'), buf.lastIndexOf('!'), buf.lastIndexOf('?'))
-      if (end >= 10) {
+      let end = Math.max(buf.lastIndexOf('.'), buf.lastIndexOf('!'), buf.lastIndexOf('?'))
+      if (end >= 8) {
         queue.push(buf.slice(0, end + 1).trim())
         buf = buf.slice(end + 1).trimStart()
-      } else if (force && buf.trim()) {
-        queue.push(buf.trim())
-        buf = ''
+      } else {
+        // fala em vírgula quando o segmento já é longo o suficiente
+        const commaEnd = buf.lastIndexOf(',')
+        if (commaEnd >= 20) {
+          queue.push(buf.slice(0, commaEnd + 1).trim())
+          buf = buf.slice(commaEnd + 1).trimStart()
+        } else if (force && buf.trim()) {
+          queue.push(buf.trim())
+          buf = ''
+        }
       }
       next()
     }

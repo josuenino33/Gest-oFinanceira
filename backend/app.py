@@ -239,6 +239,18 @@ def init_db():
 # Inicializar banco na importação
 init_db()
 
+def revoke_jti(jti):
+    if IS_POSTGRES:
+        execute_query('INSERT INTO revoked_tokens (jti) VALUES (?) ON CONFLICT DO NOTHING', (jti,))
+    else:
+        execute_query('INSERT OR IGNORE INTO revoked_tokens (jti) VALUES (?)', (jti,))
+
+def cleanup_old_tokens():
+    if IS_POSTGRES:
+        execute_query("DELETE FROM revoked_tokens WHERE revoked_at < NOW() - INTERVAL '8 days'")
+    else:
+        execute_query("DELETE FROM revoked_tokens WHERE revoked_at < datetime('now', '-8 days')")
+
 @jwt.token_in_blocklist_loader
 def check_if_revoked(jwt_header, jwt_payload):
     jti = jwt_payload.get('jti')
@@ -276,7 +288,7 @@ def login():
         import pyotp
         if not pyotp.TOTP(u['totp_secret']).verify(totp_code, valid_window=1):
             return jsonify({'msg': 'Código 2FA inválido'}), 401
-    execute_query("DELETE FROM revoked_tokens WHERE revoked_at < datetime('now', '-8 days')")
+    cleanup_old_tokens()
     access_token = create_access_token(identity=str(u['id']))
     refresh_token = create_refresh_token(identity=str(u['id']))
     from flask_jwt_extended import decode_token
@@ -331,7 +343,7 @@ def refresh():
     jti_antigo = get_jwt().get('jti')
     uid = get_jwt_identity()
     if jti_antigo:
-        execute_query('INSERT OR IGNORE INTO revoked_tokens (jti) VALUES (?)', (jti_antigo,))
+        revoke_jti(jti_antigo)
     access_token = create_access_token(identity=uid)
     refresh_token = create_refresh_token(identity=uid)
     from flask_jwt_extended import decode_token
@@ -345,11 +357,11 @@ def logout():
     jti = get_jwt().get('jti')
     uid = get_jwt_identity()
     if jti:
-        execute_query('INSERT OR IGNORE INTO revoked_tokens (jti) VALUES (?)', (jti,))
+        revoke_jti(jti)
     d = request.json or {}
     refresh_jti = d.get('refresh_jti')
     if refresh_jti:
-        execute_query('INSERT OR IGNORE INTO revoked_tokens (jti) VALUES (?)', (refresh_jti,))
+        revoke_jti(refresh_jti)
         execute_query('DELETE FROM sessions WHERE jti = ?', (refresh_jti,))
     execute_query('INSERT INTO access_logs (user_id, ip, action) VALUES (?, ?, ?)',
                   (uid, request.remote_addr, 'logout'))
@@ -417,7 +429,7 @@ def revogar_sessao(jti):
     sess = fetch_one('SELECT id FROM sessions WHERE jti = ? AND user_id = ?', (jti, uid))
     if not sess:
         return jsonify({'msg': 'Sessão não encontrada'}), 404
-    execute_query('INSERT OR IGNORE INTO revoked_tokens (jti) VALUES (?)', (jti,))
+    revoke_jti(jti)
     execute_query('DELETE FROM sessions WHERE jti = ? AND user_id = ?', (jti, uid))
     return jsonify({'msg': 'Sessão encerrada'})
 
@@ -860,14 +872,14 @@ def chat():
         inv = fetch_one('SELECT COALESCE(SUM(valor_atual),0) as t FROM investimentos WHERE user_id=?', (uid,))
         r, de, iv = float(resumo['t']), float(desp['t']), float(inv['t'])
         context = (
-            f"Você é um assistente financeiro pessoal. Dados do usuário:\n"
-            f"- Receitas: R$ {r:,.2f}\n"
-            f"- Despesas: R$ {de:,.2f}\n"
+            f"Você é um consultor financeiro pessoal direto e objetivo. Dados do usuário:\n"
+            f"- Receitas totais: R$ {r:,.2f}\n"
+            f"- Despesas totais: R$ {de:,.2f}\n"
             f"- Saldo: R$ {r-de:,.2f}\n"
             f"- Investimentos: R$ {iv:,.2f}\n"
-            f"Responda de forma concisa em português.\n\nUsuário: {msg}"
+            f"Responda em português, de forma CURTA e DIRETA (máximo 3 frases). Sem listas longas. Vá direto ao ponto.\n\nUsuário: {msg}"
         )
-        cfg = genai_types.GenerateContentConfig(max_output_tokens=400, temperature=0.5)
+        cfg = genai_types.GenerateContentConfig(max_output_tokens=250, temperature=0.4)
 
         def generate():
             try:
