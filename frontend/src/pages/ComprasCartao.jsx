@@ -122,10 +122,15 @@ export default function ComprasCartao() {
       </div>
 
       <div className='rounded-2xl border overflow-x-auto' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        <table className='w-full text-left min-w-[700px]'>
+        <table className='w-full text-left'>
           <thead>
             <tr className='border-b' style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
-              <th className='p-4'>Compra</th><th className='p-4'>Cartão</th><th className='p-4'>Parcela</th><th className='p-4'>Valor</th><th className='p-4'>Status</th><th className='p-4'>Ações</th>
+              <th className='p-4 min-w-[140px]'>Compra</th>
+              <th className='p-4 min-w-[120px]'>Cartão</th>
+              <th className='p-4 min-w-[110px]'>Parcela</th>
+              <th className='p-4 min-w-[110px]'>Valor</th>
+              <th className='p-4 min-w-[110px]'>Status</th>
+              <th className='p-4 min-w-[120px]'>Ações</th>
             </tr>
           </thead>
           <tbody>

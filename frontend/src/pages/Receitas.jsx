@@ -90,29 +90,29 @@ export default function Receitas() {
           <h1 className='text-2xl md:text-4xl font-bold' style={{ color: 'var(--text-main)' }}>Receitas</h1>
           <p style={{ color: 'var(--text-muted)' }} className='mt-1 text-sm md:text-base'>Cadastre e acompanhe suas entradas</p>
         </div>
-        <div className='w-full sm:w-auto overflow-x-auto pb-1'>
-          <div className='flex flex-nowrap gap-3 items-center min-w-max'>
+        <div className='flex flex-wrap gap-3 items-center'>
+          <div className='flex items-center gap-2'>
             <select value={mesFiltro} onChange={e => setMesFiltro(Number(e.target.value))} className='border px-3 py-2 rounded-xl cursor-pointer outline-none text-xs md:text-sm' style={inputStyle}>
               {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
             </select>
             <select value={anoFiltro} onChange={e => setAnoFiltro(Number(e.target.value))} className='border px-3 py-2 rounded-xl cursor-pointer outline-none text-xs md:text-sm' style={inputStyle}>
               {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(a => <option key={a} value={a}>{a}</option>)}
             </select>
-            <TranscreverSMS onExtrair={aoExtrairSMS} />
-            <ImpExpDropdown
-              tipo='receitas'
-              lista={lista}
-              nomeArquivo={`receitas_${mesesNomes[mesFiltro]}_${anoFiltro}.csv`}
-              colunasCsv={[
-                { key: 'descricao', label: 'Descrição' },
-                { key: 'valor', label: 'Valor', format: v => Number(v).toFixed(2).replace('.', ',') },
-                { key: 'categoria_nome', label: 'Categoria' },
-                { key: 'criado_em', label: 'Data' },
-              ]}
-              onImportado={carregar}
-            />
-            <button onClick={() => setModalOpen(true)} className='bg-green-500 text-black px-6 py-2 rounded-xl font-semibold hover:bg-green-400 transition whitespace-nowrap'>+ Nova Receita</button>
           </div>
+          <TranscreverSMS onExtrair={aoExtrairSMS} />
+          <ImpExpDropdown
+            tipo='receitas'
+            lista={lista}
+            nomeArquivo={`receitas_${mesesNomes[mesFiltro]}_${anoFiltro}.csv`}
+            colunasCsv={[
+              { key: 'descricao', label: 'Descrição' },
+              { key: 'valor', label: 'Valor', format: v => Number(v).toFixed(2).replace('.', ',') },
+              { key: 'categoria_nome', label: 'Categoria' },
+              { key: 'criado_em', label: 'Data' },
+            ]}
+            onImportado={carregar}
+          />
+          <button onClick={() => setModalOpen(true)} className='w-full sm:w-auto bg-green-500 text-black px-6 py-3 rounded-xl font-semibold hover:bg-green-400 transition'>+ Nova Receita</button>
         </div>
       </div>
 
@@ -128,8 +128,16 @@ export default function Receitas() {
       </div>
 
       <div className='rounded-2xl border overflow-x-auto' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        <table className='w-full text-left min-w-[500px]'>
-          <thead><tr className='border-b' style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}><th className='p-4'>Descrição</th><th className='p-4'>Categoria</th><th className='p-4'>Valor</th><th className='p-4'>Data</th><th className='p-4'>Ações</th></tr></thead>
+        <table className='w-full text-left'>
+          <thead>
+            <tr className='border-b' style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
+              <th className='p-4 min-w-[140px]'>Descrição</th>
+              <th className='p-4 min-w-[120px]'>Categoria</th>
+              <th className='p-4 min-w-[110px]'>Valor</th>
+              <th className='p-4 min-w-[110px]'>Data</th>
+              <th className='p-4 min-w-[110px]'>Ações</th>
+            </tr>
+          </thead>
           <tbody>
             {lista.map((item) => (
               <tr key={item.id} className='border-b hover:opacity-80 transition' style={{ borderColor: 'var(--border-color)' }}>

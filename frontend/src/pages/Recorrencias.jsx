@@ -100,15 +100,15 @@ export default function Recorrencias() {
       </div>
 
       <div className='rounded-2xl border overflow-x-auto' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        <table className='w-full text-left min-w-[600px]'>
+        <table className='w-full text-left'>
           <thead>
             <tr className='border-b' style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
-              <th className='p-4'>Descrição</th>
-              <th className='p-4'>Tipo</th>
-              <th className='p-4'>Valor</th>
-              <th className='p-4'>Dia</th>
-              <th className='p-4'>Status</th>
-              <th className='p-4'>Ações</th>
+              <th className='p-4 min-w-[140px]'>Descrição</th>
+              <th className='p-4 min-w-[120px]'>Tipo</th>
+              <th className='p-4 min-w-[110px]'>Valor</th>
+              <th className='p-4 min-w-[100px]'>Dia</th>
+              <th className='p-4 min-w-[110px]'>Status</th>
+              <th className='p-4 min-w-[120px]'>Ações</th>
             </tr>
           </thead>
           <tbody>
