@@ -12,6 +12,7 @@ export default function Cartoes() {
   const [limite, setLimite] = useState('')
   const [loading, setLoading] = useState(false)
   const [cartaoEditando, setCartaoEditando] = useState(null)
+  const [confirmarExclusao, setConfirmarExclusao] = useState(null)
 
   const carregar = () => { api.get('/cartoes').then(r => setCartoes(r.data)).catch(console.error) }
   useEffect(() => { carregar() }, [])
@@ -32,7 +33,10 @@ export default function Cartoes() {
 
   const fecharModal = () => { setModalOpen(false); setCartaoEditando(null); setNome(''); setBandeira(''); setLimite('') }
   const abrirModalParaEditar = (c) => { setCartaoEditando(c); setNome(c.nome); setBandeira(c.bandeira); setLimite(c.limite); setModalOpen(true) }
-  const excluir = async (id) => { try { await api.delete(`/cartoes/${id}`); carregar() } catch (e) { toast('Erro ao excluir.', 'error') } }
+  const excluir = async (id) => {
+    setConfirmarExclusao(null)
+    try { await api.delete(`/cartoes/${id}`); carregar() } catch (e) { toast('Erro ao excluir.', 'error') }
+  }
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 
   return (
@@ -58,7 +62,7 @@ export default function Cartoes() {
               </div>
               <div className='flex gap-2'>
                 <button onClick={() => abrirModalParaEditar(cartao)} className='text-blue-500 hover:text-blue-400 text-sm transition'>Editar</button>
-                <button onClick={() => excluir(cartao.id)} className='text-red-500 hover:text-red-400 text-sm transition'>Excluir</button>
+                <button onClick={() => setConfirmarExclusao(cartao)} className='text-red-500 hover:text-red-400 text-sm transition'>Excluir</button>
               </div>
             </div>
             <div className='rounded-xl p-4' style={{ background: 'var(--bg-input)' }}>
@@ -81,6 +85,28 @@ export default function Cartoes() {
         <div className='rounded-2xl p-12 border text-center' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
           <p style={{ color: 'var(--text-muted)' }} className='text-lg'>Nenhum cartão cadastrado</p>
           <button onClick={() => setModalOpen(true)} className='mt-4 text-green-500 hover:text-green-400 transition'>Adicionar primeiro cartão</button>
+        </div>
+      )}
+
+      {confirmarExclusao && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center'>
+          <div className='absolute inset-0 bg-black/60 backdrop-blur-sm' onClick={() => setConfirmarExclusao(null)} />
+          <div className='relative border rounded-2xl p-8 w-full max-w-sm mx-4 shadow-2xl' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            <h2 className='text-lg font-bold mb-2' style={{ color: 'var(--text-main)' }}>Excluir cartão?</h2>
+            <p className='text-sm mb-3' style={{ color: 'var(--text-muted)' }}>
+              "<span className='font-semibold' style={{ color: 'var(--text-main)' }}>{confirmarExclusao.nome}</span>" será excluído permanentemente.
+            </p>
+            <p className='text-xs mb-6 p-3 rounded-xl font-semibold' style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+              Todas as compras vinculadas a este cartão também serão excluídas.
+            </p>
+            <div className='flex gap-3'>
+              <button onClick={() => setConfirmarExclusao(null)}
+                className='flex-1 border rounded-xl py-2 text-sm font-semibold transition hover:opacity-80'
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>Cancelar</button>
+              <button onClick={() => excluir(confirmarExclusao.id)}
+                className='flex-1 bg-red-500 text-white rounded-xl py-2 text-sm font-bold hover:bg-red-600 transition'>Excluir tudo</button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -17,6 +17,7 @@ export default function Orcamentos() {
   const [catSel, setCatSel] = useState('')
   const [limite, setLimite] = useState('')
   const [loading, setLoading] = useState(false)
+  const [confirmarExclusao, setConfirmarExclusao] = useState(null)
 
   const carregar = () => {
     api.get(`/orcamentos?mes=${mes}&ano=${ano}`).then(r => setOrcamentos(r.data)).catch(() => {})
@@ -37,6 +38,7 @@ export default function Orcamentos() {
   }
 
   const excluir = async (id) => {
+    setConfirmarExclusao(null)
     try { await api.delete(`/orcamentos/${id}`); toast('Removido.', 'success'); carregar() }
     catch { toast('Erro ao remover.', 'error') }
   }
@@ -106,7 +108,7 @@ export default function Orcamentos() {
                   {pct >= 100 && <span className='text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-bold'>LIMITE ATINGIDO</span>}
                   {pct >= 80 && pct < 100 && <span className='text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full font-bold'>QUASE NO LIMITE</span>}
                 </div>
-                <button onClick={() => excluir(o.id)} className='text-xs text-red-400 hover:text-red-300 transition'>Remover</button>
+                <button onClick={() => setConfirmarExclusao(o)} className='text-xs text-red-400 hover:text-red-300 transition'>Remover</button>
               </div>
 
               {/* Barra de progresso */}
@@ -149,6 +151,25 @@ export default function Orcamentos() {
             className='bg-green-500 text-black px-6 py-3 rounded-xl font-semibold hover:bg-green-400 transition'>
             Criar Primeiro Orçamento
           </button>
+        </div>
+      )}
+
+      {confirmarExclusao && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center'>
+          <div className='absolute inset-0 bg-black/60 backdrop-blur-sm' onClick={() => setConfirmarExclusao(null)} />
+          <div className='relative border rounded-2xl p-8 w-full max-w-sm mx-4 shadow-2xl' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            <h2 className='text-lg font-bold mb-2' style={{ color: 'var(--text-main)' }}>Remover orçamento?</h2>
+            <p className='text-sm mb-6' style={{ color: 'var(--text-muted)' }}>
+              O orçamento de "<span className='font-semibold' style={{ color: 'var(--text-main)' }}>{confirmarExclusao.categoria_nome}</span>" será removido permanentemente.
+            </p>
+            <div className='flex gap-3'>
+              <button onClick={() => setConfirmarExclusao(null)}
+                className='flex-1 border rounded-xl py-2 text-sm font-semibold transition hover:opacity-80'
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>Cancelar</button>
+              <button onClick={() => excluir(confirmarExclusao.id)}
+                className='flex-1 bg-red-500 text-white rounded-xl py-2 text-sm font-bold hover:bg-red-600 transition'>Remover</button>
+            </div>
+          </div>
         </div>
       )}
 

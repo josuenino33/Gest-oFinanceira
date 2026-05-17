@@ -19,6 +19,7 @@ export default function Recorrencias() {
   const [gerando, setGerando] = useState(false)
   const [busca, setBusca] = useState('')
   const [tipoFiltro, setTipoFiltro] = useState('')
+  const [confirmarExclusao, setConfirmarExclusao] = useState(null)
 
   const carregar = () => {
     api.get('/recorrencias').then(r => setLista(r.data)).catch(console.error)
@@ -47,6 +48,7 @@ export default function Recorrencias() {
   const fecharModal = () => { setModalOpen(false); setTipo('despesa'); setDescricao(''); setValor(''); setCategoriaId(''); setDia('1') }
 
   const excluir = async (id) => {
+    setConfirmarExclusao(null)
     try { await api.delete(`/recorrencias/${id}`); toast('Excluída.', 'success'); carregar() }
     catch (e) { toast('Erro ao excluir.', 'error') }
   }
@@ -155,7 +157,7 @@ export default function Recorrencias() {
                     <button onClick={() => toggleAtivo(r.id)} className='text-blue-500 hover:text-blue-400 text-sm transition'>
                       {r.ativo ? 'Pausar' : 'Ativar'}
                     </button>
-                    <button onClick={() => excluir(r.id)} className='text-red-500 hover:text-red-400 text-sm transition'>Excluir</button>
+                    <button onClick={() => setConfirmarExclusao(r)} className='text-red-500 hover:text-red-400 text-sm transition'>Excluir</button>
                   </td>
                 </tr>
               ))}
@@ -168,6 +170,25 @@ export default function Recorrencias() {
           )}
         </div>
       </div>
+
+      {confirmarExclusao && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center'>
+          <div className='absolute inset-0 bg-black/60 backdrop-blur-sm' onClick={() => setConfirmarExclusao(null)} />
+          <div className='relative border rounded-2xl p-8 w-full max-w-sm mx-4 shadow-2xl' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            <h2 className='text-lg font-bold mb-2' style={{ color: 'var(--text-main)' }}>Excluir recorrência?</h2>
+            <p className='text-sm mb-6' style={{ color: 'var(--text-muted)' }}>
+              "<span className='font-semibold' style={{ color: 'var(--text-main)' }}>{confirmarExclusao.descricao}</span>" será excluída permanentemente.
+            </p>
+            <div className='flex gap-3'>
+              <button onClick={() => setConfirmarExclusao(null)}
+                className='flex-1 border rounded-xl py-2 text-sm font-semibold transition hover:opacity-80'
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>Cancelar</button>
+              <button onClick={() => excluir(confirmarExclusao.id)}
+                className='flex-1 bg-red-500 text-white rounded-xl py-2 text-sm font-bold hover:bg-red-600 transition'>Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Modal isOpen={modalOpen} onClose={fecharModal} title='Nova Recorrência'>
         <div className='space-y-4'>

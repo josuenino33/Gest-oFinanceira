@@ -1191,6 +1191,7 @@ def rota_cartoes():
 def acao_cartao(id):
     uid = int(get_jwt_identity())
     if request.method == 'DELETE':
+        execute_query('DELETE FROM compras_cartao WHERE cartao_id = ? AND user_id = ?', (id, uid))
         execute_query('DELETE FROM cartoes WHERE id = ? AND user_id = ?', (id, uid))
     else:
         d = request.json
@@ -1332,29 +1333,6 @@ def get_insights():
     if not insights:
         insights.append({'msg': 'Continue registrando seus lançamentos para receber insights personalizados.'})
     return jsonify(insights)
-
-@app.route('/forgot-password', methods=['POST'])
-def forgot_password():
-    d = request.json or {}
-    email = d.get('email')
-    u = fetch_one('SELECT * FROM users WHERE email = ?', (email,))
-    if not u:
-        return jsonify({'msg': 'Email não encontrado'}), 404
-    return jsonify({'msg': 'Email encontrado. Defina sua nova senha.', 'email': email})
-
-@app.route('/reset-password', methods=['POST'])
-def reset_password():
-    d = request.json or {}
-    email = d.get('email')
-    password = d.get('password')
-    if not email or not password:
-        return jsonify({'msg': 'Email e senha são obrigatórios'}), 400
-    u = fetch_one('SELECT * FROM users WHERE email = ?', (email,))
-    if not u:
-        return jsonify({'msg': 'Email não encontrado'}), 404
-    h = generate_password_hash(password)
-    execute_query('UPDATE users SET senha = ? WHERE email = ?', (h, email))
-    return jsonify({'msg': 'Senha alterada com sucesso!'})
 
 # ─── ORÇAMENTOS ────────────────────────────────────────────────────────────────
 
