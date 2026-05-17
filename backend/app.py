@@ -1,4 +1,7 @@
 import os
+import io
+import csv
+import base64
 import sqlite3
 import requests as http_requests
 from datetime import datetime, timedelta
@@ -144,7 +147,7 @@ def fetch_one(query, params=()):
 
 def ensure_postgres_schema(cursor):
     migrations = {
-        'users': [('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'), ('username', 'TEXT'), ('codigo_seguranca', 'TEXT')],
+        'users': [('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'), ('username', 'TEXT'), ('codigo_seguranca', 'TEXT'), ('totp_secret', 'TEXT'), ('totp_enabled', 'INTEGER DEFAULT 0')],
         'categorias': [('user_id', 'INTEGER'), ('cor', "TEXT DEFAULT '#22c55e'"), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
         'receitas': [('user_id', 'INTEGER'), ('categoria_id', 'INTEGER'), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
         'contas': [('user_id', 'INTEGER'), ('categoria_id', 'INTEGER'), ('pago', 'INTEGER DEFAULT 0'), ('criado_em', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')],
@@ -179,8 +182,10 @@ def init_db():
 
         # Tabelas
         tables = [
-            f"CREATE TABLE IF NOT EXISTS users (id {pk}, nome TEXT NOT NULL, username TEXT UNIQUE, email TEXT UNIQUE, senha TEXT NOT NULL, codigo_seguranca TEXT, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+            f"CREATE TABLE IF NOT EXISTS users (id {pk}, nome TEXT NOT NULL, username TEXT UNIQUE, email TEXT UNIQUE, senha TEXT NOT NULL, codigo_seguranca TEXT, totp_secret TEXT, totp_enabled INTEGER DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS revoked_tokens (jti TEXT PRIMARY KEY, revoked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+            f"CREATE TABLE IF NOT EXISTS sessions (id {pk}, user_id INTEGER, jti TEXT UNIQUE, device TEXT, ip TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+            f"CREATE TABLE IF NOT EXISTS access_logs (id {pk}, user_id INTEGER, ip TEXT, action TEXT, details TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS categorias (id {pk}, user_id INTEGER, nome TEXT NOT NULL, cor TEXT DEFAULT '#22c55e', criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS receitas (id {pk}, user_id INTEGER, descricao TEXT NOT NULL, valor REAL NOT NULL, categoria_id INTEGER, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS contas (id {pk}, user_id INTEGER, descricao TEXT NOT NULL, valor REAL NOT NULL, categoria_id INTEGER, pago INTEGER DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
@@ -256,15 +261,31 @@ def login():
     d = request.json or {}
     identifier = (d.get('username') or d.get('email') or '').strip()
     password = d.get('password') or ''
+    totp_code = (d.get('totp_code') or '').strip()
     if not identifier or not password:
         return jsonify({'msg': 'Preencha todos os campos'}), 400
     u = fetch_one('SELECT * FROM users WHERE username = ? OR email = ?', (identifier, identifier))
     if not u or not check_password_hash(u['senha'], password):
+        execute_query('INSERT INTO access_logs (ip, action, details) VALUES (?, ?, ?)',
+                      (request.remote_addr, 'login_failed', identifier[:100]))
         return jsonify({'msg': 'Usuário ou senha incorretos'}), 401
-    # Limpar tokens revogados antigos (housekeeping)
+    # 2FA check
+    if u.get('totp_enabled') and u.get('totp_secret'):
+        if not totp_code:
+            return jsonify({'requires_2fa': True}), 200
+        import pyotp
+        if not pyotp.TOTP(u['totp_secret']).verify(totp_code, valid_window=1):
+            return jsonify({'msg': 'Código 2FA inválido'}), 401
     execute_query("DELETE FROM revoked_tokens WHERE revoked_at < datetime('now', '-8 days')")
     access_token = create_access_token(identity=str(u['id']))
     refresh_token = create_refresh_token(identity=str(u['id']))
+    from flask_jwt_extended import decode_token
+    refresh_jti = decode_token(refresh_token)['jti']
+    device = request.headers.get('User-Agent', 'Desconhecido')[:200]
+    execute_query('INSERT INTO sessions (user_id, jti, device, ip) VALUES (?, ?, ?, ?)',
+                  (u['id'], refresh_jti, device, request.remote_addr))
+    execute_query('INSERT INTO access_logs (user_id, ip, action, details) VALUES (?, ?, ?, ?)',
+                  (u['id'], request.remote_addr, 'login', u.get('username') or u.get('email')))
     return jsonify({
         'access_token': access_token,
         'refresh_token': refresh_token,
@@ -311,18 +332,179 @@ def refresh():
     uid = get_jwt_identity()
     if jti_antigo:
         execute_query('INSERT OR IGNORE INTO revoked_tokens (jti) VALUES (?)', (jti_antigo,))
-    return jsonify({
-        'access_token': create_access_token(identity=uid),
-        'refresh_token': create_refresh_token(identity=uid)
-    })
+    access_token = create_access_token(identity=uid)
+    refresh_token = create_refresh_token(identity=uid)
+    from flask_jwt_extended import decode_token
+    novo_jti = decode_token(refresh_token)['jti']
+    execute_query('UPDATE sessions SET jti = ?, last_seen = CURRENT_TIMESTAMP WHERE jti = ?', (novo_jti, jti_antigo))
+    return jsonify({'access_token': access_token, 'refresh_token': refresh_token})
 
 @app.route('/logout', methods=['POST'])
 @jwt_required()
 def logout():
     jti = get_jwt().get('jti')
+    uid = get_jwt_identity()
     if jti:
         execute_query('INSERT OR IGNORE INTO revoked_tokens (jti) VALUES (?)', (jti,))
+    d = request.json or {}
+    refresh_jti = d.get('refresh_jti')
+    if refresh_jti:
+        execute_query('INSERT OR IGNORE INTO revoked_tokens (jti) VALUES (?)', (refresh_jti,))
+        execute_query('DELETE FROM sessions WHERE jti = ?', (refresh_jti,))
+    execute_query('INSERT INTO access_logs (user_id, ip, action) VALUES (?, ?, ?)',
+                  (uid, request.remote_addr, 'logout'))
     return jsonify({'msg': 'Logout realizado'})
+
+@app.route('/2fa/setup', methods=['GET'])
+@jwt_required()
+def setup_2fa():
+    uid = int(get_jwt_identity())
+    u = fetch_one('SELECT username, email FROM users WHERE id = ?', (uid,))
+    import pyotp, qrcode
+    secret = pyotp.random_base32()
+    name = u.get('username') or u.get('email') or 'usuario'
+    uri = pyotp.TOTP(secret).provisioning_uri(name=name, issuer_name='Minhas Finanças')
+    img = qrcode.make(uri)
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    qr_b64 = base64.b64encode(buf.getvalue()).decode()
+    execute_query('UPDATE users SET totp_secret = ? WHERE id = ?', (secret, uid))
+    return jsonify({'secret': secret, 'qr': qr_b64})
+
+@app.route('/2fa/activate', methods=['POST'])
+@jwt_required()
+def activate_2fa():
+    uid = int(get_jwt_identity())
+    code = (request.json or {}).get('code', '')
+    u = fetch_one('SELECT totp_secret FROM users WHERE id = ?', (uid,))
+    if not u or not u.get('totp_secret'):
+        return jsonify({'msg': 'Configure o 2FA primeiro'}), 400
+    import pyotp
+    if not pyotp.TOTP(u['totp_secret']).verify(code, valid_window=1):
+        return jsonify({'msg': 'Código inválido'}), 401
+    execute_query('UPDATE users SET totp_enabled = 1 WHERE id = ?', (uid,))
+    return jsonify({'msg': '2FA ativado com sucesso'})
+
+@app.route('/2fa/disable', methods=['DELETE'])
+@jwt_required()
+def disable_2fa():
+    uid = int(get_jwt_identity())
+    senha = (request.json or {}).get('senha', '')
+    u = fetch_one('SELECT senha FROM users WHERE id = ?', (uid,))
+    if not u or not check_password_hash(u['senha'], senha):
+        return jsonify({'msg': 'Senha incorreta'}), 401
+    execute_query('UPDATE users SET totp_enabled = 0, totp_secret = NULL WHERE id = ?', (uid,))
+    return jsonify({'msg': '2FA desativado'})
+
+@app.route('/2fa/status', methods=['GET'])
+@jwt_required()
+def status_2fa():
+    uid = int(get_jwt_identity())
+    u = fetch_one('SELECT totp_enabled FROM users WHERE id = ?', (uid,))
+    return jsonify({'enabled': bool(u and u.get('totp_enabled'))})
+
+@app.route('/sessoes', methods=['GET'])
+@jwt_required()
+def listar_sessoes():
+    uid = int(get_jwt_identity())
+    rows = fetch_all('SELECT jti, device, ip, created_at, last_seen FROM sessions WHERE user_id = ? ORDER BY last_seen DESC', (uid,))
+    return jsonify(rows)
+
+@app.route('/sessoes/<string:jti>', methods=['DELETE'])
+@jwt_required()
+def revogar_sessao(jti):
+    uid = int(get_jwt_identity())
+    sess = fetch_one('SELECT id FROM sessions WHERE jti = ? AND user_id = ?', (jti, uid))
+    if not sess:
+        return jsonify({'msg': 'Sessão não encontrada'}), 404
+    execute_query('INSERT OR IGNORE INTO revoked_tokens (jti) VALUES (?)', (jti,))
+    execute_query('DELETE FROM sessions WHERE jti = ? AND user_id = ?', (jti, uid))
+    return jsonify({'msg': 'Sessão encerrada'})
+
+@app.route('/logs', methods=['GET'])
+@jwt_required()
+def access_logs_route():
+    uid = int(get_jwt_identity())
+    rows = fetch_all('SELECT action, ip, details, created_at FROM access_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT 50', (uid,))
+    return jsonify(rows)
+
+@app.route('/comparativo', methods=['GET'])
+@jwt_required()
+def comparativo():
+    uid = int(get_jwt_identity())
+    now = datetime.now()
+    mes, ano = now.month, now.year
+    mes_ant = mes - 1 if mes > 1 else 12
+    ano_ant = ano if mes > 1 else ano - 1
+
+    def totais(m, a):
+        s = f'{a}-{m:02d}-01 00:00:00'
+        e = f'{a}-{m+1:02d}-01 00:00:00' if m < 12 else f'{a+1}-01-01 00:00:00'
+        rec = float(fetch_one('SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=? AND criado_em>=? AND criado_em<?', (uid, s, e))['t'])
+        desp = float(fetch_one('SELECT COALESCE(SUM(valor),0) as t FROM contas WHERE user_id=? AND criado_em>=? AND criado_em<?', (uid, s, e))['t'])
+        return {'receitas': rec, 'despesas': desp, 'saldo': rec - desp}
+
+    atual = totais(mes, ano)
+    anterior = totais(mes_ant, ano_ant)
+
+    def pct(a, b):
+        if b == 0: return None
+        return round(((a - b) / b) * 100, 1)
+
+    return jsonify({
+        'atual': atual, 'anterior': anterior,
+        'variacao': {
+            'receitas': pct(atual['receitas'], anterior['receitas']),
+            'despesas': pct(atual['despesas'], anterior['despesas']),
+            'saldo': pct(atual['saldo'], anterior['saldo'])
+        },
+        'mes_atual': mes, 'ano_atual': ano,
+        'mes_anterior': mes_ant, 'ano_anterior': ano_ant
+    })
+
+@app.route('/exportar/<string:tipo>', methods=['GET'])
+@jwt_required()
+def exportar_csv(tipo):
+    uid = int(get_jwt_identity())
+    output = io.StringIO()
+    writer = csv.writer(output)
+    if tipo == 'receitas':
+        writer.writerow(['Descrição', 'Valor', 'Categoria', 'Data'])
+        rows = fetch_all('SELECT r.descricao, r.valor, c.nome as cat, r.criado_em FROM receitas r LEFT JOIN categorias c ON c.id=r.categoria_id WHERE r.user_id=? ORDER BY r.criado_em DESC', (uid,))
+        for r in rows:
+            writer.writerow([r['descricao'], r['valor'], r.get('cat') or '', r['criado_em']])
+    elif tipo == 'contas':
+        writer.writerow(['Descrição', 'Valor', 'Pago', 'Categoria', 'Data'])
+        rows = fetch_all('SELECT co.descricao, co.valor, co.pago, c.nome as cat, co.criado_em FROM contas co LEFT JOIN categorias c ON c.id=co.categoria_id WHERE co.user_id=? ORDER BY co.criado_em DESC', (uid,))
+        for r in rows:
+            writer.writerow([r['descricao'], r['valor'], 'Sim' if r['pago'] else 'Não', r.get('cat') or '', r['criado_em']])
+    else:
+        return jsonify({'msg': 'Tipo inválido'}), 400
+    csv_bytes = ('﻿' + output.getvalue()).encode('utf-8')
+    return Response(csv_bytes, mimetype='text/csv',
+                    headers={'Content-Disposition': f'attachment; filename={tipo}_{datetime.now().strftime("%Y%m%d")}.csv'})
+
+@app.route('/importar/<string:tipo>', methods=['POST'])
+@jwt_required()
+def importar_csv(tipo):
+    uid = int(get_jwt_identity())
+    d = request.json or {}
+    registros = d.get('registros', [])
+    if not registros:
+        return jsonify({'msg': 'Nenhum registro enviado'}), 400
+    inseridos = 0
+    for reg in registros:
+        try:
+            if tipo == 'receitas':
+                execute_query('INSERT INTO receitas (user_id, descricao, valor, categoria_id) VALUES (?,?,?,?)',
+                              (uid, reg.get('descricao', ''), float(reg.get('valor', 0)), reg.get('categoria_id')))
+            elif tipo == 'contas':
+                execute_query('INSERT INTO contas (user_id, descricao, valor, categoria_id, pago) VALUES (?,?,?,?,?)',
+                              (uid, reg.get('descricao', ''), float(reg.get('valor', 0)), reg.get('categoria_id'), 0))
+            inseridos += 1
+        except:
+            pass
+    return jsonify({'msg': f'{inseridos} registros importados', 'inseridos': inseridos})
 
 @app.route('/recuperar-senha', methods=['POST'])
 @limiter.limit('3 per minute')

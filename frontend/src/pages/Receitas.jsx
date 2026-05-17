@@ -3,6 +3,7 @@ import api from '../utils/api'
 import Modal from '../components/Modal'
 import { useToast } from '../context/ToastContext'
 import TranscreverSMS from '../components/TranscreverSMS'
+import { exportToCSV } from '../utils/exportCSV'
 
 const mesesNomes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
@@ -99,6 +100,14 @@ export default function Receitas() {
             </select>
           </div>
           <TranscreverSMS onExtrair={aoExtrairSMS} />
+          <button onClick={() => exportToCSV(lista, `receitas_${mesesNomes[mesFiltro]}_${anoFiltro}.csv`, [
+            { key: 'descricao', label: 'Descrição' },
+            { key: 'valor', label: 'Valor', format: v => Number(v).toFixed(2).replace('.', ',') },
+            { key: 'categoria_nome', label: 'Categoria' },
+            { key: 'criado_em', label: 'Data' }
+          ])} className='border px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-80 transition' style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
+            ⬇ CSV
+          </button>
           <button onClick={() => setModalOpen(true)} className='w-full sm:w-auto bg-green-500 text-black px-6 py-3 rounded-xl font-semibold hover:bg-green-400 transition'>+ Nova Receita</button>
         </div>
       </div>

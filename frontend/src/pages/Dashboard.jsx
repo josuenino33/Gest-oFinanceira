@@ -73,6 +73,7 @@ export default function Dashboard() {
   const [lastUpdate, setLastUpdate] = useState(null)
   const [patrimonioData, setPatrimonioData] = useState({ patrimonio_liquido: 0, ativos: 0, passivos: 0, conquistas: [], saldo_caixa: 0, a_pagar: 0, investimentos: 0, rendimento: 0 })
   const [insights, setInsights] = useState([])
+  const [comparativo, setComparativo] = useState(null)
   const [activeTab, setActiveTab] = useState('resumo')
   const [activePreset, setActivePreset] = useState('mes')
   const [showCustom, setShowCustom] = useState(false)
@@ -135,6 +136,7 @@ export default function Dashboard() {
         if (ins.data) { setInsights(ins.data); localStorage.setItem('dash_cache_ins', JSON.stringify(ins.data)) }
       } catch {}
       setLastUpdate(new Date())
+      try { const cmp = await api.get('/comparativo'); if (cmp.data) setComparativo(cmp.data) } catch {}
     } catch (e) { console.error('Erro ao carregar dashboard:', e) }
     finally { setLoading(false); setRefreshing(false) }
   }, [mesSelecionado, anoSelecionado, mesFim, anoFim])
@@ -750,6 +752,40 @@ export default function Dashboard() {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ══ COMPARATIVO MÊS A MÊS ══════════════════════════════════════ */}
+      {activeTab === 'resumo' && comparativo && (
+        <div className='px-4 md:px-0 mt-2'>
+          <div className='rounded-2xl border p-5' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            <h3 className='font-black text-sm mb-4' style={{ color: 'var(--text-main)' }}>
+              Comparativo — {mesesLabel[(comparativo.mes_anterior || 1) - 1]} vs {mesesLabel[(comparativo.mes_atual || 1) - 1]}
+            </h3>
+            <div className='grid grid-cols-3 gap-3'>
+              {[
+                { label: 'Receitas', atual: comparativo.atual?.receitas, anterior: comparativo.anterior?.receitas, variacao: comparativo.variacao?.receitas, cor: '#22c55e' },
+                { label: 'Despesas', atual: comparativo.atual?.despesas, anterior: comparativo.anterior?.despesas, variacao: comparativo.variacao?.despesas, cor: '#ef4444' },
+                { label: 'Saldo', atual: comparativo.atual?.saldo, anterior: comparativo.anterior?.saldo, variacao: comparativo.variacao?.saldo, cor: '#3b82f6' },
+              ].map(item => {
+                const subiu = item.variacao > 0
+                const neutro = item.variacao === null
+                const corVar = item.label === 'Despesas' ? (subiu ? '#ef4444' : '#22c55e') : (subiu ? '#22c55e' : '#ef4444')
+                return (
+                  <div key={item.label} className='rounded-xl p-3' style={{ background: 'var(--bg-input)' }}>
+                    <p className='text-[10px] font-bold uppercase tracking-wider mb-1' style={{ color: 'var(--text-muted)' }}>{item.label}</p>
+                    <p className='text-sm font-black' style={{ color: item.cor }}>{fmt(item.atual)}</p>
+                    <p className='text-[10px] mt-1' style={{ color: 'var(--text-muted)' }}>Ant: {fmt(item.anterior)}</p>
+                    {!neutro && (
+                      <p className='text-[10px] font-bold mt-0.5' style={{ color: corVar }}>
+                        {subiu ? '▲' : '▼'} {Math.abs(item.variacao)}%
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </div>
       )}
 
