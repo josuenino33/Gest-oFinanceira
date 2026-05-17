@@ -4,7 +4,7 @@ import api from '../utils/api'
 const AuthContext = createContext(null)
 
 const INATIVIDADE_KEY = 'finance-last-active'
-const INATIVIDADE_LIMITE = 5 * 60 * 1000 // 5 minutos em ms
+const INATIVIDADE_LIMITE = 15 * 60 * 1000 // 15 minutos em ms
 
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem('finance-dashboard-token'))
