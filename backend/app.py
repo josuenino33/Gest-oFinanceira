@@ -263,6 +263,16 @@ def security_headers(resp):
     resp.headers['X-XSS-Protection'] = '1; mode=block'
     resp.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     resp.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
+    # Invalida o cache do contexto da IA quando o usuário modifica dados
+    if request.method in ('POST', 'PUT', 'PATCH', 'DELETE') and request.path != '/chat':
+        try:
+            from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
+            verify_jwt_in_request(optional=True)
+            uid = get_jwt_identity()
+            if uid:
+                invalidar_cache(int(uid))
+        except Exception:
+            pass
     return resp
 
 # ==================== ROTAS ====================
@@ -858,6 +868,114 @@ def update_senha():
 def test_ai():
     return jsonify({'modelos_disponiveis': [GEMINI_MODEL] if gemini_client else []})
 
+# Cache do contexto financeiro por usuário (5 minutos)
+_context_cache = {}  # {uid: (timestamp, context_str)}
+_CACHE_TTL = 300     # segundos
+
+def invalidar_cache(uid):
+    _context_cache.pop(uid, None)
+
+def _build_financial_context(uid):
+    now = datetime.now()
+    meses_nome = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+
+    # Histórico completo: resumo mensal por categoria
+    hist_desp = fetch_all(
+        'SELECT EXTRACT(YEAR FROM criado_em::timestamp)::int as ano, EXTRACT(MONTH FROM criado_em::timestamp)::int as mes, COALESCE(cat.nome,\'Sem categoria\') as categoria, COALESCE(SUM(c.valor),0) as total FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? GROUP BY ano, mes, cat.nome ORDER BY ano DESC, mes DESC, total DESC' if IS_POSTGRES else
+        'SELECT CAST(strftime("%Y",criado_em) AS INTEGER) as ano, CAST(strftime("%m",criado_em) AS INTEGER) as mes, COALESCE(cat.nome,\'Sem categoria\') as categoria, COALESCE(SUM(c.valor),0) as total FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? GROUP BY ano, mes, cat.nome ORDER BY ano DESC, mes DESC, total DESC',
+        (uid,))
+    hist_rec = fetch_all(
+        'SELECT EXTRACT(YEAR FROM criado_em::timestamp)::int as ano, EXTRACT(MONTH FROM criado_em::timestamp)::int as mes, COALESCE(SUM(valor),0) as total FROM receitas WHERE user_id=? GROUP BY ano, mes ORDER BY ano DESC, mes DESC' if IS_POSTGRES else
+        'SELECT CAST(strftime("%Y",criado_em) AS INTEGER) as ano, CAST(strftime("%m",criado_em) AS INTEGER) as mes, COALESCE(SUM(valor),0) as total FROM receitas WHERE user_id=? GROUP BY ano, mes ORDER BY ano DESC, mes DESC',
+        (uid,))
+
+    from collections import defaultdict
+    rec_por_mes = {(int(r['ano']), int(r['mes'])): float(r['total']) for r in hist_rec}
+    desp_por_mes = defaultdict(list)
+    for row in hist_desp:
+        desp_por_mes[(int(row['ano']), int(row['mes']))].append((row['categoria'], float(row['total'])))
+
+    historico_txt = []
+    for (ano, mes) in sorted(desp_por_mes.keys() | rec_por_mes.keys(), reverse=True):
+        rm = rec_por_mes.get((ano, mes), 0)
+        cats = desp_por_mes.get((ano, mes), [])
+        dm = sum(v for _, v in cats)
+        cats_str = ', '.join([f"{cat}: R${v:,.2f}" for cat, v in cats])
+        historico_txt.append(f"  {meses_nome[mes-1]} {ano}: receitas R${rm:,.2f} | despesas R${dm:,.2f} | saldo R${rm-dm:,.2f} | [{cats_str}]")
+
+    # Detalhe individual: últimos 3 meses
+    periodos_rec = []
+    for i in range(3):
+        d_ref = now.replace(day=1) - timedelta(days=i * 28)
+        periodos_rec.append((d_ref.month, d_ref.year))
+
+    def pm(mes, ano):
+        return (mes, ano) if IS_POSTGRES else (f'{mes:02d}', str(ano))
+
+    blocos_detalhe = []
+    for mes, ano in periodos_rec:
+        p = pm(mes, ano)
+        despesas = fetch_all(
+            'SELECT c.descricao, c.valor, c.pago, c.criado_em, COALESCE(cat.nome,\'Sem categoria\') as categoria FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? AND EXTRACT(MONTH FROM c.criado_em::timestamp)=? AND EXTRACT(YEAR FROM c.criado_em::timestamp)=? ORDER BY c.criado_em DESC' if IS_POSTGRES else
+            'SELECT c.descricao, c.valor, c.pago, c.criado_em, COALESCE(cat.nome,\'Sem categoria\') as categoria FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? AND strftime("%m",c.criado_em)=? AND strftime("%Y",c.criado_em)=? ORDER BY c.criado_em DESC',
+            (uid, *p))
+        receitas = fetch_all(
+            'SELECT r.descricao, r.valor, r.criado_em FROM receitas r WHERE r.user_id=? AND EXTRACT(MONTH FROM r.criado_em::timestamp)=? AND EXTRACT(YEAR FROM r.criado_em::timestamp)=? ORDER BY r.criado_em DESC' if IS_POSTGRES else
+            'SELECT r.descricao, r.valor, r.criado_em FROM receitas r WHERE r.user_id=? AND strftime("%m",r.criado_em)=? AND strftime("%Y",r.criado_em)=? ORDER BY r.criado_em DESC',
+            (uid, *p))
+        desp_txt = '\n'.join([f"    • {t['descricao']} R${float(t['valor']):,.2f} [{t['categoria']}] {str(t['criado_em'])[:10]} {'✓' if t['pago'] else '⏳'}" for t in despesas]) or '    (nenhuma)'
+        rec_txt  = '\n'.join([f"    • {r['descricao']} R${float(r['valor']):,.2f} {str(r['criado_em'])[:10]}" for r in receitas]) or '    (nenhuma)'
+        blocos_detalhe.append(f"--- {meses_nome[mes-1].upper()} {ano} ---\n  Despesas:\n{desp_txt}\n  Receitas:\n{rec_txt}")
+
+    # Investimentos
+    investimentos = fetch_all('SELECT titulo, tipo, valor_investido, valor_atual, rentabilidade, criado_em FROM investimentos WHERE user_id=? ORDER BY criado_em DESC', (uid,))
+    inv_txt = '\n'.join([f"  • {i['titulo']} [{i['tipo']}] investido R${float(i['valor_investido']):,.2f} → atual R${float(i['valor_atual']):,.2f} ({float(i['rentabilidade']):+.2f}%) desde {str(i['criado_em'])[:10]}" for i in investimentos]) or '  (nenhum)'
+    total_investido = sum(float(i['valor_investido']) for i in investimentos)
+    total_atual_inv = sum(float(i['valor_atual']) for i in investimentos)
+
+    # Metas
+    metas = fetch_all('SELECT titulo, descricao, valor_alvo, valor_atual, progresso FROM metas WHERE user_id=? ORDER BY progresso DESC', (uid,))
+    metas_txt = '\n'.join([f"  • {m['titulo']}: R${float(m['valor_atual']):,.2f}/R${float(m['valor_alvo']):,.2f} ({int(m['progresso'])}%)" for m in metas]) or '  (nenhuma)'
+
+    # Cartões
+    cartoes = fetch_all('SELECT id, nome, bandeira, limite FROM cartoes WHERE user_id=?', (uid,))
+    cartoes_parts = []
+    for c in cartoes:
+        g = float((fetch_one('SELECT COALESCE(SUM(valor),0) as t FROM compras_cartao WHERE cartao_id=? AND user_id=? AND pago=0', (c['id'], uid)) or {}).get('t', 0))
+        cartoes_parts.append(f"  • {c['nome']} ({c['bandeira']}) limite R${float(c['limite']):,.2f} | usado R${g:,.2f} | disponível R${float(c['limite'])-g:,.2f}")
+    cartoes_txt = '\n'.join(cartoes_parts) or '  (nenhum)'
+
+    compras = fetch_all('SELECT cc.descricao, cc.valor, cc.parcelas, cc.parcela_atual, cc.pago, cc.criado_em, c.nome as cartao FROM compras_cartao cc LEFT JOIN cartoes c ON c.id=cc.cartao_id WHERE cc.user_id=? ORDER BY cc.criado_em DESC LIMIT 30', (uid,))
+    compras_txt = '\n'.join([f"  • {cp['descricao']} R${float(cp['valor']):,.2f} parcela {int(cp['parcela_atual'])}/{int(cp['parcelas'])} [{cp['cartao']}] {str(cp['criado_em'])[:10]}" for cp in compras]) or '  (nenhuma)'
+
+    # Recorrências
+    recorrencias = fetch_all('SELECT tipo, descricao, valor, ativo FROM recorrencias WHERE user_id=?', (uid,))
+    rec_auto_txt = '\n'.join([f"  • {'📥' if r['tipo']=='receita' else '📤'} {r['descricao']} R${float(r['valor']):,.2f} ({'ativa' if r['ativo'] else 'inativa'})" for r in recorrencias]) or '  (nenhuma)'
+
+    # Orçamentos do mês
+    orcamentos = fetch_all(
+        'SELECT COALESCE(cat.nome,\'Sem categoria\') as categoria, o.limite FROM orcamentos o LEFT JOIN categorias cat ON cat.id=o.categoria_id WHERE o.user_id=? AND o.mes=? AND o.ano=?',
+        (uid, now.month, now.year))
+    orc_txt = '\n'.join([f"  • {o['categoria']}: limite R${float(o['limite']):,.2f}" for o in orcamentos]) or '  (nenhum)'
+
+    # Desafios
+    desafios = fetch_all('SELECT titulo, meta_valor, valor_atual, data_fim, concluido FROM desafios WHERE user_id=? ORDER BY concluido, data_fim', (uid,))
+    desafios_txt = '\n'.join([f"  • {d['titulo']} R${float(d['valor_atual']):,.2f}/R${float(d['meta_valor']):,.2f} até {d['data_fim']} {'✓' if d['concluido'] else '⏳'}" for d in desafios]) or '  (nenhum)'
+
+    return (
+        f"Hoje é {now.strftime('%d/%m/%Y')}.\n\n"
+        f"=== INVESTIMENTOS ===\n{inv_txt}\n"
+        f"Total investido: R${total_investido:,.2f} | Valor atual: R${total_atual_inv:,.2f} | Rendimento: R${total_atual_inv-total_investido:+,.2f}\n\n"
+        f"=== METAS ===\n{metas_txt}\n\n"
+        f"=== CARTÕES ===\n{cartoes_txt}\n\n"
+        f"=== COMPRAS NO CARTÃO (últimas 30) ===\n{compras_txt}\n\n"
+        f"=== RECORRÊNCIAS ===\n{rec_auto_txt}\n\n"
+        f"=== ORÇAMENTOS ({meses_nome[now.month-1]} {now.year}) ===\n{orc_txt}\n\n"
+        f"=== DESAFIOS ===\n{desafios_txt}\n\n"
+        f"=== HISTÓRICO MENSAL ===\n" + '\n'.join(historico_txt) +
+        f"\n\n=== TRANSAÇÕES DETALHADAS (últimos 3 meses) ===\n" + '\n\n'.join(blocos_detalhe)
+    )
+
 @app.route('/chat', methods=['POST'])
 @jwt_required()
 def chat():
@@ -867,122 +985,20 @@ def chat():
     if not gemini_client:
         return jsonify({'response': 'IA não configurada no momento.'})
     try:
-        now = datetime.now()
-        meses_nome = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
-
-        # ── Histórico completo: resumo mensal por categoria (todos os meses) ──
-        hist_desp = fetch_all(
-            'SELECT EXTRACT(YEAR FROM criado_em::timestamp)::int as ano, EXTRACT(MONTH FROM criado_em::timestamp)::int as mes, COALESCE(cat.nome,\'Sem categoria\') as categoria, COALESCE(SUM(c.valor),0) as total FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? GROUP BY ano, mes, cat.nome ORDER BY ano DESC, mes DESC, total DESC' if IS_POSTGRES else
-            'SELECT CAST(strftime("%Y",criado_em) AS INTEGER) as ano, CAST(strftime("%m",criado_em) AS INTEGER) as mes, COALESCE(cat.nome,\'Sem categoria\') as categoria, COALESCE(SUM(c.valor),0) as total FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? GROUP BY ano, mes, cat.nome ORDER BY ano DESC, mes DESC, total DESC',
-            (uid,))
-        hist_rec = fetch_all(
-            'SELECT EXTRACT(YEAR FROM criado_em::timestamp)::int as ano, EXTRACT(MONTH FROM criado_em::timestamp)::int as mes, COALESCE(SUM(valor),0) as total FROM receitas WHERE user_id=? GROUP BY ano, mes ORDER BY ano DESC, mes DESC' if IS_POSTGRES else
-            'SELECT CAST(strftime("%Y",criado_em) AS INTEGER) as ano, CAST(strftime("%m",criado_em) AS INTEGER) as mes, COALESCE(SUM(valor),0) as total FROM receitas WHERE user_id=? GROUP BY ano, mes ORDER BY ano DESC, mes DESC',
-            (uid,))
-
-        # Agrupa histórico por mês
-        from collections import defaultdict
-        rec_por_mes = {(int(r['ano']), int(r['mes'])): float(r['total']) for r in hist_rec}
-        desp_por_mes = defaultdict(list)
-        for row in hist_desp:
-            desp_por_mes[(int(row['ano']), int(row['mes']))].append((row['categoria'], float(row['total'])))
-
-        historico_txt = []
-        for (ano, mes) in sorted(desp_por_mes.keys() | rec_por_mes.keys(), reverse=True):
-            rm = rec_por_mes.get((ano, mes), 0)
-            cats = desp_por_mes.get((ano, mes), [])
-            dm = sum(v for _, v in cats)
-            cats_str = ', '.join([f"{cat}: R${v:,.2f}" for cat, v in cats])
-            historico_txt.append(f"  {meses_nome[mes-1]} {ano}: receitas R${rm:,.2f} | despesas R${dm:,.2f} | saldo R${rm-dm:,.2f} | categorias: [{cats_str}]")
-
-        # ── Detalhe individual: últimas 3 meses com cada transação ──
-        periodos_rec = []
-        for i in range(3):
-            d_ref = now.replace(day=1) - timedelta(days=i * 28)
-            periodos_rec.append((d_ref.month, d_ref.year))
-
-        def p(mes, ano):
-            return (mes, ano) if IS_POSTGRES else (f'{mes:02d}', str(ano))
-
-        blocos_detalhe = []
-        for mes, ano in periodos_rec:
-            pm = p(mes, ano)
-            despesas = fetch_all(
-                'SELECT c.descricao, c.valor, c.pago, c.criado_em, COALESCE(cat.nome,\'Sem categoria\') as categoria FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? AND EXTRACT(MONTH FROM c.criado_em::timestamp)=? AND EXTRACT(YEAR FROM c.criado_em::timestamp)=? ORDER BY c.criado_em DESC' if IS_POSTGRES else
-                'SELECT c.descricao, c.valor, c.pago, c.criado_em, COALESCE(cat.nome,\'Sem categoria\') as categoria FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? AND strftime("%m",c.criado_em)=? AND strftime("%Y",c.criado_em)=? ORDER BY c.criado_em DESC',
-                (uid, *pm))
-            receitas = fetch_all(
-                'SELECT r.descricao, r.valor, r.criado_em FROM receitas r WHERE r.user_id=? AND EXTRACT(MONTH FROM r.criado_em::timestamp)=? AND EXTRACT(YEAR FROM r.criado_em::timestamp)=? ORDER BY r.criado_em DESC' if IS_POSTGRES else
-                'SELECT r.descricao, r.valor, r.criado_em FROM receitas r WHERE r.user_id=? AND strftime("%m",r.criado_em)=? AND strftime("%Y",r.criado_em)=? ORDER BY r.criado_em DESC',
-                (uid, *pm))
-            desp_txt = '\n'.join([f"    • {t['descricao']} R${float(t['valor']):,.2f} [{t['categoria']}] {str(t['criado_em'])[:10]} {'✓' if t['pago'] else '⏳'}" for t in despesas]) or '    (nenhuma)'
-            rec_txt  = '\n'.join([f"    • {r['descricao']} R${float(r['valor']):,.2f} {str(r['criado_em'])[:10]}" for r in receitas]) or '    (nenhuma)'
-            blocos_detalhe.append(f"--- {meses_nome[mes-1].upper()} {ano} (detalhe) ---\n  Despesas:\n{desp_txt}\n  Receitas:\n{rec_txt}")
-
-        # ── Investimentos ──
-        investimentos = fetch_all('SELECT titulo, tipo, valor_investido, valor_atual, rentabilidade, criado_em FROM investimentos WHERE user_id=? ORDER BY criado_em DESC', (uid,))
-        inv_txt = '\n'.join([f"  • {i['titulo']} [{i['tipo']}] investido R${float(i['valor_investido']):,.2f} → atual R${float(i['valor_atual']):,.2f} ({float(i['rentabilidade']):+.2f}%) desde {str(i['criado_em'])[:10]}" for i in investimentos]) or '  (nenhum)'
-        total_investido = sum(float(i['valor_investido']) for i in investimentos)
-        total_atual_inv = sum(float(i['valor_atual']) for i in investimentos)
-
-        # ── Metas ──
-        metas = fetch_all('SELECT titulo, descricao, valor_alvo, valor_atual, progresso, criado_em FROM metas WHERE user_id=? ORDER BY progresso DESC', (uid,))
-        metas_txt = '\n'.join([f"  • {m['titulo']}: R${float(m['valor_atual']):,.2f} / R${float(m['valor_alvo']):,.2f} ({int(m['progresso'])}%) — {m['descricao']}" for m in metas]) or '  (nenhuma)'
-
-        # ── Cartões e compras ──
-        cartoes = fetch_all('SELECT id, nome, bandeira, limite FROM cartoes WHERE user_id=?', (uid,))
-        cartoes_txt_parts = []
-        for c in cartoes:
-            gasto = fetch_one('SELECT COALESCE(SUM(valor),0) as t FROM compras_cartao WHERE cartao_id=? AND user_id=? AND pago=0', (c['id'], uid))
-            g = float(gasto['t']) if gasto else 0
-            cartoes_txt_parts.append(f"  • {c['nome']} ({c['bandeira']}) limite R${float(c['limite']):,.2f} | gasto atual R${g:,.2f} | disponível R${float(c['limite'])-g:,.2f}")
-        cartoes_txt = '\n'.join(cartoes_txt_parts) or '  (nenhum)'
-
-        compras = fetch_all('SELECT cc.descricao, cc.valor, cc.parcelas, cc.parcela_atual, cc.pago, cc.criado_em, c.nome as cartao FROM compras_cartao cc LEFT JOIN cartoes c ON c.id=cc.cartao_id WHERE cc.user_id=? ORDER BY cc.criado_em DESC LIMIT 30', (uid,))
-        compras_txt = '\n'.join([f"  • {cp['descricao']} R${float(cp['valor']):,.2f} parcela {int(cp['parcela_atual'])}/{int(cp['parcelas'])} [{cp['cartao']}] {str(cp['criado_em'])[:10]} {'✓Pago' if cp['pago'] else '⏳'}" for cp in compras]) or '  (nenhuma)'
-
-        # ── Recorrências ──
-        recorrencias = fetch_all('SELECT tipo, descricao, valor, ativo FROM recorrencias WHERE user_id=?', (uid,))
-        rec_txt2 = '\n'.join([f"  • {'📥' if r['tipo']=='receita' else '📤'} {r['descricao']} R${float(r['valor']):,.2f} ({'ativa' if r['ativo'] else 'inativa'})" for r in recorrencias]) or '  (nenhuma)'
-
-        # ── Orçamentos do mês atual ──
-        orcamentos = fetch_all(
-            'SELECT COALESCE(cat.nome,\'Sem categoria\') as categoria, o.limite FROM orcamentos o LEFT JOIN categorias cat ON cat.id=o.categoria_id WHERE o.user_id=? AND o.mes=? AND o.ano=?' if IS_POSTGRES else
-            'SELECT COALESCE(cat.nome,\'Sem categoria\') as categoria, o.limite FROM orcamentos o LEFT JOIN categorias cat ON cat.id=o.categoria_id WHERE o.user_id=? AND o.mes=? AND o.ano=?',
-            (uid, now.month, now.year))
-        orc_txt = '\n'.join([f"  • {o['categoria']}: limite R${float(o['limite']):,.2f}" for o in orcamentos]) or '  (nenhum)'
-
-        # ── Desafios ──
-        desafios = fetch_all('SELECT titulo, meta_valor, valor_atual, data_fim, concluido FROM desafios WHERE user_id=? ORDER BY concluido, data_fim', (uid,))
-        desafios_txt = '\n'.join([f"  • {d['titulo']} R${float(d['valor_atual']):,.2f}/R${float(d['meta_valor']):,.2f} até {d['data_fim']} {'✓' if d['concluido'] else '⏳'}" for d in desafios]) or '  (nenhum)'
+        import time as _time
+        cached = _context_cache.get(uid)
+        if cached and (_time.time() - cached[0]) < _CACHE_TTL:
+            financial_data = cached[1]
+        else:
+            financial_data = _build_financial_context(uid)
+            _context_cache[uid] = (_time.time(), financial_data)
 
         context = (
             f"Você é um consultor financeiro pessoal integrado ao sistema de finanças do usuário. "
             f"Você TEM ACESSO COMPLETO a todos os dados financeiros do usuário listados abaixo. "
-            f"Hoje é {now.strftime('%d/%m/%Y')}.\n\n"
-
-            f"=== INVESTIMENTOS ===\n{inv_txt}\n"
-            f"Total investido: R${total_investido:,.2f} | Valor atual: R${total_atual_inv:,.2f} | Rendimento: R${total_atual_inv-total_investido:,.2f}\n\n"
-
-            f"=== METAS ===\n{metas_txt}\n\n"
-
-            f"=== CARTÕES DE CRÉDITO ===\n{cartoes_txt}\n\n"
-
-            f"=== COMPRAS NO CARTÃO (últimas 30) ===\n{compras_txt}\n\n"
-
-            f"=== RECORRÊNCIAS (lançamentos automáticos) ===\n{rec_txt2}\n\n"
-
-            f"=== ORÇAMENTOS ({meses_nome[now.month-1]} {now.year}) ===\n{orc_txt}\n\n"
-
-            f"=== DESAFIOS ===\n{desafios_txt}\n\n"
-
-            f"=== HISTÓRICO MENSAL (todos os meses) ===\n"
-            + '\n'.join(historico_txt) +
-
-            f"\n\n=== TRANSAÇÕES DETALHADAS (últimos 3 meses) ===\n"
-            + '\n\n'.join(blocos_detalhe) +
-
-            f"\n\nResponda em português, de forma CURTA e DIRETA (máximo 3 frases). "
+            f"Use-os para responder com precisão e valores exatos.\n\n"
+            f"{financial_data}\n\n"
+            f"Responda em português, de forma CURTA e DIRETA (máximo 3 frases). "
             f"Use os dados acima para responder com valores e datas exatos. "
             f"Nunca diga que não tem acesso aos dados.\n\nUsuário: {msg}"
         )
