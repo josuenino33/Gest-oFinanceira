@@ -24,38 +24,58 @@ async function getValidToken() {
   } catch { return token }
 }
 
-async function streamChat(msg, onChunk, onDone, onError) {
+async function streamChat(msg, onChunk, onDone, onError, onWaiting) {
   const token = await getValidToken()
   if (!token) { onError(); return }
-  let res
-  try {
-    res = await fetch(`${API_BASE}/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ message: msg }),
-    })
-  } catch {
-    onError(); return
-  }
-  if (!res.ok) { onError(); return }
-  const reader = res.body.getReader()
-  const dec = new TextDecoder()
-  let buf = ''
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buf += dec.decode(value, { stream: true })
-    const lines = buf.split('\n')
-    buf = lines.pop()
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue
-      const data = line.slice(6)
-      if (data === '[DONE]') { onDone(); return }
-      if (data.startsWith('[ERROR]')) { onError(); return }
-      onChunk(data.replace(/\\n/g, '\n'))
+
+  const MAX_TENTATIVAS = 4
+  const DELAY_RETRY = 8000
+
+  for (let tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
+    let res
+    try {
+      res = await fetch(`${API_BASE}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ message: msg }),
+      })
+    } catch {
+      if (tentativa < MAX_TENTATIVAS) {
+        onWaiting?.(`Aguardando servidor... (tentativa ${tentativa}/${MAX_TENTATIVAS - 1})`)
+        await new Promise(r => setTimeout(r, DELAY_RETRY))
+        continue
+      }
+      onError(); return
     }
+    if (!res.ok) {
+      if (tentativa < MAX_TENTATIVAS) {
+        onWaiting?.(`Aguardando servidor... (tentativa ${tentativa}/${MAX_TENTATIVAS - 1})`)
+        await new Promise(r => setTimeout(r, DELAY_RETRY))
+        continue
+      }
+      onError(); return
+    }
+    // Conexão OK — lê o stream
+    const reader = res.body.getReader()
+    const dec = new TextDecoder()
+    let buf = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += dec.decode(value, { stream: true })
+      const lines = buf.split('\n')
+      buf = lines.pop()
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
+        const data = line.slice(6)
+        if (data === '[DONE]') { onDone(); return }
+        if (data.startsWith('[ERROR]')) { onError(); return }
+        onChunk(data.replace(/\\n/g, '\n'))
+      }
+    }
+    onDone()
+    return
   }
-  onDone()
 }
 
 export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
@@ -261,6 +281,13 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
         })
         if (voiceModeRef.current) setTimeout(() => actionRef.current.startListening(), 1000)
         else setVoiceState('idle')
+      },
+      (msg) => {
+        setMessages(prev => {
+          const msgs = [...prev]
+          msgs[msgs.length - 1] = { role: 'ai', text: `⏳ ${msg}` }
+          return msgs
+        })
       }
     )
   }
@@ -310,6 +337,13 @@ export default function AIChat({ isMenuOpen, setIsMenuOpen }) {
           return msgs
         })
         setLoading(false)
+      },
+      (msg) => {
+        setMessages(prev => {
+          const msgs = [...prev]
+          msgs[msgs.length - 1] = { role: 'ai', text: `⏳ ${msg}` }
+          return msgs
+        })
       }
     )
   }

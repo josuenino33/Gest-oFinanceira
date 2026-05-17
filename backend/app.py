@@ -507,15 +507,30 @@ def importar_csv(tipo):
     inseridos = 0
     for reg in registros:
         try:
+            descricao = str(reg.get('descricao') or '').strip()
+            valor = float(str(reg.get('valor', 0)).replace(',', '.'))
+            cat_id = reg.get('categoria_id') or None
+            criado_em = reg.get('criado_em') or None
+            if not descricao or valor <= 0:
+                continue
             if tipo == 'receitas':
-                execute_query('INSERT INTO receitas (user_id, descricao, valor, categoria_id) VALUES (?,?,?,?)',
-                              (uid, reg.get('descricao', ''), float(reg.get('valor', 0)), reg.get('categoria_id')))
+                if criado_em:
+                    execute_query('INSERT INTO receitas (user_id, descricao, valor, categoria_id, criado_em) VALUES (?,?,?,?,?)',
+                                  (uid, descricao, valor, cat_id, criado_em))
+                else:
+                    execute_query('INSERT INTO receitas (user_id, descricao, valor, categoria_id) VALUES (?,?,?,?)',
+                                  (uid, descricao, valor, cat_id))
             elif tipo == 'contas':
-                execute_query('INSERT INTO contas (user_id, descricao, valor, categoria_id, pago) VALUES (?,?,?,?,?)',
-                              (uid, reg.get('descricao', ''), float(reg.get('valor', 0)), reg.get('categoria_id'), 0))
+                if criado_em:
+                    execute_query('INSERT INTO contas (user_id, descricao, valor, categoria_id, pago, criado_em) VALUES (?,?,?,?,?,?)',
+                                  (uid, descricao, valor, cat_id, 0, criado_em))
+                else:
+                    execute_query('INSERT INTO contas (user_id, descricao, valor, categoria_id, pago) VALUES (?,?,?,?,?)',
+                                  (uid, descricao, valor, cat_id, 0))
             inseridos += 1
         except:
             pass
+    invalidar_cache(uid)
     return jsonify({'msg': f'{inseridos} registros importados', 'inseridos': inseridos})
 
 @app.route('/recuperar-senha', methods=['POST'])

@@ -4,6 +4,7 @@ import Modal from '../components/Modal'
 import { useToast } from '../context/ToastContext'
 import TranscreverSMS from '../components/TranscreverSMS'
 import { exportToCSV } from '../utils/exportCSV'
+import ImportarCSV from '../components/ImportarCSV'
 
 const mesesNomes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
@@ -100,6 +101,7 @@ export default function Receitas() {
             </select>
           </div>
           <TranscreverSMS onExtrair={aoExtrairSMS} />
+          <ImportarCSV tipo='receitas' onImportado={carregar} />
           <button onClick={() => exportToCSV(lista, `receitas_${mesesNomes[mesFiltro]}_${anoFiltro}.csv`, [
             { key: 'descricao', label: 'Descrição' },
             { key: 'valor', label: 'Valor', format: v => Number(v).toFixed(2).replace('.', ',') },
