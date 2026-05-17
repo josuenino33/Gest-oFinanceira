@@ -18,6 +18,9 @@ export default function Envelopes() {
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [confirmarExclusao, setConfirmarExclusao] = useState(null)
+  const [envelopeEditando, setEnvelopeEditando] = useState(null)
+  const [novoAlocado, setNovoAlocado] = useState('')
+  const [loadingEdit, setLoadingEdit] = useState(false)
 
   const inputStyle = { background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }
 
@@ -49,6 +52,19 @@ export default function Envelopes() {
     setConfirmarExclusao(null)
     try { await api.delete(`/envelopes/${id}`); carregar() }
     catch { toast('Erro ao excluir.', 'error') }
+  }
+
+  const salvarEdicao = async (e) => {
+    const val = Number(novoAlocado)
+    if (!val || val <= 0) return toast('Valor inválido.', 'warning')
+    setLoadingEdit(true)
+    try {
+      await api.post('/envelopes', { categoria_id: e.categoria_id, alocado: val, mes, ano })
+      toast('Envelope atualizado!', 'success')
+      setEnvelopeEditando(null); setNovoAlocado('')
+      carregar()
+    } catch { toast('Erro ao atualizar.', 'error') }
+    finally { setLoadingEdit(false) }
   }
 
   const fmt = v => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
@@ -147,8 +163,25 @@ export default function Envelopes() {
                   <span className='font-bold' style={{ color: 'var(--text-main)' }}>{e.categoria_nome}</span>
                   {pct >= 100 && <span className='text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-bold'>ESGOTADO</span>}
                 </div>
-                <button onClick={() => setConfirmarExclusao(e)} className='text-xs text-red-400 hover:text-red-300'>Remover</button>
+                <div className='flex gap-3'>
+                  <button onClick={() => { setEnvelopeEditando(e.id); setNovoAlocado(String(e.alocado)) }} className='text-xs text-blue-400 hover:text-blue-300'>Editar</button>
+                  <button onClick={() => setConfirmarExclusao(e)} className='text-xs text-red-400 hover:text-red-300'>Remover</button>
+                </div>
               </div>
+
+              {envelopeEditando === e.id ? (
+                <div className='flex gap-2 mb-3'>
+                  <input type='number' step='0.01' value={novoAlocado} onChange={ev => setNovoAlocado(ev.target.value)}
+                    placeholder='Novo valor (R$)' className='flex-1 rounded-xl px-3 py-2 border text-sm outline-none focus:border-green-400' style={inputStyle} />
+                  <button onClick={() => salvarEdicao(e)} disabled={loadingEdit}
+                    className='bg-green-500 text-black px-4 py-2 rounded-xl text-sm font-semibold hover:bg-green-400 transition disabled:opacity-60'>
+                    {loadingEdit ? '...' : 'OK'}
+                  </button>
+                  <button onClick={() => { setEnvelopeEditando(null); setNovoAlocado('') }}
+                    className='border px-3 py-2 rounded-xl text-sm' style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>✕</button>
+                </div>
+              ) : null}
+
               <div className='h-2.5 rounded-full overflow-hidden mb-2' style={{ background: 'var(--bg-input)' }}>
                 <div className='h-full rounded-full transition-all duration-500' style={{ width: `${pct}%`, background: cor }} />
               </div>

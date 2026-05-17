@@ -30,6 +30,8 @@ export default function Contas() {
   const [busca, setBusca] = useState('')
   const [categFiltro, setCategFiltro] = useState('')
   const [confirmarExclusao, setConfirmarExclusao] = useState(null)
+  const [pagina, setPagina] = useState(1)
+  const POR_PAGINA = 10
 
   const sugerirCategoria = async () => {
     if (!descricao.trim() || categoriaId) return
@@ -59,6 +61,8 @@ export default function Contas() {
     const matchCateg = !categFiltro || String(c.categoria_id) === categFiltro
     return matchBusca && matchCateg
   })
+  const totalPaginas = Math.ceil(contasFiltradas.length / POR_PAGINA)
+  const contasPagina = contasFiltradas.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA)
 
   const salvar = async () => {
     if (!descricao.trim() || !valor) { toast('Informe a descrição e o valor.', 'warning'); return }
@@ -171,10 +175,10 @@ export default function Contas() {
 
       <div className='rounded-2xl border overflow-hidden' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         <div className='flex flex-col sm:flex-row gap-2 p-3 border-b' style={{ borderColor: 'var(--border-color)' }}>
-          <input type='text' placeholder='Buscar descrição...' value={busca} onChange={e => setBusca(e.target.value)}
+          <input type='text' placeholder='Buscar descrição...' value={busca} onChange={e => { setBusca(e.target.value); setPagina(1) }}
             className='flex-1 border rounded-xl px-4 py-2 text-sm outline-none focus:border-green-500 transition'
             style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }} />
-          <select value={categFiltro} onChange={e => setCategFiltro(e.target.value)}
+          <select value={categFiltro} onChange={e => { setCategFiltro(e.target.value); setPagina(1) }}
             className='border rounded-xl px-3 py-2 text-sm outline-none'
             style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
             <option value=''>Todas as categorias</option>
@@ -194,7 +198,7 @@ export default function Contas() {
               </tr>
             </thead>
             <tbody>
-              {contasFiltradas.map((c) => (
+              {contasPagina.map((c) => (
                 <tr key={c.id} className='border-b hover:opacity-80 transition' style={{ borderColor: 'var(--border-color)' }}>
                   <td className='p-4 font-semibold' style={{ color: 'var(--text-main)' }}>{c.descricao}</td>
                   <td className='p-4' style={{ color: 'var(--text-muted)' }}>{c.categoria_nome || '—'}</td>
@@ -217,6 +221,21 @@ export default function Contas() {
             <p style={{ color: 'var(--text-muted)' }} className='text-center py-8'>
               {busca || categFiltro ? 'Nenhuma conta encontrada para o filtro aplicado.' : `Nenhuma conta em ${mesesNomes[mesFiltro]} ${anoFiltro}`}
             </p>
+          )}
+          {totalPaginas > 1 && (
+            <div className='flex items-center justify-between px-4 py-3 border-t' style={{ borderColor: 'var(--border-color)' }}>
+              <p className='text-xs' style={{ color: 'var(--text-muted)' }}>
+                {(pagina - 1) * POR_PAGINA + 1}–{Math.min(pagina * POR_PAGINA, contasFiltradas.length)} de {contasFiltradas.length}
+              </p>
+              <div className='flex gap-2'>
+                <button onClick={() => setPagina(p => Math.max(1, p - 1))} disabled={pagina === 1}
+                  className='px-3 py-1 rounded-lg border text-sm transition hover:opacity-80 disabled:opacity-40'
+                  style={{ borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>← Anterior</button>
+                <button onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))} disabled={pagina === totalPaginas}
+                  className='px-3 py-1 rounded-lg border text-sm transition hover:opacity-80 disabled:opacity-40'
+                  style={{ borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>Próxima →</button>
+              </div>
+            </div>
           )}
         </div>
       </div>

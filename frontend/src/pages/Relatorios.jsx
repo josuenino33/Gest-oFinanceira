@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 const COLORS = ['#22c55e', '#3b82f6', '#ef4444', '#f97316', '#8b5cf6', '#06b6d4', '#eab308', '#ec4899']
 const mesesNomes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
@@ -26,6 +28,53 @@ export default function Relatorios() {
 
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
   const inputStyle = { background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }
+
+  const exportarPDF = () => {
+    if (!data) return
+    const titulo = todoPeriodo ? 'Relatório — Todo Período' : `Relatório — ${mesesNomes[mes - 1]} / ${ano}`
+    const doc = new jsPDF()
+    doc.setFontSize(18)
+    doc.setTextColor(34, 197, 94)
+    doc.text('Minhas Finanças', 14, 16)
+    doc.setFontSize(12)
+    doc.setTextColor(100)
+    doc.text(titulo, 14, 24)
+    doc.setFontSize(10)
+    doc.setTextColor(0)
+    const resumo = [
+      ['Receitas', fmt(data.total_receitas)],
+      ['Despesas', fmt(data.total_despesas)],
+      ['Saldo', fmt(data.saldo)],
+      ['Investido', fmt(data.total_investido)],
+    ]
+    autoTable(doc, { startY: 30, head: [['Item', 'Valor']], body: resumo, theme: 'grid', headStyles: { fillColor: [34, 197, 94], textColor: 0 } })
+    if ((data.por_categoria || []).length > 0) {
+      autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 8,
+        head: [['Categoria', 'Total Gasto']],
+        body: (data.por_categoria || []).map(c => [c.nome, fmt(c.total)]),
+        theme: 'striped', headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+      })
+    }
+    if ((data.receitas || []).length > 0) {
+      autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 8,
+        head: [['Descrição', 'Valor', 'Data']],
+        body: (data.receitas || []).map(r => [r.descricao, fmt(r.valor), r.criado_em ? new Date(r.criado_em).toLocaleDateString('pt-BR') : '—']),
+        theme: 'striped', headStyles: { fillColor: [34, 197, 94], textColor: 0 },
+        didDrawPage: (d) => { if (d.pageNumber === 1) doc.text('Receitas', 14, doc.lastAutoTable.finalY - 2) },
+      })
+    }
+    if ((data.despesas || []).length > 0) {
+      autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 8,
+        head: [['Descrição', 'Valor', 'Data', 'Status']],
+        body: (data.despesas || []).map(d => [d.descricao, fmt(d.valor), d.criado_em ? new Date(d.criado_em).toLocaleDateString('pt-BR') : '—', d.pago ? 'Paga' : 'Pendente']),
+        theme: 'striped', headStyles: { fillColor: [239, 68, 68], textColor: 255 },
+      })
+    }
+    doc.save(`relatorio_${todoPeriodo ? 'total' : `${mesesNomes[mes - 1]}_${ano}`}.pdf`)
+  }
 
   const exportarCSV = () => {
     if (!data) return
@@ -66,6 +115,8 @@ export default function Relatorios() {
           </button>
           <button onClick={exportarCSV} className='border px-4 py-2 rounded-xl font-semibold hover:opacity-80 transition text-sm'
             style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>📊 CSV</button>
+          <button onClick={exportarPDF} disabled={!data} className='border px-4 py-2 rounded-xl font-semibold hover:opacity-80 transition text-sm disabled:opacity-40'
+            style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>📄 PDF</button>
         </div>
       </div>
 

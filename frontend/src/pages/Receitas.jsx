@@ -25,6 +25,8 @@ export default function Receitas() {
   const [busca, setBusca] = useState('')
   const [categFiltro, setCategFiltro] = useState('')
   const [confirmarExclusao, setConfirmarExclusao] = useState(null)
+  const [pagina, setPagina] = useState(1)
+  const POR_PAGINA = 10
 
   const sugerirCategoria = async () => {
     if (!descricao.trim() || categoriaId) return
@@ -50,6 +52,8 @@ export default function Receitas() {
     const matchCateg = !categFiltro || String(r.categoria_id) === categFiltro
     return matchBusca && matchCateg
   })
+  const totalPaginas = Math.ceil(listaFiltrada.length / POR_PAGINA)
+  const listaPagina = listaFiltrada.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA)
 
   const salvar = async () => {
     if (!descricao.trim() || !valor) { toast('Informe a descrição e o valor.', 'warning'); return }
@@ -139,10 +143,10 @@ export default function Receitas() {
 
       <div className='rounded-2xl border overflow-hidden' style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         <div className='flex flex-col sm:flex-row gap-2 p-3 border-b' style={{ borderColor: 'var(--border-color)' }}>
-          <input type='text' placeholder='Buscar descrição...' value={busca} onChange={e => setBusca(e.target.value)}
+          <input type='text' placeholder='Buscar descrição...' value={busca} onChange={e => { setBusca(e.target.value); setPagina(1) }}
             className='flex-1 border rounded-xl px-4 py-2 text-sm outline-none focus:border-green-500 transition'
             style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }} />
-          <select value={categFiltro} onChange={e => setCategFiltro(e.target.value)}
+          <select value={categFiltro} onChange={e => { setCategFiltro(e.target.value); setPagina(1) }}
             className='border rounded-xl px-3 py-2 text-sm outline-none'
             style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
             <option value=''>Todas as categorias</option>
@@ -161,7 +165,7 @@ export default function Receitas() {
               </tr>
             </thead>
             <tbody>
-              {listaFiltrada.map((item) => (
+              {listaPagina.map((item) => (
                 <tr key={item.id} className='border-b hover:opacity-80 transition' style={{ borderColor: 'var(--border-color)' }}>
                   <td className='p-4 font-semibold' style={{ color: 'var(--text-main)' }}>{item.descricao}</td>
                   <td className='p-4' style={{ color: 'var(--text-muted)' }}>{item.categoria_nome || '—'}</td>
@@ -179,6 +183,21 @@ export default function Receitas() {
             <p style={{ color: 'var(--text-muted)' }} className='text-center py-8'>
               {busca || categFiltro ? 'Nenhuma receita encontrada para o filtro aplicado.' : `Nenhuma receita em ${mesesNomes[mesFiltro]} ${anoFiltro}`}
             </p>
+          )}
+          {totalPaginas > 1 && (
+            <div className='flex items-center justify-between px-4 py-3 border-t' style={{ borderColor: 'var(--border-color)' }}>
+              <p className='text-xs' style={{ color: 'var(--text-muted)' }}>
+                {(pagina - 1) * POR_PAGINA + 1}–{Math.min(pagina * POR_PAGINA, listaFiltrada.length)} de {listaFiltrada.length}
+              </p>
+              <div className='flex gap-2'>
+                <button onClick={() => setPagina(p => Math.max(1, p - 1))} disabled={pagina === 1}
+                  className='px-3 py-1 rounded-lg border text-sm transition hover:opacity-80 disabled:opacity-40'
+                  style={{ borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>← Anterior</button>
+                <button onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))} disabled={pagina === totalPaginas}
+                  className='px-3 py-1 rounded-lg border text-sm transition hover:opacity-80 disabled:opacity-40'
+                  style={{ borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>Próxima →</button>
+              </div>
+            </div>
           )}
         </div>
       </div>

@@ -831,7 +831,26 @@ def get_notificacoes():
     pending = fetch_all("SELECT descricao, valor FROM contas WHERE user_id=? AND pago=0 AND criado_em >= ? AND criado_em < ?", (uid, start, end))
     for c in pending:
         notifs.append({'msg': f'Pendente: {c["descricao"]}', 'valor': float(c['valor']), 'tipo': 'alerta'})
-    return jsonify(notifs[:10])
+    # Alertas de orçamento (≥80% utilizado no mês atual)
+    orc_rows = fetch_all('''
+        SELECT o.limite,
+               COALESCE((SELECT SUM(ct.valor) FROM contas ct
+                         WHERE ct.user_id=o.user_id AND ct.categoria_id=o.categoria_id
+                           AND ct.pago=1 AND ct.criado_em >= ? AND ct.criado_em < ?), 0) as gasto,
+               c.nome as categoria_nome
+        FROM orcamentos o LEFT JOIN categorias c ON c.id = o.categoria_id
+        WHERE o.user_id=? AND o.mes=? AND o.ano=?
+    ''', (start, end, uid, mes, ano))
+    for o in orc_rows:
+        limite = float(o['limite'])
+        gasto  = float(o['gasto'])
+        if limite > 0:
+            pct = gasto / limite * 100
+            if pct >= 100:
+                notifs.insert(0, {'msg': f'Orçamento esgotado: {o["categoria_nome"]}', 'valor': gasto, 'tipo': 'urgente'})
+            elif pct >= 80:
+                notifs.append({'msg': f'Orçamento {pct:.0f}% usado: {o["categoria_nome"]}', 'valor': gasto, 'tipo': 'alerta'})
+    return jsonify(notifs[:15])
 
 @app.route('/recorrencias', methods=['GET', 'POST'])
 @jwt_required()
@@ -851,13 +870,21 @@ def rota_recorrencias():
     ''', (uid,))
     return jsonify(rows)
 
-@app.route('/recorrencias/<int:id>', methods=['DELETE', 'PATCH'])
+@app.route('/recorrencias/<int:id>', methods=['DELETE', 'PATCH', 'PUT'])
 @jwt_required()
 def rota_recorrencia_id(id):
     uid = int(get_jwt_identity())
     if request.method == 'DELETE':
         execute_query('DELETE FROM recorrencias WHERE id = ? AND user_id = ?', (id, uid))
         return jsonify({'msg': 'OK'})
+    if request.method == 'PUT':
+        d = request.json or {}
+        execute_query(
+            'UPDATE recorrencias SET tipo=?, descricao=?, valor=?, categoria_id=?, dia=? WHERE id=? AND user_id=?',
+            (d.get('tipo'), d.get('descricao'), float(d.get('valor', 0)), d.get('categoria_id'), int(d.get('dia', 1)), id, uid)
+        )
+        return jsonify({'msg': 'OK'})
+    # PATCH — toggle ativo
     rec = fetch_one('SELECT ativo FROM recorrencias WHERE id = ? AND user_id = ?', (id, uid))
     if not rec:
         return jsonify({'msg': 'Not found'}), 404

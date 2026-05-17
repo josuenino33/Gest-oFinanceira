@@ -20,6 +20,7 @@ export default function Recorrencias() {
   const [busca, setBusca] = useState('')
   const [tipoFiltro, setTipoFiltro] = useState('')
   const [confirmarExclusao, setConfirmarExclusao] = useState(null)
+  const [recEditando, setRecEditando] = useState(null)
 
   const carregar = () => {
     api.get('/recorrencias').then(r => setLista(r.data)).catch(console.error)
@@ -28,9 +29,24 @@ export default function Recorrencias() {
 
   useEffect(() => {
     carregar()
-    // Gera automaticamente o mês atual ao abrir a página (idempotente — não duplica)
     api.post('/recorrencias/gerar').catch(() => {})
   }, [])
+
+  const abrirModalNovo = () => {
+    setRecEditando(null)
+    setTipo('despesa'); setDescricao(''); setValor(''); setCategoriaId(''); setDia('1')
+    setModalOpen(true)
+  }
+
+  const abrirModalEditar = (r) => {
+    setRecEditando(r)
+    setTipo(r.tipo)
+    setDescricao(r.descricao)
+    setValor(String(r.valor))
+    setCategoriaId(r.categoria_id ? String(r.categoria_id) : '')
+    setDia(String(r.dia))
+    setModalOpen(true)
+  }
 
   const salvar = async () => {
     if (!descricao.trim() || !valor) { toast('Preencha todos os campos.', 'warning'); return }
@@ -38,24 +54,30 @@ export default function Recorrencias() {
     if (!valorNum || valorNum <= 0) { toast('Valor inválido.', 'warning'); return }
     setLoading(true)
     try {
-      await api.post('/recorrencias', { tipo, descricao, valor: valorNum, categoria_id: categoriaId || null, dia: Number(dia) })
-      toast('Recorrência criada com sucesso!', 'success')
+      const payload = { tipo, descricao, valor: valorNum, categoria_id: categoriaId || null, dia: Number(dia) }
+      if (recEditando) {
+        await api.put(`/recorrencias/${recEditando.id}`, payload)
+        toast('Recorrência atualizada!', 'success')
+      } else {
+        await api.post('/recorrencias', payload)
+        toast('Recorrência criada com sucesso!', 'success')
+      }
       fecharModal(); carregar()
-    } catch (e) { toast('Erro ao criar recorrência.', 'error') }
+    } catch { toast('Erro ao salvar recorrência.', 'error') }
     finally { setLoading(false) }
   }
 
-  const fecharModal = () => { setModalOpen(false); setTipo('despesa'); setDescricao(''); setValor(''); setCategoriaId(''); setDia('1') }
+  const fecharModal = () => { setModalOpen(false); setRecEditando(null); setTipo('despesa'); setDescricao(''); setValor(''); setCategoriaId(''); setDia('1') }
 
   const excluir = async (id) => {
     setConfirmarExclusao(null)
     try { await api.delete(`/recorrencias/${id}`); toast('Excluída.', 'success'); carregar() }
-    catch (e) { toast('Erro ao excluir.', 'error') }
+    catch { toast('Erro ao excluir.', 'error') }
   }
 
   const toggleAtivo = async (id) => {
     try { await api.patch(`/recorrencias/${id}`); carregar() }
-    catch (e) { toast('Erro ao atualizar.', 'error') }
+    catch { toast('Erro ao atualizar.', 'error') }
   }
 
   const gerarMes = async () => {
@@ -64,7 +86,7 @@ export default function Recorrencias() {
       const res = await api.post('/recorrencias/gerar')
       toast(res.data.msg, res.data.geradas > 0 ? 'success' : 'info')
       carregar()
-    } catch (e) { toast('Erro ao gerar transações.', 'error') }
+    } catch { toast('Erro ao gerar transações.', 'error') }
     finally { setGerando(false) }
   }
 
@@ -90,7 +112,7 @@ export default function Recorrencias() {
             className='bg-blue-500 text-white px-5 py-3 rounded-xl font-semibold hover:bg-blue-400 transition disabled:opacity-60 text-sm'>
             {gerando ? 'Gerando...' : `⚡ Gerar ${mesesNomes[now.getMonth()]}/${now.getFullYear()}`}
           </button>
-          <button onClick={() => setModalOpen(true)} className='bg-green-500 text-black px-6 py-3 rounded-xl font-semibold hover:bg-green-400 transition'>
+          <button onClick={abrirModalNovo} className='bg-green-500 text-black px-6 py-3 rounded-xl font-semibold hover:bg-green-400 transition'>
             + Nova Recorrência
           </button>
         </div>
@@ -154,7 +176,8 @@ export default function Recorrencias() {
                       : <span className='bg-gray-500/20 text-gray-500 px-3 py-1 rounded-full text-xs'>Pausado</span>}
                   </td>
                   <td className='p-4 flex gap-3'>
-                    <button onClick={() => toggleAtivo(r.id)} className='text-blue-500 hover:text-blue-400 text-sm transition'>
+                    <button onClick={() => abrirModalEditar(r)} className='text-blue-500 hover:text-blue-400 text-sm transition'>Editar</button>
+                    <button onClick={() => toggleAtivo(r.id)} className='text-yellow-500 hover:text-yellow-400 text-sm transition'>
                       {r.ativo ? 'Pausar' : 'Ativar'}
                     </button>
                     <button onClick={() => setConfirmarExclusao(r)} className='text-red-500 hover:text-red-400 text-sm transition'>Excluir</button>
@@ -190,7 +213,7 @@ export default function Recorrencias() {
         </div>
       )}
 
-      <Modal isOpen={modalOpen} onClose={fecharModal} title='Nova Recorrência'>
+      <Modal isOpen={modalOpen} onClose={fecharModal} title={recEditando ? 'Editar Recorrência' : 'Nova Recorrência'}>
         <div className='space-y-4'>
           <div className='flex gap-3'>
             {['despesa', 'receita'].map(t => (
@@ -217,7 +240,7 @@ export default function Recorrencias() {
           </div>
           <button onClick={salvar} disabled={loading}
             className='w-full bg-green-500 text-black rounded-xl px-6 py-4 font-semibold hover:bg-green-400 transition disabled:opacity-60'>
-            {loading ? 'Salvando...' : 'Criar Recorrência'}
+            {loading ? 'Salvando...' : recEditando ? 'Atualizar Recorrência' : 'Criar Recorrência'}
           </button>
         </div>
       </Modal>
