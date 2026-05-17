@@ -919,17 +919,69 @@ def chat():
             rec_txt  = '\n'.join([f"    • {r['descricao']} R${float(r['valor']):,.2f} {str(r['criado_em'])[:10]}" for r in receitas]) or '    (nenhuma)'
             blocos_detalhe.append(f"--- {meses_nome[mes-1].upper()} {ano} (detalhe) ---\n  Despesas:\n{desp_txt}\n  Receitas:\n{rec_txt}")
 
-        inv = fetch_one('SELECT COALESCE(SUM(valor_atual),0) as t FROM investimentos WHERE user_id=?', (uid,))
-        iv = float(inv['t']) if inv else 0
+        # ── Investimentos ──
+        investimentos = fetch_all('SELECT titulo, tipo, valor_investido, valor_atual, rentabilidade, criado_em FROM investimentos WHERE user_id=? ORDER BY criado_em DESC', (uid,))
+        inv_txt = '\n'.join([f"  • {i['titulo']} [{i['tipo']}] investido R${float(i['valor_investido']):,.2f} → atual R${float(i['valor_atual']):,.2f} ({float(i['rentabilidade']):+.2f}%) desde {str(i['criado_em'])[:10]}" for i in investimentos]) or '  (nenhum)'
+        total_investido = sum(float(i['valor_investido']) for i in investimentos)
+        total_atual_inv = sum(float(i['valor_atual']) for i in investimentos)
+
+        # ── Metas ──
+        metas = fetch_all('SELECT titulo, descricao, valor_alvo, valor_atual, progresso, criado_em FROM metas WHERE user_id=? ORDER BY progresso DESC', (uid,))
+        metas_txt = '\n'.join([f"  • {m['titulo']}: R${float(m['valor_atual']):,.2f} / R${float(m['valor_alvo']):,.2f} ({int(m['progresso'])}%) — {m['descricao']}" for m in metas]) or '  (nenhuma)'
+
+        # ── Cartões e compras ──
+        cartoes = fetch_all('SELECT id, nome, bandeira, limite FROM cartoes WHERE user_id=?', (uid,))
+        cartoes_txt_parts = []
+        for c in cartoes:
+            gasto = fetch_one('SELECT COALESCE(SUM(valor),0) as t FROM compras_cartao WHERE cartao_id=? AND user_id=? AND pago=0', (c['id'], uid))
+            g = float(gasto['t']) if gasto else 0
+            cartoes_txt_parts.append(f"  • {c['nome']} ({c['bandeira']}) limite R${float(c['limite']):,.2f} | gasto atual R${g:,.2f} | disponível R${float(c['limite'])-g:,.2f}")
+        cartoes_txt = '\n'.join(cartoes_txt_parts) or '  (nenhum)'
+
+        compras = fetch_all('SELECT cc.descricao, cc.valor, cc.parcelas, cc.parcela_atual, cc.pago, cc.criado_em, c.nome as cartao FROM compras_cartao cc LEFT JOIN cartoes c ON c.id=cc.cartao_id WHERE cc.user_id=? ORDER BY cc.criado_em DESC LIMIT 30', (uid,))
+        compras_txt = '\n'.join([f"  • {cp['descricao']} R${float(cp['valor']):,.2f} parcela {int(cp['parcela_atual'])}/{int(cp['parcelas'])} [{cp['cartao']}] {str(cp['criado_em'])[:10]} {'✓Pago' if cp['pago'] else '⏳'}" for cp in compras]) or '  (nenhuma)'
+
+        # ── Recorrências ──
+        recorrencias = fetch_all('SELECT tipo, descricao, valor, ativo FROM recorrencias WHERE user_id=?', (uid,))
+        rec_txt2 = '\n'.join([f"  • {'📥' if r['tipo']=='receita' else '📤'} {r['descricao']} R${float(r['valor']):,.2f} ({'ativa' if r['ativo'] else 'inativa'})" for r in recorrencias]) or '  (nenhuma)'
+
+        # ── Orçamentos do mês atual ──
+        orcamentos = fetch_all(
+            'SELECT COALESCE(cat.nome,\'Sem categoria\') as categoria, o.limite FROM orcamentos o LEFT JOIN categorias cat ON cat.id=o.categoria_id WHERE o.user_id=? AND o.mes=? AND o.ano=?' if IS_POSTGRES else
+            'SELECT COALESCE(cat.nome,\'Sem categoria\') as categoria, o.limite FROM orcamentos o LEFT JOIN categorias cat ON cat.id=o.categoria_id WHERE o.user_id=? AND o.mes=? AND o.ano=?',
+            (uid, now.month, now.year))
+        orc_txt = '\n'.join([f"  • {o['categoria']}: limite R${float(o['limite']):,.2f}" for o in orcamentos]) or '  (nenhum)'
+
+        # ── Desafios ──
+        desafios = fetch_all('SELECT titulo, meta_valor, valor_atual, data_fim, concluido FROM desafios WHERE user_id=? ORDER BY concluido, data_fim', (uid,))
+        desafios_txt = '\n'.join([f"  • {d['titulo']} R${float(d['valor_atual']):,.2f}/R${float(d['meta_valor']):,.2f} até {d['data_fim']} {'✓' if d['concluido'] else '⏳'}" for d in desafios]) or '  (nenhum)'
 
         context = (
             f"Você é um consultor financeiro pessoal integrado ao sistema de finanças do usuário. "
-            f"Você TEM ACESSO COMPLETO ao histórico financeiro completo do usuário. "
-            f"Hoje é {now.strftime('%d/%m/%Y')}. Investimentos: R$ {iv:,.2f}\n\n"
-            f"=== HISTÓRICO COMPLETO (todos os meses) ===\n"
+            f"Você TEM ACESSO COMPLETO a todos os dados financeiros do usuário listados abaixo. "
+            f"Hoje é {now.strftime('%d/%m/%Y')}.\n\n"
+
+            f"=== INVESTIMENTOS ===\n{inv_txt}\n"
+            f"Total investido: R${total_investido:,.2f} | Valor atual: R${total_atual_inv:,.2f} | Rendimento: R${total_atual_inv-total_investido:,.2f}\n\n"
+
+            f"=== METAS ===\n{metas_txt}\n\n"
+
+            f"=== CARTÕES DE CRÉDITO ===\n{cartoes_txt}\n\n"
+
+            f"=== COMPRAS NO CARTÃO (últimas 30) ===\n{compras_txt}\n\n"
+
+            f"=== RECORRÊNCIAS (lançamentos automáticos) ===\n{rec_txt2}\n\n"
+
+            f"=== ORÇAMENTOS ({meses_nome[now.month-1]} {now.year}) ===\n{orc_txt}\n\n"
+
+            f"=== DESAFIOS ===\n{desafios_txt}\n\n"
+
+            f"=== HISTÓRICO MENSAL (todos os meses) ===\n"
             + '\n'.join(historico_txt) +
+
             f"\n\n=== TRANSAÇÕES DETALHADAS (últimos 3 meses) ===\n"
             + '\n\n'.join(blocos_detalhe) +
+
             f"\n\nResponda em português, de forma CURTA e DIRETA (máximo 3 frases). "
             f"Use os dados acima para responder com valores e datas exatos. "
             f"Nunca diga que não tem acesso aos dados.\n\nUsuário: {msg}"
