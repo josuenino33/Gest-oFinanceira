@@ -870,67 +870,68 @@ def chat():
         now = datetime.now()
         meses_nome = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
-        # Gera os últimos 3 meses (mês atual + 2 anteriores)
-        periodos = []
+        # ── Histórico completo: resumo mensal por categoria (todos os meses) ──
+        hist_desp = fetch_all(
+            'SELECT EXTRACT(YEAR FROM criado_em::timestamp)::int as ano, EXTRACT(MONTH FROM criado_em::timestamp)::int as mes, COALESCE(cat.nome,\'Sem categoria\') as categoria, COALESCE(SUM(c.valor),0) as total FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? GROUP BY ano, mes, cat.nome ORDER BY ano DESC, mes DESC, total DESC' if IS_POSTGRES else
+            'SELECT CAST(strftime("%Y",criado_em) AS INTEGER) as ano, CAST(strftime("%m",criado_em) AS INTEGER) as mes, COALESCE(cat.nome,\'Sem categoria\') as categoria, COALESCE(SUM(c.valor),0) as total FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? GROUP BY ano, mes, cat.nome ORDER BY ano DESC, mes DESC, total DESC',
+            (uid,))
+        hist_rec = fetch_all(
+            'SELECT EXTRACT(YEAR FROM criado_em::timestamp)::int as ano, EXTRACT(MONTH FROM criado_em::timestamp)::int as mes, COALESCE(SUM(valor),0) as total FROM receitas WHERE user_id=? GROUP BY ano, mes ORDER BY ano DESC, mes DESC' if IS_POSTGRES else
+            'SELECT CAST(strftime("%Y",criado_em) AS INTEGER) as ano, CAST(strftime("%m",criado_em) AS INTEGER) as mes, COALESCE(SUM(valor),0) as total FROM receitas WHERE user_id=? GROUP BY ano, mes ORDER BY ano DESC, mes DESC',
+            (uid,))
+
+        # Agrupa histórico por mês
+        from collections import defaultdict
+        rec_por_mes = {(int(r['ano']), int(r['mes'])): float(r['total']) for r in hist_rec}
+        desp_por_mes = defaultdict(list)
+        for row in hist_desp:
+            desp_por_mes[(int(row['ano']), int(row['mes']))].append((row['categoria'], float(row['total'])))
+
+        historico_txt = []
+        for (ano, mes) in sorted(desp_por_mes.keys() | rec_por_mes.keys(), reverse=True):
+            rm = rec_por_mes.get((ano, mes), 0)
+            cats = desp_por_mes.get((ano, mes), [])
+            dm = sum(v for _, v in cats)
+            cats_str = ', '.join([f"{cat}: R${v:,.2f}" for cat, v in cats])
+            historico_txt.append(f"  {meses_nome[mes-1]} {ano}: receitas R${rm:,.2f} | despesas R${dm:,.2f} | saldo R${rm-dm:,.2f} | categorias: [{cats_str}]")
+
+        # ── Detalhe individual: últimas 3 meses com cada transação ──
+        periodos_rec = []
         for i in range(3):
             d_ref = now.replace(day=1) - timedelta(days=i * 28)
-            periodos.append((d_ref.month, d_ref.year))
+            periodos_rec.append((d_ref.month, d_ref.year))
 
-        def q_pg(mes, ano):
-            return (mes, ano)
-        def q_sq(mes, ano):
-            return (f'{mes:02d}', str(ano))
+        def p(mes, ano):
+            return (mes, ano) if IS_POSTGRES else (f'{mes:02d}', str(ano))
 
-        def build_context_mes(mes, ano):
-            p = q_pg(mes, ano) if IS_POSTGRES else q_sq(mes, ano)
-
-            r_mes = fetch_one(
-                'SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=? AND EXTRACT(MONTH FROM criado_em::timestamp)=? AND EXTRACT(YEAR FROM criado_em::timestamp)=?' if IS_POSTGRES else
-                'SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=? AND strftime("%m",criado_em)=? AND strftime("%Y",criado_em)=?',
-                (uid, *p))
-            d_mes = fetch_one(
-                'SELECT COALESCE(SUM(valor),0) as t FROM contas WHERE user_id=? AND EXTRACT(MONTH FROM criado_em::timestamp)=? AND EXTRACT(YEAR FROM criado_em::timestamp)=?' if IS_POSTGRES else
-                'SELECT COALESCE(SUM(valor),0) as t FROM contas WHERE user_id=? AND strftime("%m",criado_em)=? AND strftime("%Y",criado_em)=?',
-                (uid, *p))
-            cats = fetch_all(
-                'SELECT COALESCE(cat.nome,\'Sem categoria\') as categoria, COALESCE(SUM(c.valor),0) as total FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? AND EXTRACT(MONTH FROM c.criado_em::timestamp)=? AND EXTRACT(YEAR FROM c.criado_em::timestamp)=? GROUP BY cat.nome ORDER BY total DESC' if IS_POSTGRES else
-                'SELECT COALESCE(cat.nome,\'Sem categoria\') as categoria, COALESCE(SUM(c.valor),0) as total FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? AND strftime("%m",c.criado_em)=? AND strftime("%Y",c.criado_em)=? GROUP BY cat.nome ORDER BY total DESC',
-                (uid, *p))
+        blocos_detalhe = []
+        for mes, ano in periodos_rec:
+            pm = p(mes, ano)
             despesas = fetch_all(
                 'SELECT c.descricao, c.valor, c.pago, c.criado_em, COALESCE(cat.nome,\'Sem categoria\') as categoria FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? AND EXTRACT(MONTH FROM c.criado_em::timestamp)=? AND EXTRACT(YEAR FROM c.criado_em::timestamp)=? ORDER BY c.criado_em DESC' if IS_POSTGRES else
                 'SELECT c.descricao, c.valor, c.pago, c.criado_em, COALESCE(cat.nome,\'Sem categoria\') as categoria FROM contas c LEFT JOIN categorias cat ON c.categoria_id=cat.id WHERE c.user_id=? AND strftime("%m",c.criado_em)=? AND strftime("%Y",c.criado_em)=? ORDER BY c.criado_em DESC',
-                (uid, *p))
+                (uid, *pm))
             receitas = fetch_all(
                 'SELECT r.descricao, r.valor, r.criado_em FROM receitas r WHERE r.user_id=? AND EXTRACT(MONTH FROM r.criado_em::timestamp)=? AND EXTRACT(YEAR FROM r.criado_em::timestamp)=? ORDER BY r.criado_em DESC' if IS_POSTGRES else
                 'SELECT r.descricao, r.valor, r.criado_em FROM receitas r WHERE r.user_id=? AND strftime("%m",r.criado_em)=? AND strftime("%Y",r.criado_em)=? ORDER BY r.criado_em DESC',
-                (uid, *p))
+                (uid, *pm))
+            desp_txt = '\n'.join([f"    • {t['descricao']} R${float(t['valor']):,.2f} [{t['categoria']}] {str(t['criado_em'])[:10]} {'✓' if t['pago'] else '⏳'}" for t in despesas]) or '    (nenhuma)'
+            rec_txt  = '\n'.join([f"    • {r['descricao']} R${float(r['valor']):,.2f} {str(r['criado_em'])[:10]}" for r in receitas]) or '    (nenhuma)'
+            blocos_detalhe.append(f"--- {meses_nome[mes-1].upper()} {ano} (detalhe) ---\n  Despesas:\n{desp_txt}\n  Receitas:\n{rec_txt}")
 
-            rm = float(r_mes['t']) if r_mes else 0
-            dm = float(d_mes['t']) if d_mes else 0
-            cats_txt = '\n'.join([f"    • {c['categoria']}: R$ {float(c['total']):,.2f}" for c in cats]) or '    (nenhuma)'
-            desp_txt = '\n'.join([f"    • {t['descricao']} — R$ {float(t['valor']):,.2f} [{t['categoria']}] em {str(t['criado_em'])[:10]} {'✓Pago' if t['pago'] else '⏳Pendente'}" for t in despesas]) or '    (nenhuma)'
-            rec_txt  = '\n'.join([f"    • {r['descricao']} — R$ {float(r['valor']):,.2f} em {str(r['criado_em'])[:10]}" for r in receitas]) or '    (nenhuma)'
-
-            return (
-                f"--- {meses_nome[mes-1].upper()} {ano} ---\n"
-                f"  Receitas: R$ {rm:,.2f} | Despesas: R$ {dm:,.2f} | Saldo: R$ {rm-dm:,.2f}\n"
-                f"  Por categoria:\n{cats_txt}\n"
-                f"  Despesas detalhadas:\n{desp_txt}\n"
-                f"  Receitas detalhadas:\n{rec_txt}"
-            )
-
-        blocos = '\n\n'.join([build_context_mes(m, a) for m, a in periodos])
         inv = fetch_one('SELECT COALESCE(SUM(valor_atual),0) as t FROM investimentos WHERE user_id=?', (uid,))
         iv = float(inv['t']) if inv else 0
 
         context = (
             f"Você é um consultor financeiro pessoal integrado ao sistema de finanças do usuário. "
-            f"Você TEM ACESSO COMPLETO aos dados reais dos últimos 3 meses listados abaixo. "
-            f"Use esses dados para responder com precisão. Hoje é {now.strftime('%d/%m/%Y')}.\n\n"
-            f"INVESTIMENTOS TOTAIS: R$ {iv:,.2f}\n\n"
-            f"{blocos}\n\n"
-            f"Responda em português, de forma CURTA e DIRETA (máximo 3 frases). "
-            f"Se perguntarem sobre gastos específicos, busque nos dados acima e cite valores e datas exatos. "
+            f"Você TEM ACESSO COMPLETO ao histórico financeiro completo do usuário. "
+            f"Hoje é {now.strftime('%d/%m/%Y')}. Investimentos: R$ {iv:,.2f}\n\n"
+            f"=== HISTÓRICO COMPLETO (todos os meses) ===\n"
+            + '\n'.join(historico_txt) +
+            f"\n\n=== TRANSAÇÕES DETALHADAS (últimos 3 meses) ===\n"
+            + '\n\n'.join(blocos_detalhe) +
+            f"\n\nResponda em português, de forma CURTA e DIRETA (máximo 3 frases). "
+            f"Use os dados acima para responder com valores e datas exatos. "
             f"Nunca diga que não tem acesso aos dados.\n\nUsuário: {msg}"
         )
         cfg = genai_types.GenerateContentConfig(max_output_tokens=400, temperature=0.3)
