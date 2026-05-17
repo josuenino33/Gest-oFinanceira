@@ -1065,6 +1065,7 @@ def _build_financial_context(uid):
     )
 
 @app.route('/chat', methods=['POST'])
+@limiter.limit('10 per minute')
 @jwt_required()
 def chat():
     uid = int(get_jwt_identity())
@@ -1113,6 +1114,7 @@ def chat():
         return jsonify({'response': f'Erro na IA: {str(e)}'}), 500
 
 @app.route('/tts', methods=['POST'])
+@limiter.limit('5 per minute')
 @jwt_required()
 def text_to_speech():
     d = request.json or {}
@@ -1145,6 +1147,7 @@ def text_to_speech():
 
 
 @app.route('/auto-categorize', methods=['POST'])
+@limiter.limit('20 per minute')
 @jwt_required()
 def auto_categorize():
     uid = int(get_jwt_identity())
@@ -1209,7 +1212,7 @@ def rota_compras_cartao():
             cartao_id = int(d.get('cartao_id'))
             descricao = str(d.get('descricao','')).strip()
             valor_total = float(str(d.get('valor','0')).replace(',','.'))
-            parcelas = int(d.get('parcelas', 1))
+            parcelas = max(1, int(d.get('parcelas', 1)))
             mes_compra = int(d.get('mes_compra', datetime.now().month))
             ano_compra = int(d.get('ano_compra', datetime.now().year))
             valor_parcela = valor_total / parcelas
@@ -1343,6 +1346,8 @@ def orcamentos():
     if request.method == 'GET':
         mes = int(request.args.get('mes', datetime.now().month))
         ano = int(request.args.get('ano', datetime.now().year))
+        start = f"{ano}-{mes:02d}-01 00:00:00"
+        end = f"{ano+1}-01-01 00:00:00" if mes == 12 else f"{ano}-{mes+1:02d}-01 00:00:00"
         rows = fetch_all('''
             SELECT o.id, o.categoria_id, o.limite, o.mes, o.ano,
                    c.nome as categoria_nome, c.cor,
@@ -1351,14 +1356,14 @@ def orcamentos():
                        WHERE ct.user_id = o.user_id
                          AND ct.categoria_id = o.categoria_id
                          AND ct.pago = 1
-                         AND strftime('%m', ct.criado_em) = ?
-                         AND strftime('%Y', ct.criado_em) = ?
+                         AND ct.criado_em >= ?
+                         AND ct.criado_em < ?
                    ), 0) as gasto
             FROM orcamentos o
             LEFT JOIN categorias c ON c.id = o.categoria_id
             WHERE o.user_id = ? AND o.mes = ? AND o.ano = ?
             ORDER BY c.nome
-        ''', (f'{mes:02d}', str(ano), uid, mes, ano))
+        ''', (start, end, uid, mes, ano))
         return jsonify(rows)
     d = request.json or {}
     cat_id  = d.get('categoria_id')
@@ -1389,10 +1394,11 @@ def saude_financeira():
     uid = int(get_jwt_identity())
     mes = int(request.args.get('mes', datetime.now().month))
     ano = int(request.args.get('ano', datetime.now().year))
-    mes_s, ano_s = f'{mes:02d}', str(ano)
+    start = f"{ano}-{mes:02d}-01 00:00:00"
+    end   = f"{ano+1}-01-01 00:00:00" if mes == 12 else f"{ano}-{mes+1:02d}-01 00:00:00"
 
-    r  = float(fetch_one("SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=? AND strftime('%m',criado_em)=? AND strftime('%Y',criado_em)=?", (uid, mes_s, ano_s))['t'])
-    dp = float(fetch_one("SELECT COALESCE(SUM(valor),0) as t FROM contas   WHERE user_id=? AND pago=1 AND strftime('%m',criado_em)=? AND strftime('%Y',criado_em)=?", (uid, mes_s, ano_s))['t'])
+    r  = float(fetch_one("SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=? AND criado_em >= ? AND criado_em < ?", (uid, start, end))['t'])
+    dp = float(fetch_one("SELECT COALESCE(SUM(valor),0) as t FROM contas   WHERE user_id=? AND pago=1 AND criado_em >= ? AND criado_em < ?", (uid, start, end))['t'])
     inv = float(fetch_one('SELECT COALESCE(SUM(valor_atual),0) as t FROM investimentos WHERE user_id=?', (uid,))['t'])
     inv_ap = float(fetch_one('SELECT COALESCE(SUM(valor_investido),0) as t FROM investimentos WHERE user_id=?', (uid,))['t'])
     has_metas = fetch_one('SELECT COUNT(*) as c FROM metas WHERE user_id=?', (uid,))['c']
@@ -1482,9 +1488,10 @@ def projecao():
     amostras = 0
     for delta in range(1, 4):
         d = datetime(now.year, now.month, 1) - timedelta(days=delta * 28)
-        ms, ys = f'{d.month:02d}', str(d.year)
-        r = float(fetch_one("SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=? AND strftime('%m',criado_em)=? AND strftime('%Y',criado_em)=?", (uid, ms, ys))['t'])
-        e = float(fetch_one("SELECT COALESCE(SUM(valor),0) as t FROM contas WHERE user_id=? AND pago=1 AND strftime('%m',criado_em)=? AND strftime('%Y',criado_em)=?", (uid, ms, ys))['t'])
+        s = f"{d.year}-{d.month:02d}-01 00:00:00"
+        e_end = f"{d.year+1}-01-01 00:00:00" if d.month == 12 else f"{d.year}-{d.month+1:02d}-01 00:00:00"
+        r = float(fetch_one("SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=? AND criado_em >= ? AND criado_em < ?", (uid, s, e_end))['t'])
+        e = float(fetch_one("SELECT COALESCE(SUM(valor),0) as t FROM contas WHERE user_id=? AND pago=1 AND criado_em >= ? AND criado_em < ?", (uid, s, e_end))['t'])
         if r > 0 or e > 0:
             media_rec  += r
             media_desp += e
@@ -1537,23 +1544,28 @@ def alertas_ia():
     mes, ano = now.month, now.year
     mes_ant = mes - 1 if mes > 1 else 12
     ano_ant = ano if mes > 1 else ano - 1
-    ms, ys   = f'{mes:02d}',     str(ano)
-    ms2, ys2 = f'{mes_ant:02d}', str(ano_ant)
+
+    def mes_range(m, y):
+        s = f"{y}-{m:02d}-01 00:00:00"
+        e = f"{y+1}-01-01 00:00:00" if m == 12 else f"{y}-{m+1:02d}-01 00:00:00"
+        return s, e
 
     def get_stats(m, y):
-        r = float(fetch_one("SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=? AND strftime('%m',criado_em)=? AND strftime('%Y',criado_em)=?", (uid, m, y))['t'])
-        d = float(fetch_one("SELECT COALESCE(SUM(valor),0) as t FROM contas WHERE user_id=? AND pago=1 AND strftime('%m',criado_em)=? AND strftime('%Y',criado_em)=?", (uid, m, y))['t'])
+        s, e = mes_range(m, y)
+        r = float(fetch_one("SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=? AND criado_em >= ? AND criado_em < ?", (uid, s, e))['t'])
+        d = float(fetch_one("SELECT COALESCE(SUM(valor),0) as t FROM contas WHERE user_id=? AND pago=1 AND criado_em >= ? AND criado_em < ?", (uid, s, e))['t'])
         return r, d
 
-    r_atual, d_atual = get_stats(ms,  ys)
-    r_ant,   d_ant   = get_stats(ms2, ys2)
+    r_atual, d_atual = get_stats(mes,     ano)
+    r_ant,   d_ant   = get_stats(mes_ant, ano_ant)
 
+    s_atual, e_atual = mes_range(mes, ano)
     cats = fetch_all("""
         SELECT c.nome, COALESCE(SUM(ct.valor),0) as total
         FROM contas ct JOIN categorias c ON c.id = ct.categoria_id
-        WHERE ct.user_id=? AND ct.pago=1 AND strftime('%m',ct.criado_em)=? AND strftime('%Y',ct.criado_em)=?
+        WHERE ct.user_id=? AND ct.pago=1 AND ct.criado_em >= ? AND ct.criado_em < ?
         GROUP BY c.nome ORDER BY total DESC LIMIT 5
-    """, (uid, ms, ys))
+    """, (uid, s_atual, e_atual))
     cats_str = ', '.join([f"{c['nome']}: R${c['total']:.2f}" for c in cats]) or 'sem dados'
 
     var_rec  = ((r_atual - r_ant) / r_ant  * 100) if r_ant  > 0 else 0
@@ -1611,6 +1623,7 @@ def salvar_snapshot_patrimonio(uid, em_caixa, a_pagar, investido, patrimonio_liq
 # ==================== TRANSCRIÇÃO SMS/EXTRATO ====================
 
 @app.route('/ai/transcrever', methods=['POST'])
+@limiter.limit('10 per minute')
 @jwt_required()
 def transcrever_sms():
     uid = int(get_jwt_identity())
