@@ -1687,62 +1687,6 @@ Se não conseguir extrair valor ou tipo, retorne {{"erro": "não reconhecido"}}"
 
 # ==================== ENVELOPES ====================
 
-@app.route('/envelopes', methods=['GET', 'POST'])
-@jwt_required()
-def rota_envelopes():
-    uid = int(get_jwt_identity())
-    if request.method == 'GET':
-        mes = int(request.args.get('mes', datetime.now().month))
-        ano = int(request.args.get('ano', datetime.now().year))
-        ms = str(mes).zfill(2)
-        ys = str(ano)
-        rows = fetch_all('''
-            SELECT e.id, e.categoria_id, e.alocado, c.nome as categoria_nome, c.cor,
-                COALESCE((
-                    SELECT SUM(ct.valor) FROM contas ct
-                    WHERE ct.categoria_id = e.categoria_id AND ct.user_id = e.user_id
-                    AND strftime('%m', ct.criado_em) = ? AND strftime('%Y', ct.criado_em) = ?
-                ), 0) as gasto
-            FROM envelopes e
-            JOIN categorias c ON c.id = e.categoria_id
-            WHERE e.user_id = ? AND e.mes = ? AND e.ano = ?
-            ORDER BY e.alocado DESC
-        ''', (ms, ys, uid, mes, ano))
-        return jsonify([dict(r) for r in rows])
-
-    d = request.json or {}
-    categoria_id = d.get('categoria_id')
-    alocado = float(d.get('alocado', 0))
-    mes = int(d.get('mes', datetime.now().month))
-    ano = int(d.get('ano', datetime.now().year))
-    existing = fetch_one('SELECT id FROM envelopes WHERE user_id=? AND categoria_id=? AND mes=? AND ano=?', (uid, categoria_id, mes, ano))
-    if existing:
-        execute_query('UPDATE envelopes SET alocado=? WHERE id=?', (alocado, existing['id']))
-    else:
-        execute_query('INSERT INTO envelopes (user_id, categoria_id, alocado, mes, ano) VALUES (?,?,?,?,?)', (uid, categoria_id, alocado, mes, ano))
-    return jsonify({'ok': True})
-
-@app.route('/envelopes/<int:eid>', methods=['DELETE'])
-@jwt_required()
-def deletar_envelope(eid):
-    uid = int(get_jwt_identity())
-    execute_query('DELETE FROM envelopes WHERE id=? AND user_id=?', (eid, uid))
-    return jsonify({'ok': True})
-
-@app.route('/envelopes/renda', methods=['GET'])
-@jwt_required()
-def renda_envelopes():
-    uid = int(get_jwt_identity())
-    mes = int(request.args.get('mes', datetime.now().month))
-    ano = int(request.args.get('ano', datetime.now().year))
-    ms = str(mes).zfill(2)
-    ys = str(ano)
-    renda = fetch_one(
-        "SELECT COALESCE(SUM(valor),0) as t FROM receitas WHERE user_id=? AND strftime('%m',criado_em)=? AND strftime('%Y',criado_em)=?",
-        (uid, ms, ys)
-    )['t']
-    return jsonify({'renda': float(renda)})
-
 # ==================== DESAFIOS ====================
 
 @app.route('/desafios', methods=['GET', 'POST'])

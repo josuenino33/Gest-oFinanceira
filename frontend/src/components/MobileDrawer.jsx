@@ -5,7 +5,6 @@ const menu = [
   { label: 'Dashboard',      path: '/',              icon: '📊' },
   { label: 'Minha Carteira', path: '/carteira',      icon: '💼' },
   { label: 'Orçamentos',     path: '/orcamentos',    icon: '🎯' },
-  { label: 'Envelopes',      path: '/envelopes',     icon: '✉️' },
   { label: 'Desafios',       path: '/desafios',      icon: '🏅' },
   { label: 'Metas & Sonhos', path: '/metas',         icon: '⭐' },
   { label: 'Recorrências',   path: '/recorrencias',  icon: '🔄' },

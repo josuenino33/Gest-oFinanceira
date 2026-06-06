@@ -12,7 +12,6 @@ import Categorias from '../pages/Categorias'
 import Configuracoes from '../pages/Configuracoes'
 import Recorrencias from '../pages/Recorrencias'
 import Orcamentos from '../pages/Orcamentos'
-import Envelopes from '../pages/Envelopes'
 import Desafios from '../pages/Desafios'
 import Login from '../pages/Login'
 import Register from '../pages/Register'
@@ -41,7 +40,6 @@ export default function AppRoutes() {
           <Route path='/relatorios' element={<Relatorios />} />
           <Route path='/categorias' element={<Categorias />} />
           <Route path='/orcamentos' element={<Orcamentos />} />
-          <Route path='/envelopes' element={<Envelopes />} />
           <Route path='/desafios' element={<Desafios />} />
           <Route path='/recorrencias' element={<Recorrencias />} />
           <Route path='/configuracoes' element={<Configuracoes />} />
