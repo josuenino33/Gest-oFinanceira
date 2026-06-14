@@ -4,6 +4,7 @@ import csv
 import base64
 import sqlite3
 import threading
+import time
 import requests as http_requests
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, Response, stream_with_context
@@ -68,12 +69,17 @@ def init_pool():
     if IS_POSTGRES and db_pool is None:
         try:
             from psycopg2.pool import ThreadedConnectionPool
-            # Correção de URL para o Render (postgres:// para postgresql://)
             url = DATABASE_URL
             if url and url.startswith("postgres://"):
                 url = url.replace("postgres://", "postgresql://", 1)
-            
-            db_pool = ThreadedConnectionPool(0, 20, url)
+            db_pool = ThreadedConnectionPool(
+                0, 20, url,
+                keepalives=1,
+                keepalives_idle=60,
+                keepalives_interval=10,
+                keepalives_count=5,
+                connect_timeout=10,
+            )
             print("Pool de conexões PostgreSQL inicializado.")
         except Exception as e:
             print(f"AVISO: Falha ao inicializar pool PostgreSQL: {e}")
@@ -92,8 +98,15 @@ DEFAULT_CATEGORIES = [
 
 def get_db():
     if IS_POSTGRES:
-        if db_pool is None: init_pool()
-        return db_pool.getconn()
+        if db_pool is None:
+            init_pool()
+        if db_pool is None:
+            raise RuntimeError("Pool PostgreSQL não disponível")
+        conn = db_pool.getconn()
+        if conn.closed:
+            db_pool.putconn(conn, close=True)
+            conn = db_pool.getconn()
+        return conn
     else:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
@@ -252,11 +265,16 @@ def ensure_db():
     if not _db_init_done:
         with _db_init_lock:
             if not _db_init_done:
-                try:
-                    init_db()
-                    _db_init_done = True
-                except Exception as e:
-                    print(f"AVISO: Falha ao inicializar DB: {e}")
+                for attempt in range(3):
+                    try:
+                        init_db()
+                        _db_init_done = True
+                        return
+                    except Exception as e:
+                        print(f"AVISO: init_db tentativa {attempt + 1}/3: {e}")
+                        if attempt < 2:
+                            time.sleep(2)
+                return jsonify({'msg': 'Serviço temporariamente indisponível. Tente novamente em instantes.'}), 503
 
 def revoke_jti(jti):
     if IS_POSTGRES:
@@ -269,6 +287,12 @@ def cleanup_old_tokens():
         execute_query("DELETE FROM revoked_tokens WHERE revoked_at < NOW() - INTERVAL '8 days'")
     else:
         execute_query("DELETE FROM revoked_tokens WHERE revoked_at < datetime('now', '-8 days')")
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    import traceback
+    traceback.print_exc()
+    return jsonify({'msg': 'Erro interno do servidor'}), 500
 
 @jwt.token_in_blocklist_loader
 def check_if_revoked(jwt_header, jwt_payload):
