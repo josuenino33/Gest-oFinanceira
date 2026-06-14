@@ -72,11 +72,11 @@ def init_pool():
             if url and url.startswith("postgres://"):
                 url = url.replace("postgres://", "postgresql://", 1)
             
-            db_pool = ThreadedConnectionPool(1, 20, url)
+            db_pool = ThreadedConnectionPool(0, 20, url)
             print("Pool de conexões PostgreSQL inicializado.")
         except Exception as e:
-            print(f"ERRO CRÍTICO ao inicializar pool: {e}")
-            raise e
+            print(f"AVISO: Falha ao inicializar pool PostgreSQL: {e}")
+            db_pool = None
 
 DEFAULT_CATEGORIES = [
     ('Alimentação', '#ef4444'),
