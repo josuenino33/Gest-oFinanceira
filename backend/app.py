@@ -1685,8 +1685,6 @@ Se não conseguir extrair valor ou tipo, retorne {{"erro": "não reconhecido"}}"
         print(f'transcrever error: {e}')
     return jsonify({'erro': 'Falha ao processar'}), 500
 
-# ==================== ENVELOPES ====================
-
 # ==================== DESAFIOS ====================
 
 @app.route('/desafios', methods=['GET', 'POST'])
