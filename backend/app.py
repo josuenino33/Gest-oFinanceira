@@ -22,7 +22,14 @@ from google.genai import types as genai_types  # type: ignore
 app = Flask(__name__)
 
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
-CORS(app, origins=[FRONTEND_URL, 'http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'])
+_allowed_origins = [
+    FRONTEND_URL,
+    'https://gest-o-financeira-self.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+]
+CORS(app, origins=_allowed_origins, supports_credentials=True)
 
 # JWT
 _jwt_secret = os.environ.get('JWT_SECRET', '')
@@ -261,6 +268,8 @@ _db_init_done = False
 
 @app.before_request
 def ensure_db():
+    if request.method == 'OPTIONS':
+        return  # CORS preflight — não precisa de banco
     global _db_init_done
     if not _db_init_done:
         with _db_init_lock:
