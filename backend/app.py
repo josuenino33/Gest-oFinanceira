@@ -3,6 +3,7 @@ import io
 import csv
 import base64
 import sqlite3
+import threading
 import requests as http_requests
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, Response, stream_with_context
@@ -242,8 +243,20 @@ def init_db():
     finally:
         release_db(conn)
 
-# Inicializar banco na importação
-init_db()
+_db_init_lock = threading.Lock()
+_db_init_done = False
+
+@app.before_request
+def ensure_db():
+    global _db_init_done
+    if not _db_init_done:
+        with _db_init_lock:
+            if not _db_init_done:
+                try:
+                    init_db()
+                    _db_init_done = True
+                except Exception as e:
+                    print(f"AVISO: Falha ao inicializar DB: {e}")
 
 def revoke_jti(jti):
     if IS_POSTGRES:
@@ -276,7 +289,7 @@ def security_headers(resp):
 @app.route('/login', methods=['POST'])
 @limiter.limit('5 per minute')
 def login():
-    d = request.json or {}
+    d = request.get_json(silent=True) or {}
     identifier = (d.get('username') or d.get('email') or '').strip()
     password = d.get('password') or ''
     totp_code = (d.get('totp_code') or '').strip()
@@ -313,7 +326,7 @@ def login():
 @app.route('/register', methods=['POST'])
 @limiter.limit('3 per minute')
 def register():
-    d = request.json or {}
+    d = request.get_json(silent=True) or {}
     nome = (d.get('nome') or '').strip()
     username = (d.get('username') or '').strip().lower()
     email = (d.get('email') or '').strip() or None
@@ -393,7 +406,7 @@ def setup_2fa():
 @jwt_required()
 def activate_2fa():
     uid = int(get_jwt_identity())
-    code = (request.json or {}).get('code', '')
+    code = (request.get_json(silent=True) or {}).get('code', '')
     u = fetch_one('SELECT totp_secret FROM users WHERE id = ?', (uid,))
     if not u or not u.get('totp_secret'):
         return jsonify({'msg': 'Configure o 2FA primeiro'}), 400
@@ -407,7 +420,7 @@ def activate_2fa():
 @jwt_required()
 def disable_2fa():
     uid = int(get_jwt_identity())
-    senha = (request.json or {}).get('senha', '')
+    senha = (request.get_json(silent=True) or {}).get('senha', '')
     u = fetch_one('SELECT senha FROM users WHERE id = ?', (uid,))
     if not u or not check_password_hash(u['senha'], senha):
         return jsonify({'msg': 'Senha incorreta'}), 401
@@ -506,7 +519,7 @@ def exportar_csv(tipo):
 @jwt_required()
 def importar_csv(tipo):
     uid = int(get_jwt_identity())
-    d = request.json or {}
+    d = request.get_json(silent=True) or {}
     registros = d.get('registros', [])
     if not registros:
         return jsonify({'msg': 'Nenhum registro enviado'}), 400
@@ -542,7 +555,7 @@ def importar_csv(tipo):
 @app.route('/recuperar-senha', methods=['POST'])
 @limiter.limit('3 per minute')
 def recuperar_senha():
-    d = request.json or {}
+    d = request.get_json(silent=True) or {}
     username = (d.get('username') or '').strip().lower()
     codigo = (d.get('codigo_seguranca') or '').strip()
     nova_senha = d.get('nova_senha') or ''
@@ -622,7 +635,7 @@ def health():
 def rota_receitas():
     uid = int(get_jwt_identity())
     if request.method == 'POST':
-        d = request.json
+        d = request.get_json(silent=True) or {}
         try:
             descricao = str(d.get('descricao', '')).strip()
             valor = float(str(d.get('valor', '0')).replace(',', '.'))
@@ -648,7 +661,7 @@ def acao_receita(id):
     if request.method == 'DELETE':
         execute_query('DELETE FROM receitas WHERE id = ? AND user_id = ?', (id, uid))
     else:
-        d = request.json
+        d = request.get_json(silent=True) or {}
         execute_query('UPDATE receitas SET descricao=?, valor=?, categoria_id=? WHERE id=? AND user_id=?', (d.get('descricao'), d.get('valor'), d.get('categoria_id'), id, uid))
     invalidar_cache(uid)
     return jsonify({'msg': 'OK'})
@@ -658,7 +671,7 @@ def acao_receita(id):
 def rota_contas():
     uid = int(get_jwt_identity())
     if request.method == 'POST':
-        d = request.json
+        d = request.get_json(silent=True) or {}
         try:
             descricao = str(d.get('descricao', '')).strip()
             valor = float(str(d.get('valor', '0')).replace(',', '.'))
@@ -687,7 +700,7 @@ def acao_conta(id):
     elif request.method == 'PATCH':
         execute_query('UPDATE contas SET pago = 1 WHERE id = ? AND user_id = ?', (id, uid))
     else:
-        d = request.json
+        d = request.get_json(silent=True) or {}
         execute_query('UPDATE contas SET descricao=?, valor=?, categoria_id=?, pago=? WHERE id=? AND user_id=?', (d.get('descricao'), d.get('valor'), d.get('categoria_id'), d.get('pago', 0), id, uid))
     invalidar_cache(uid)
     return jsonify({'msg': 'OK'})
@@ -697,7 +710,7 @@ def acao_conta(id):
 def rota_categorias():
     uid = int(get_jwt_identity())
     if request.method == 'POST':
-        d = request.json
+        d = request.get_json(silent=True) or {}
         execute_query('INSERT INTO categorias (user_id, nome, cor) VALUES (?, ?, ?)', (uid, d.get('nome'), d.get('cor', '#22c55e')))
         return jsonify({'msg': 'OK'})
     return jsonify(fetch_all('SELECT * FROM categorias WHERE user_id IS NULL OR user_id = ? ORDER BY nome', (uid,)))
@@ -709,7 +722,7 @@ def rota_categoria_id(id):
     if request.method == 'DELETE':
         execute_query('DELETE FROM categorias WHERE id = ? AND user_id = ?', (id, uid))
         return jsonify({'msg': 'OK'})
-    d = request.json
+    d = request.get_json(silent=True) or {}
     execute_query('UPDATE categorias SET nome = ?, cor = ? WHERE id = ? AND user_id = ?', (d.get('nome'), d.get('cor'), id, uid))
     return jsonify({'msg': 'OK'})
 
@@ -865,7 +878,7 @@ def get_notificacoes():
 def rota_recorrencias():
     uid = int(get_jwt_identity())
     if request.method == 'POST':
-        d = request.json
+        d = request.get_json(silent=True) or {}
         execute_query(
             'INSERT INTO recorrencias (user_id, tipo, descricao, valor, categoria_id, dia, ativo) VALUES (?, ?, ?, ?, ?, ?, 1)',
             (uid, d.get('tipo'), d.get('descricao'), d.get('valor'), d.get('categoria_id'), d.get('dia', 1))
@@ -886,7 +899,7 @@ def rota_recorrencia_id(id):
         execute_query('DELETE FROM recorrencias WHERE id = ? AND user_id = ?', (id, uid))
         return jsonify({'msg': 'OK'})
     if request.method == 'PUT':
-        d = request.json or {}
+        d = request.get_json(silent=True) or {}
         execute_query(
             'UPDATE recorrencias SET tipo=?, descricao=?, valor=?, categoria_id=?, dia=? WHERE id=? AND user_id=?',
             (d.get('tipo'), d.get('descricao'), float(d.get('valor', 0)), d.get('categoria_id'), int(d.get('dia', 1)), id, uid)
@@ -927,7 +940,7 @@ def gerar_recorrencias():
 @jwt_required()
 def update_perfil():
     uid = int(get_jwt_identity())
-    d = request.json or {}
+    d = request.get_json(silent=True) or {}
     senha_atual = d.get('senha_atual', '')
     user = fetch_one('SELECT senha FROM users WHERE id = ?', (uid,))
     if not user or not check_password_hash(user['senha'], senha_atual):
@@ -939,7 +952,7 @@ def update_perfil():
 @jwt_required()
 def update_senha():
     uid = int(get_jwt_identity())
-    d = request.json
+    d = request.get_json(silent=True) or {}
     senha_atual = d.get('senha_atual', '')
     nova_senha = d.get('nova_senha', '')
     if not senha_atual or not nova_senha:
@@ -1104,7 +1117,7 @@ def _build_financial_context(uid):
 @jwt_required()
 def chat():
     uid = int(get_jwt_identity())
-    d = request.json
+    d = request.get_json(silent=True) or {}
     msg = d.get('message', '')
     if not gemini_client:
         return jsonify({'response': 'IA não configurada no momento.'})
@@ -1152,7 +1165,7 @@ def chat():
 @limiter.limit('5 per minute')
 @jwt_required()
 def text_to_speech():
-    d = request.json or {}
+    d = request.get_json(silent=True) or {}
     text = (d.get('text') or '').strip()
     if not text:
         return jsonify({'error': 'Texto vazio'}), 400
@@ -1186,7 +1199,7 @@ def text_to_speech():
 @jwt_required()
 def auto_categorize():
     uid = int(get_jwt_identity())
-    descricao = request.json.get('descricao', '')
+    descricao = (request.get_json(silent=True) or {}).get('descricao', '')
     if not gemini_client or not descricao:
         return jsonify({'categoria_id': None})
     try:
@@ -1211,7 +1224,7 @@ def auto_categorize():
 def rota_cartoes():
     uid = int(get_jwt_identity())
     if request.method == 'POST':
-        d = request.json
+        d = request.get_json(silent=True) or {}
         try:
             execute_query('INSERT INTO cartoes (user_id, nome, bandeira, limite) VALUES (?, ?, ?, ?)',
                           (uid, d.get('nome'), d.get('bandeira'), float(str(d.get('limite','0')).replace(',','.'))))
@@ -1232,7 +1245,7 @@ def acao_cartao(id):
         execute_query('DELETE FROM compras_cartao WHERE cartao_id = ? AND user_id = ?', (id, uid))
         execute_query('DELETE FROM cartoes WHERE id = ? AND user_id = ?', (id, uid))
     else:
-        d = request.json
+        d = request.get_json(silent=True) or {}
         execute_query('UPDATE cartoes SET nome=?, bandeira=?, limite=? WHERE id=? AND user_id=?',
                       (d.get('nome'), d.get('bandeira'), d.get('limite'), id, uid))
     return jsonify({'msg': 'OK'})
@@ -1242,7 +1255,7 @@ def acao_cartao(id):
 def rota_compras_cartao():
     uid = int(get_jwt_identity())
     if request.method == 'POST':
-        d = request.json
+        d = request.get_json(silent=True) or {}
         try:
             cartao_id = int(d.get('cartao_id'))
             descricao = str(d.get('descricao','')).strip()
@@ -1286,7 +1299,7 @@ def acao_compra_cartao(id):
     elif request.method == 'PATCH':
         execute_query('UPDATE compras_cartao SET pago=1 WHERE id=? AND user_id=?', (id, uid))
     else:
-        d = request.json
+        d = request.get_json(silent=True) or {}
         execute_query('UPDATE compras_cartao SET descricao=?, valor=?, cartao_id=?, parcelas=? WHERE id=? AND user_id=?',
                       (d.get('descricao'), d.get('valor'), d.get('cartao_id'), d.get('parcelas'), id, uid))
     return jsonify({'msg': 'OK'})
@@ -1296,7 +1309,7 @@ def acao_compra_cartao(id):
 def rota_metas():
     uid = int(get_jwt_identity())
     if request.method == 'POST':
-        d = request.json
+        d = request.get_json(silent=True) or {}
         try:
             va = float(str(d.get('valor_alvo','0')).replace(',','.'))
             vc = float(str(d.get('valor_atual','0')).replace(',','.'))
@@ -1315,7 +1328,7 @@ def acao_meta(id):
     if request.method == 'DELETE':
         execute_query('DELETE FROM metas WHERE id=? AND user_id=?', (id, uid))
     else:
-        d = request.json
+        d = request.get_json(silent=True) or {}
         va = float(str(d.get('valor_alvo','0')).replace(',','.'))
         vc = float(str(d.get('valor_atual','0')).replace(',','.'))
         prog = int((vc/va)*100) if va > 0 else 0
@@ -1328,7 +1341,7 @@ def acao_meta(id):
 def rota_investimentos():
     uid = int(get_jwt_identity())
     if request.method == 'POST':
-        d = request.json
+        d = request.get_json(silent=True) or {}
         try:
             vi = float(str(d.get('valor_investido','0')).replace(',','.'))
             va = float(str(d.get('valor_atual','0')).replace(',','.'))
@@ -1347,7 +1360,7 @@ def acao_investimento(id):
     if request.method == 'DELETE':
         execute_query('DELETE FROM investimentos WHERE id=? AND user_id=?', (id, uid))
     else:
-        d = request.json
+        d = request.get_json(silent=True) or {}
         vi = float(str(d.get('valor_investido','0')).replace(',','.'))
         va = float(str(d.get('valor_atual','0')).replace(',','.'))
         rent = round(((va-vi)/vi)*100, 2) if vi > 0 else 0
@@ -1400,7 +1413,7 @@ def orcamentos():
             ORDER BY c.nome
         ''', (start, end, uid, mes, ano))
         return jsonify(rows)
-    d = request.json or {}
+    d = request.get_json(silent=True) or {}
     cat_id  = d.get('categoria_id')
     limite  = float(d.get('limite', 0))
     mes     = int(d.get('mes', datetime.now().month))
@@ -1664,7 +1677,7 @@ def transcrever_sms():
     uid = int(get_jwt_identity())
     if not gemini_client:
         return jsonify({'error': 'IA não configurada'}), 503
-    d = request.json or {}
+    d = request.get_json(silent=True) or {}
     texto = (d.get('texto') or '').strip()
     if not texto:
         return jsonify({'error': 'Texto vazio'}), 400
@@ -1702,7 +1715,7 @@ def rota_desafios():
     if request.method == 'GET':
         rows = fetch_all('SELECT * FROM desafios WHERE user_id=? ORDER BY concluido ASC, data_fim ASC', (uid,))
         return jsonify([dict(r) for r in rows])
-    d = request.json or {}
+    d = request.get_json(silent=True) or {}
     titulo = (d.get('titulo') or '').strip()
     descricao = (d.get('descricao') or '').strip()
     meta_valor = float(d.get('meta_valor', 0))
@@ -1723,7 +1736,7 @@ def atualizar_desafio(did):
     if request.method == 'DELETE':
         execute_query('DELETE FROM desafios WHERE id=? AND user_id=?', (did, uid))
         return jsonify({'ok': True})
-    d = request.json or {}
+    d = request.get_json(silent=True) or {}
     if request.method == 'PUT':
         execute_query(
             'UPDATE desafios SET titulo=?, descricao=?, meta_valor=?, data_fim=? WHERE id=? AND user_id=?',
