@@ -85,6 +85,7 @@ export default function Dashboard() {
   const [loadingAlertas, setLoadingAlertas] = useState(false)
   const [evolucao, setEvolucao] = useState(null)
   const [loadingEvolucao, setLoadingEvolucao] = useState(false)
+  const [hasData, setHasData] = useState(false)
 
   // Widget data
   const [contas, setContas] = useState([])
@@ -129,7 +130,7 @@ export default function Dashboard() {
         api.get(`/resumo-mensal?mes=${mesSelecionado + 1}&ano=${anoSelecionado}&mes_fim=${mesFim + 1}&ano_fim=${anoFim}`),
         api.get('/patrimonio'),
       ])
-      if (res.data) { setData(res.data); localStorage.setItem('dash_cache_data', JSON.stringify(res.data)) }
+      if (res.data) { setData(res.data); setHasData(true); localStorage.setItem('dash_cache_data', JSON.stringify(res.data)) }
       if (pat.data) { setPatrimonioData(pat.data); localStorage.setItem('dash_cache_pat', JSON.stringify(pat.data)) }
       try {
         const ins = await api.get('/insights')
@@ -145,7 +146,7 @@ export default function Dashboard() {
     const cData = localStorage.getItem('dash_cache_data')
     const cPat = localStorage.getItem('dash_cache_pat')
     const cIns = localStorage.getItem('dash_cache_ins')
-    if (cData) try { setData(JSON.parse(cData)) } catch {}
+    if (cData) try { setData(JSON.parse(cData)); setHasData(true) } catch {}
     if (cPat) try { setPatrimonioData(JSON.parse(cPat)) } catch {}
     if (cIns) try { setInsights(JSON.parse(cIns)) } catch {}
     carregarDashboard({ showLoading: !cData })
@@ -215,7 +216,7 @@ export default function Dashboard() {
     : activePreset === 'ano' ? `${anoSelecionado}`
     : `${mesesNomes[mesSelecionado].slice(0, 3)} – ${mesesNomes[mesFim].slice(0, 3)} ${anoFim}`
 
-  if (loading && !data.receitas) return (
+  if (loading && !hasData) return (
     <div className='flex flex-col items-center justify-center min-h-[60vh] gap-4'>
       <div className='w-12 h-12 border-4 border-green-500/20 border-t-green-500 rounded-full animate-spin' />
       <p className='font-black uppercase tracking-widest text-[10px] animate-pulse' style={{ color: 'var(--text-muted)' }}>Carregando dashboard...</p>

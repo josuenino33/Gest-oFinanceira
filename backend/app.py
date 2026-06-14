@@ -329,6 +329,10 @@ def security_headers(resp):
 
 # ==================== ROTAS ====================
 
+@app.route('/health')
+def health():
+    return jsonify({'status': 'ok'}), 200
+
 @app.route('/login', methods=['POST'])
 @limiter.limit('5 per minute')
 def login():
