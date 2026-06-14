@@ -7,7 +7,7 @@ import threading
 import time
 import requests as http_requests
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, Response, stream_with_context
+from flask import Flask, request, jsonify, Response, stream_with_context, make_response
 from dotenv import load_dotenv
 from pathlib import Path
 load_dotenv(Path(__file__).parent / '.env')
@@ -29,7 +29,7 @@ _allowed_origins = [
     'http://localhost:3000',
     'http://127.0.0.1:5173',
 ]
-CORS(app, origins=_allowed_origins, supports_credentials=True)
+CORS(app, origins=_allowed_origins)
 
 # JWT
 _jwt_secret = os.environ.get('JWT_SECRET', '')
@@ -269,7 +269,7 @@ _db_init_done = False
 @app.before_request
 def ensure_db():
     if request.method == 'OPTIONS':
-        return  # CORS preflight — não precisa de banco
+        return make_response('', 200)  # after_request adicionará os CORS headers
     global _db_init_done
     if not _db_init_done:
         with _db_init_lock:
@@ -310,6 +310,16 @@ def check_if_revoked(jwt_header, jwt_payload):
 
 @app.after_request
 def security_headers(resp):
+    # CORS — garante headers em todos os responses (200, 503, 401, etc.)
+    origin = request.headers.get('Origin', '')
+    if origin in _allowed_origins:
+        resp.headers['Access-Control-Allow-Origin'] = origin
+        resp.headers['Vary'] = 'Origin'
+        if request.method == 'OPTIONS':
+            resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, PATCH, OPTIONS'
+            resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+            resp.headers['Access-Control-Max-Age'] = '86400'
+    # Security headers
     resp.headers['X-Content-Type-Options'] = 'nosniff'
     resp.headers['X-Frame-Options'] = 'DENY'
     resp.headers['X-XSS-Protection'] = '1; mode=block'
