@@ -110,12 +110,14 @@ def execute_query(query, params=()):
         query = query.replace('?', '%s')
     conn = get_db()
     try:
-        from psycopg2.extras import RealDictCursor
-        c = conn.cursor(cursor_factory=RealDictCursor) if IS_POSTGRES else conn.cursor()
+        if IS_POSTGRES:
+            from psycopg2.extras import RealDictCursor
+            c = conn.cursor(cursor_factory=RealDictCursor)
+        else:
+            c = conn.cursor()
         c.execute(query, params)
         conn.commit()
-        lastrowid = c.lastrowid if not IS_POSTGRES else None
-        return lastrowid
+        return c.lastrowid if not IS_POSTGRES else None
     finally:
         release_db(conn)
 
@@ -124,8 +126,11 @@ def fetch_all(query, params=()):
         query = query.replace('?', '%s')
     conn = get_db()
     try:
-        from psycopg2.extras import RealDictCursor
-        c = conn.cursor(cursor_factory=RealDictCursor) if IS_POSTGRES else conn.cursor()
+        if IS_POSTGRES:
+            from psycopg2.extras import RealDictCursor
+            c = conn.cursor(cursor_factory=RealDictCursor)
+        else:
+            c = conn.cursor()
         c.execute(query, params)
         rows = c.fetchall()
         return [dict(r) for r in rows]
@@ -137,8 +142,11 @@ def fetch_one(query, params=()):
         query = query.replace('?', '%s')
     conn = get_db()
     try:
-        from psycopg2.extras import RealDictCursor
-        c = conn.cursor(cursor_factory=RealDictCursor) if IS_POSTGRES else conn.cursor()
+        if IS_POSTGRES:
+            from psycopg2.extras import RealDictCursor
+            c = conn.cursor(cursor_factory=RealDictCursor)
+        else:
+            c = conn.cursor()
         c.execute(query, params)
         row = c.fetchone()
         return dict(row) if row else None
@@ -182,7 +190,7 @@ def init_db():
         # Tabelas
         tables = [
             f"CREATE TABLE IF NOT EXISTS users (id {pk}, nome TEXT NOT NULL, username TEXT UNIQUE, email TEXT UNIQUE, senha TEXT NOT NULL, codigo_seguranca TEXT, totp_secret TEXT, totp_enabled INTEGER DEFAULT 0, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
-            f"CREATE TABLE IF NOT EXISTS revoked_tokens (jti TEXT PRIMARY KEY, revoked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+            "CREATE TABLE IF NOT EXISTS revoked_tokens (jti TEXT PRIMARY KEY, revoked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS sessions (id {pk}, user_id INTEGER, jti TEXT UNIQUE, device TEXT, ip TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS access_logs (id {pk}, user_id INTEGER, ip TEXT, action TEXT, details TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
             f"CREATE TABLE IF NOT EXISTS categorias (id {pk}, user_id INTEGER, nome TEXT NOT NULL, cor TEXT DEFAULT '#22c55e', criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
@@ -356,7 +364,7 @@ def logout():
     uid = get_jwt_identity()
     if jti:
         revoke_jti(jti)
-    d = request.json or {}
+    d = request.get_json(silent=True) or {}
     refresh_jti = d.get('refresh_jti')
     if refresh_jti:
         revoke_jti(refresh_jti)
@@ -1088,7 +1096,7 @@ def _build_financial_context(uid):
         f"=== ORÇAMENTOS ({meses_nome[now.month-1]} {now.year}) ===\n{orc_txt}\n\n"
         f"=== DESAFIOS ===\n{desafios_txt}\n\n"
         f"=== HISTÓRICO MENSAL ===\n" + '\n'.join(historico_txt) +
-        f"\n\n=== TRANSAÇÕES DETALHADAS (últimos 3 meses) ===\n" + '\n\n'.join(blocos_detalhe)
+        "\n\n=== TRANSAÇÕES DETALHADAS (últimos 3 meses) ===\n" + '\n\n'.join(blocos_detalhe)
     )
 
 @app.route('/chat', methods=['POST'])
@@ -1460,7 +1468,7 @@ def saude_financeira():
         msg = f'Investindo R$ {inv:,.2f} com rendimento positivo'
     elif inv > 0:
         pts = 15
-        msg = f'Tem investimentos mas com queda no período'
+        msg = 'Tem investimentos mas com queda no período'
     else:
         pts = 0
         msg = 'Sem investimentos — comece mesmo que pouco'
